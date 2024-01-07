@@ -1,6 +1,6 @@
 """
 written by Ray
-script: jess_submission.py
+script 2: jess_submission.py
 splits pdb_file into batches of a given size and submits each batch to the jess pipeline in jess_run.py
 
 Outsources to:
@@ -32,10 +32,10 @@ import argparse
 from pathlib import Path
 import uuid
 
-sys.path.append('/hps/software/users/thornton/hackett/software')
 from common_functions import file_batching
-sys.path.append('/hps/software/users/thornton/hackett/jess')
-import jess_prerun
+import jess.jess_prerun as jess_prerun
+
+d = Path(__file__).resolve().parent
 
 def main(pdb_file, batch_size, jess_params):
     
@@ -83,7 +83,7 @@ def main(pdb_file, batch_size, jess_params):
     
     # load dictionary mapping residue_number to Templates
     # These are the Templates which are then read by Jess
-    with open('/homes/hackett/Downloads/Resnum_per_Template_dict.json', 'r') as f:
+    with open(Path(d, 'Downloads/Resnum_per_Template_dict.json'), 'r') as f:
         Resnum_per_Template_dict = json.load(f)
     # json always converts keys to strings. we want int type
     Resnum_per_Template_dict = {int(k): v for k,v in Resnum_per_Template_dict.items()}
@@ -108,7 +108,7 @@ def main(pdb_file, batch_size, jess_params):
         job_name = 'jess_batch_' + unique_tag + batch_number
         err_name = Path(jess_log_path,'jess_log' + str(batch_number) + '.err')
         out_name = Path(jess_log_path,'jess_log' + str(batch_number) + '.out')
-        jess_run_script = '/hps/software/users/thornton/hackett/jess/jess_run.py'
+        jess_run_script = './jess/jess_run.py'
         script = ' '.join(['bsub', '-J', job_name, '-e', str(err_name), '-o', str(out_name), 
                             "'", 'python', jess_run_script, '-i', str(file_name), '-j', jess_params, "'"])
         

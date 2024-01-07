@@ -28,19 +28,18 @@ import subprocess
 import requests
 import re
 import argparse
-import time
 import json
 import pandas as pd
 import numpy as np
 from pathlib import Path
 
-sys.path.append('/hps/software/users/thornton/hackett/jess')
 import filter_output #yannis filtering script
-sys.path.append('/hps/software/users/thornton/hackett/software')
-from common_functions import json_extract
-from common_functions import request_url
-from common_functions import chunks
+from ..common_functions import json_extract
+from ..common_functions import request_url
+from ..common_functions import chunks
 import calc_residue_orientation_jess as res_orientation
+
+d = Path(__file__).resolve().parent
 
 def jess_call(template_res_num, pdb_file, template_file, jess_params):
     out_name = str(jess_path) + '/' + Path(pdb_file).name.split('.')[0] + '_?res.pdb'.replace('?',str(template_res_num))
@@ -603,13 +602,13 @@ def main(start_file, jess_params):
     global ec_dict
     # m-csa entry map to EC number
     # every m-csa entry only has one EC number
-    with open('/homes/hackett/Downloads/MCSA_EC_mapping.json', 'r') as f:
+    with open(Path(d, '../Downloads/MCSA_EC_mapping.json'), 'r') as f:
         ec_dict = json.load(f)
     # json always converts keys to strings. we want int type
     ec_dict = {int(k):str(v) for k,v in ec_dict.items()}
     
     # I got this csv from Neera originally. Data is from 2020
-    cofactor_df = pd.read_csv('/homes/hackett/Downloads/EClist_cofactors_forRH.csv')
+    cofactor_df = pd.read_csv(Path(d, '../Downloads/EClist_cofactors_forRH.csv'))
     global cofactor_dict
     cofactor_dict = {}
     for index, row in cofactor_df.iterrows():
@@ -620,7 +619,7 @@ def main(start_file, jess_params):
     global mcsa_cath
     # m-csa entry map to CATH id
     # entry have have multiple CATH ids
-    with open('/homes/hackett/Downloads/MCSA_CATH_mapping.json', 'r') as f:
+    with open(Path(d, '../Downloads/MCSA_CATH_mapping.json'), 'r') as f:
         mcsa_cath = json.load(f)
     # json always converts keys to strings. we want int type
     mcsa_cath = {int(k): v for k,v in mcsa_cath.items()}
@@ -630,7 +629,7 @@ def main(start_file, jess_params):
     global cath_df
     # ftp ftp://orengoftp.biochem.ucl.ac.uk/
     # /alphafold/cath-v4.3.0-model-organisms/cath-v4_3_0.alphafold-v2.2022-11-22.tsv
-    cath_df = pd.read_csv('/homes/hackett/Downloads/cath-v4_3_0.alphafold-v2.2022-11-22.tsv', sep='\t')
+    cath_df = pd.read_csv(Path(d, '../Downloads/cath-v4_3_0.alphafold-v2.2022-11-22.tsv'), sep='\t')
     domains = cath_df['domain_ID'].to_list()
     Uniprot_IDs = []
     for i in domains:
@@ -639,7 +638,7 @@ def main(start_file, jess_params):
     
     # This maps PDBchains to Uniprot IDs, CATHs and ECs
     global pdb_sifts_df
-    pdb_sifts_df = pd.read_csv('/homes/hackett/Downloads/pdb_sifts.csv')
+    pdb_sifts_df = pd.read_csv(Path(d, '../Downloads/pdb_sifts.csv'))
     # PDBchain column has PDB in lowercase!
     
     global MCSA_interpro_dict
@@ -647,29 +646,29 @@ def main(start_file, jess_params):
     # Interpro Acceccesions at the Domain, Family and Superfamily level
     # are searched for the reference sequences of each M-CSA entry.
     # Note that an M-CSA entry may have multiple reference sequences
-    with open('/homes/hackett/Downloads/MCSA_interpro_dict.json', 'r') as f:
+    with open(Path(d, '../Downloads/MCSA_interpro_dict.json'), 'r') as f:
         MCSA_interpro_dict = json.load(f)
     # json always converts keys to strings. we want int type
     MCSA_interpro_dict = {int(k): v for k,v in MCSA_interpro_dict.items()}
     
     # load dictionary mapping Template to number of residues
     global Template_res_num_dict
-    with open('/homes/hackett/Downloads/Template_res_num_dict.json', 'r') as f:
+    with open(Path(d, '../Downloads/Template_res_num_dict.json'), 'r') as f:
         Template_res_num_dict = json.load(f)
     
     # load dictionary mapping Template to the relative order of residues therein
     global Template_res_order_dict
-    with open('/homes/hackett/Downloads/Template_res_order_dict.json', 'r') as f:
+    with open(Path(d, '../Downloads/Template_res_order_dict.json'), 'r') as f:
         Template_res_order_dict = json.load(f)
         
     # load the dicionary with solvent accessible surface area for each residue in each template
     global Template_res_dssp_dict
-    with open('/homes/hackett/Downloads/Template_res_dssp_dict.json', 'r') as f:
+    with open(Path(d, '../Downloads/Template_res_dssp_dict.json'), 'r') as f:
         Template_res_dssp_dict = json.load(f)
         
     # load the dictionary with the orientation vector for each residue in each template
     global Template_vec_dict
-    with open('/homes/hackett/Downloads/Template_vec_dict.json', 'r') as f:
+    with open(Path(d, '../Downloads/Template_vec_dict.json'), 'r') as f:
         Template_vec_dict = json.load(f)
         
     ################# Running Jess ###################################

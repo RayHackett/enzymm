@@ -1,6 +1,6 @@
 """
 written by Ray
-script ???: batch_dssp.py
+script 1: batch_dssp.py
 script to split an input list of pdb or cif files into managable batches which are then submitted to the dssp script
 outputs on if the dssp script ran successfully for each structure are then collected and aggregated
 
@@ -26,7 +26,6 @@ import subprocess
 import argparse
 import uuid
 
-sys.path.append('/hps/software/users/thornton/hackett/software')
 from common_functions import file_batching
 
 parser = argparse.ArgumentParser()
@@ -55,7 +54,7 @@ for file_name in batch_list:
     job_name = 'dssp_batch_' + unique_tag + batch_number
     err_name = Path(results_path,'dssp_log' + str(batch_number) + '.err')
     out_name = Path(results_path,'dssp_log' + str(batch_number) + '.out')
-    dssp_run_script = '/hps/software/users/thornton/hackett/pipeline/dssp_run.py'
+    dssp_run_script = './dssp_run.py'
     script = ' '.join(['bsub', '-J', job_name, '-e', str(err_name), '-o', str(out_name), 
                             "'", 'python', dssp_run_script, '-i', str(file_name), "'"])   
     attempts = 0

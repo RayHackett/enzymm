@@ -47,13 +47,14 @@ Comments on Biopython - Version modified by Yannis:
 Note that this is not a fix!!!
 """
 
-sys.path.append('/hps/software/users/thornton/hackett/software')
-from common_functions import request_url
+d = Path(__file__).resolve().parent
+
+from ..common_functions import request_url
 
 def get_mcsa_ec():
     # m-csa entry map to EC number
     # every m-csa entry only has one EC number
-    if not Path('/homes/hackett/Downloads/MCSA_EC_mapping.json').is_file():
+    if not Path(d, '../Downloads/MCSA_EC_mapping.json').is_file():
         ec_dict = {}
         for page in range(1,12):
             url = 'https://www.ebi.ac.uk/thornton-srv/m-csa/api/entries/?format=json&page='+str(page)
@@ -69,13 +70,13 @@ def get_mcsa_ec():
                 for ec_num in general_page['results'][i]['all_ecs']:
                     ec_dict[mcsa_id] = ec_num
                     
-            with open('/homes/hackett/Downloads/MCSA_EC_mapping.json', 'w') as f:
+            with open(Path(d, '../Downloads/MCSA_EC_mapping.json'), 'w') as f:
                 json.dump(ec_dict, f)
 
 def get_mcsa_cath():
     # m-csa entry map to CATH id
     # entry have have multiple CATH ids
-    if not Path('/homes/hackett/Downloads/MCSA_CATH_mapping.json').is_file():
+    if not Path(d, '../MCSA_CATH_mapping.json').is_file():
         mcsa_cath = {}
         for page in range(1,12):
             url = 'https://www.ebi.ac.uk/thornton-srv/m-csa/api/entries/?format=json&page='+str(page)
@@ -93,7 +94,7 @@ def get_mcsa_cath():
                 cath_ids = list(cath_ids)
                 mcsa_cath[general_page['results'][i]['mcsa_id']] = cath_ids
                 
-            with open('/homes/hackett/Downloads/MCSA_CATH_mapping.json', 'w') as f:
+            with open(Path(d, '../MCSA_CATH_mapping.json'), 'w') as f:
                 json.dump(mcsa_cath, f)
                 
 def get_interpro(Identifier):
@@ -132,7 +133,7 @@ def get_mcsa_interpro():
     # Interpro Acceccesions at the Domain, Family and Superfamily level
     # are searched for the reference sequences of each M-CSA entry.
     # Note that an M-CSA entry may have multiple reference sequences
-    if not Path('/homes/hackett/Downloads/MCSA_interpro_dict.json').is_file():
+    if not Path(d, '../MCSA_interpro_dict.json').is_file():
         mcsa_references = {}
         for page in range(1,12):
             url = 'https://www.ebi.ac.uk/thornton-srv/m-csa/api/entries/?format=json&page='+str(page)
@@ -158,14 +159,14 @@ def get_mcsa_interpro():
 
             MCSA_interpro_dict[key] = {'domains': list(template_interpro_domains), 'families': list(template_interpro_fams), 'superfamilies': list(template_interpro_superfams)}
         
-        with open('/homes/hackett/Downloads/MCSA_interpro_dict.json', 'w') as f:
+        with open(Path(d, '../Downloads/MCSA_interpro_dict.json'), 'w') as f:
                 json.dump(MCSA_interpro_dict, f)
                 
 def make_pdb_sifts_df():
-    if not Path('/homes/hackett/Downloads/pdb_sifts.csv').is_file():
-        PDBchain_to_CATH_Uniprot = '/homes/hackett/Downloads/pdb_chain_cath_uniprot.csv'
-        PDBchain_to_EC_Uniprot = '/homes/hackett/Downloads/pdb_chain_enzyme.csv'
-        CATH_names_mapping = '/homes/hackett/Downloads/cath-domain-list.txt'
+    if not Path(d, '../Downloads/pdb_sifts.csv').is_file():
+        PDBchain_to_CATH_Uniprot = Path(d, '../Downloads/pdb_chain_cath_uniprot.csv')
+        PDBchain_to_EC_Uniprot = Path(d, '../Downloads/pdb_chain_enzyme.csv')
+        CATH_names_mapping = Path(d, '../Downloads/cath-domain-list.txt')
 
         # load them all as df
         pdb_cath_uniprot_df = pd.read_csv(PDBchain_to_CATH_Uniprot, comment='#', names=['PDB', 'CHAIN', 'UNIPROT_ID', 'CATH_ID'])
@@ -181,7 +182,7 @@ def make_pdb_sifts_df():
         temp = pd.merge(pdb_cath_uniprot_df, pdb_enzyme_uniprot_df, how="outer", on=None) # outer merge on the first two
         pdb_sifts_df = temp.merge(cath_naming_df[['CATH_ID', 'CATH_NUMBER']], on='CATH_ID') # add in the CATH number by CATH_ID
         pdb_sifts_df['PDBchain'] = pdb_sifts_df['PDB']+pdb_sifts_df['CHAIN'] # add a column for PDBchain by joining
-        pdb_sifts_df.to_csv('/homes/hackett/Downloads/pdb_sifts.csv', index=False)
+        pdb_sifts_df.to_csv(Path(d, '../Downloads/pdb_sifts.csv'), index=False)
 
 def get_template_files():
     Template_list = []
@@ -196,7 +197,7 @@ def get_template_files():
     return Template_list
 
 def evaluate_Temp_res_num():
-    if not Path('/homes/hackett/Downloads/Template_res_num_dict.json').is_file or not Path('/homes/hackett/Downloads/Resnum_per_Template_dict.json').is_file():
+    if not Path(d, '../Downloads/Template_res_num_dict.json').is_file or not Path(d, '../Downloads/Resnum_per_Template_dict.json').is_file():
         # Temp_res_num is not necessarily equal to the resnumber given in path:
         # Residues matching ANY amino acid type are not counted as they are too general
         # These have a value of 100 or hgiher in the second column indicating BB residues
@@ -225,7 +226,7 @@ def evaluate_Temp_res_num():
         Resnum_per_Template_dict[7] = []
         Resnum_per_Template_dict[8] = []
         Template_list = get_template_files()
-        with open('/homes/hackett/Downloads/excluded_templates.info', 'w') as f:
+        with open(Path(d, '../Downloads/excluded_templates.info'), 'w') as f:
             for Template in Template_list:
                 residue_number = count_resnums(Template)
                 Template_res_num_dict[Template] = residue_number
@@ -233,15 +234,15 @@ def evaluate_Temp_res_num():
                     Resnum_per_Template_dict[residue_number].append(Template)
                 else:
                     f.write(Template, 'has', residue_number, 'residues and will not be evaluated!')
-        print('See /homes/hackett/Downloads/excluded_templates.info')
+        print('See ../Downloads/excluded_templates.info')
 
-        with open('/homes/hackett/Downloads/Template_res_num_dict.json', 'w') as f:
+        with open(Path(d, '../Downloads/Template_res_num_dict.json'), 'w') as f:
             json.dump(Template_res_num_dict, f)
-        with open('/homes/hackett/Downloads/Resnum_per_Template_dict.json', 'w') as f:
+        with open(Path(d, '../Downloads/Resnum_per_Template_dict.json'), 'w') as f:
             json.dump(Resnum_per_Template_dict, f)
         
 def template_relative_order():
-    if not Path('/homes/hackett/Downloads/Template_res_order_dict.json').is_file():
+    if not Path(d, '../Downloads/Template_res_order_dict.json').is_file():
         # determine the relative sequence order of residues in a template
 
         Template_res_order_dict = {}
@@ -259,7 +260,7 @@ def template_relative_order():
 
             Template_res_order_dict[Template] = res_rel_order
 
-        with open('/homes/hackett/Downloads/Template_res_order_dict.json', 'w') as f:
+        with open(Path(d, '../Downloads/Template_res_order_dict.json'), 'w') as f:
             json.dump(Template_res_order_dict, f)
 
 def chunks(lst, n):
@@ -356,7 +357,7 @@ def get_vec_template(residue):
         return vec, [middle_atom_index, first_atom_index, second_atom_index], res_type
         
 def calculate_template_orientation_vectors():
-    if not Path('/homes/hackett/Downloads/Template_vec_dict.json').is_file():
+    if not Path(d, '../Downloads/Template_vec_dict.json').is_file():
         Template_vec_dict = {}
         Template_list = get_template_files() # load all the Template files into a list
         for Template in Template_list:
@@ -394,7 +395,7 @@ def calculate_template_orientation_vectors():
 
                 Template_vec_dict[Template]['residue_positions'] = residue_positions
 
-        with open('/homes/hackett/Downloads/Template_vec_dict.json', 'w') as f:
+        with open(Path(d, '../Downloads/Template_vec_dict.json'), 'w') as f:
             json.dump(Template_vec_dict, f)
             
 def calculate_template_dssp():
@@ -411,7 +412,7 @@ def calculate_template_dssp():
             dssp = False
         return auth_structure, dssp  
     
-    if not Path('/homes/hackett/Downloads/Template_dssp_dict.json').is_file():
+    if not Path(d, '../Downloads/Template_dssp_dict.json').is_file():
         # Note that I did not parallelise this as I really only have to run it once...
         print('Calculating DSSP for all Template Structures. This might take a while ...')
         
@@ -495,12 +496,12 @@ def calculate_template_dssp():
                 The structure was {}.\n
                 Please fix this""".format(failure))
                 
-        with open('/homes/hackett/Downloads/Template_dssp_dict.json', 'w') as f:
+        with open(Path(d, '../Downloads/Template_dssp_dict.json'), 'w') as f:
             json.dump(template_dssp_dict, f)
             
     # now we want to cut down on space needed by only saving the DSSP values for the residues which are actually in the template files themselves
     # make a dict with template_name, residue_name and then the solvation value
-    if not Path('/homes/hackett/Downloads/Template_res_dssp_dict.json').is_file():
+    if not Path(d, '../Downloads/Template_res_dssp_dict.json').is_file():
         # This dictionary only includes those residues which are in the template file itself - so only the catalytic ones
         template_res_dssp_dict = {}
         baddies = set()
@@ -540,15 +541,15 @@ def calculate_template_dssp():
             sys.exit("""DSSP annotations failed for the following structures as residue names were not mapped correctly: \n
             {}""".format(baddies))
 
-        with open('/homes/hackett/Downloads/Template_res_dssp_dict.json', 'w') as f:
+        with open(Path(d, '../Downloads/Template_res_dssp_dict.json'), 'w') as f:
             json.dump(template_res_dssp_dict, f)
             
 def check_other_files():
-    EC_cofactor_mapping = '/homes/hackett/Downloads/EClist_cofactors_forRH.csv'
-    AlphaFold_CATH = '/homes/hackett/Downloads/cath-v4_3_0.alphafold-v2.2022-11-22.tsv'
-    PDBchain_to_CATH_Uniprot = '/homes/hackett/Downloads/pdb_chain_cath_uniprot.csv'
-    PDBchain_to_EC_Uniprot = '/homes/hackett/Downloads/pdb_chain_enzyme.csv'
-    CATH_names_mapping = '/homes/hackett/Downloads/cath-domain-list.txt'
+    EC_cofactor_mapping = Path(d, '../Downloads/EClist_cofactors_forRH.csv')
+    AlphaFold_CATH = Path(d, '../Downloads/cath-v4_3_0.alphafold-v2.2022-11-22.tsv')
+    PDBchain_to_CATH_Uniprot = Path(d, '../Downloads/pdb_chain_cath_uniprot.csv')
+    PDBchain_to_EC_Uniprot = Path(d, '../Downloads/pdb_chain_enzyme.csv')
+    CATH_names_mapping = Path(d, '../Downloads/cath-domain-list.txt')
     
     if not Path(EC_cofactor_mapping).is_file():
         sys.exit('EC to cofactor mapping csv from Neera is missing!')
