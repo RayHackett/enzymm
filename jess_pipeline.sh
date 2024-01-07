@@ -18,10 +18,10 @@
 
 if [ -f "collected_dssp_successes.list" ]; then
     if [ "collected_dssp_successes.list" -ot "./succesful_cifs.list" ]; then
-        python /hps/software/users/thornton/hackett/pipeline/batch_dssp.py -i succesful_cifs.list -s 100
+        python ./batch_dssp.py -i succesful_cifs.list -s 100
     fi
 else
-    python /hps/software/users/thornton/hackett/pipeline/batch_dssp.py -i succesful_cifs.list -s 100
+    python ./batch_dssp.py -i succesful_cifs.list -s 100
 fi
 
 ####################################################################################################################
@@ -52,10 +52,10 @@ fi
 
 if [ -f "jess.done" ]; then
     if [ "jess.done" -ot "./pdbs/collected_dssp_successes.list" ]; then
-        python /hps/software/users/thornton/hackett/pipeline/jess_submission.py -i collected_dssp_successes.list -s 2 -j 2 1.0 1.0 0
+        python ./jess_submission.py -i collected_dssp_successes.list -s 2 -j 2 1.0 1.0 0
     fi
 else
-    python /hps/software/users/thornton/hackett/pipeline/jess_submission.py -i collected_dssp_successes.list -s 2 -j 2 1.0 1.0 0
+    python ./jess_submission.py -i collected_dssp_successes.list -s 2 -j 2 1.0 1.0 0
 fi
 
 ################################################################################################################
