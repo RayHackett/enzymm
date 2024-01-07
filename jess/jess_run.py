@@ -381,18 +381,20 @@ def parse_jess(filtered_file):
             
         # get list of all residues of the query which were matched
         matched_resids = []
+        residue_numbers = []
         for line in Result[1:-1]: # excluding REMARK and ENDMDL
             # chain in [20:22] - jess accepts two letter chain ids!
             matched_resids.append(str(line[20:22]).strip() + str(int(line[22:26])))
+            residue_numbers.append(int(line[22:26]))
         matched_resids = list(dict.fromkeys(matched_resids)) #preserves order
-        
+        residue_numbers = list(dict.fromkeys(residue_numbers)) #preserves order
+
         # check if the order of residues in the Query matches that of the Template
         # this is a good filtering parameter but excludes hits on examples of convergent evolution or circular permutations
         Preserved_resid_order = False
-        query_res_rel_order = [sorted(matched_resids).index(i) for i in matched_resids]
+        query_res_rel_order = [sorted(residue_numbers).index(i) for i in residue_numbers]
         if query_res_rel_order == Template_res_order_dict[Template]:
             Preserved_resid_order = True
-            
             
         # calculate difference in relative solvent accessivility between template and query structure
         drelSASA = calculate_similarity_in_rsas(Template, Result)
