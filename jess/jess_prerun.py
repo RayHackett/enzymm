@@ -233,7 +233,7 @@ def evaluate_Temp_res_num():
                 if residue_number in range(3, 9):
                     Resnum_per_Template_dict[residue_number].append(Template)
                 else:
-                    f.write(Template, 'has', residue_number, 'residues and will not be evaluated!')
+                    f.write(Template + 'has' + str(residue_number) + 'residues and will not be evaluated!')
         print('See ../Downloads/excluded_templates.info')
 
         with open(Path(d, '../Downloads/Template_res_num_dict.json'), 'w') as f:
