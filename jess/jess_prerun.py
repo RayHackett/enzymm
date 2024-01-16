@@ -200,10 +200,16 @@ def evaluate_Temp_res_num():
     if not Path(d, '../Downloads/Template_res_num_dict.json').is_file or not Path(d, '../Downloads/Resnum_per_Template_dict.json').is_file():
         # Temp_res_num is not necessarily equal to the resnumber given in path:
         # Residues matching ANY amino acid type are not counted as they are too general
-        # These have a value of 100 or hgiher in the second column indicating BB residues
+        # These have a value of 100 or hgiher in the second column indicating unspecific residues
+        # Not all BB residues are unspecific! Some are targeted towards only Gly for example and thus have values < 100
+        # Frankly these are still very promiscous and I'd like to exclude them too
+        
         # Even if a Residue must match a particular AA, 6 atoms from a given residue may be selected
         # once for main chain and once for side chain
         # Therefore we only count unique template residues!
+        
+        # It seems that some templates even have the same 3-atom triplets at the same location twice. This I assume must be an error
+        # again a reason to only count unique residues
 
         def count_resnums(Template):
             with open(Template, 'r') as f:
@@ -213,8 +219,9 @@ def evaluate_Temp_res_num():
             for line in Result:
                 if line[:4] == 'ATOM':
                     if int(line[8:11]) < 100: # second column means it must be amino acid type specific
-                        res = int(line[22:26])
-                        unique_residues.add(res)
+                        if line[17:20] != 'ANY': # exclude backbone atoms too - even if they are AA specific
+                            res = int(line[22:26])
+                            unique_residues.add(res)
             return len(unique_residues)
 
         Template_res_num_dict = {}
@@ -227,7 +234,7 @@ def evaluate_Temp_res_num():
         Resnum_per_Template_dict[8] = []
         Template_list = get_template_files()
         with open(Path(d, '../Downloads/excluded_templates.info'), 'w') as f:
-            f.write('The following templates will not be evaluated due to insufficiently specified residues!')
+            f.write('The following templates will not be evaluated due to insufficiently specified residues! \n')
             for Template in Template_list:
                 residue_number = count_resnums(Template)
                 Template_res_num_dict[Template] = residue_number
