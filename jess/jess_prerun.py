@@ -227,13 +227,14 @@ def evaluate_Temp_res_num():
         Resnum_per_Template_dict[8] = []
         Template_list = get_template_files()
         with open(Path(d, '../Downloads/excluded_templates.info'), 'w') as f:
+            f.write('The following templates will not be evaluated due to insufficiently specified residues!')
             for Template in Template_list:
                 residue_number = count_resnums(Template)
                 Template_res_num_dict[Template] = residue_number
                 if residue_number in range(3, 9):
                     Resnum_per_Template_dict[residue_number].append(Template)
                 else:
-                    f.write(Template + 'has' + str(residue_number) + 'residues and will not be evaluated!')
+                    f.write(Template + '\n')
         print('See ../Downloads/excluded_templates.info')
 
         with open(Path(d, '../Downloads/Template_res_num_dict.json'), 'w') as f:
