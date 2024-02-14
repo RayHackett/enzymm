@@ -178,7 +178,7 @@ def pie_chart(dictionary):
 def top_resnum_hits(dictionary):
     # get only the matches with the highest res numbers for each query
     highest_res_num = {}
-    for key, key_values in d.items():
+    for key, key_values in dictionary.items():
         for sub_key, match_list in key_values.items():
             resnum_list = []
             for match in match_list:
