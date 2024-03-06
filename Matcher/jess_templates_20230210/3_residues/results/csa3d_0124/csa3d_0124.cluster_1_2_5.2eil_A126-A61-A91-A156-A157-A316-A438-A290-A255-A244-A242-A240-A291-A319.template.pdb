@@ -1,0 +1,23 @@
+REMARK TEMPLATE
+REMARK CLUSTER 1_2_5
+REMARK REPRESENTING 65 CATALYTIC SITES
+REMARK ID 2eil_A126-A61-A91-A156-A157-A316-A438-A290-A255-A244-A242-A240-A291-A319
+REMARK MCSA_ID 124
+REMARK PDB_ID 2eil
+REMARK UNIPROT_ID P00396
+REMARK EC 7.1.1.9
+REMARK ENZYME Cytochrome c oxidase subunit 1 (E.C.1.9.3.1), Cytochrome c oxidase subunit 2 (E.C.1.9.3.1), Cytochrome c oxidase subunit 3 (E.C.1.9.3.1), Cytochrome c oxidase subunit 4 isoform 1 (E.C.1.9.3.1), Cytochrome c oxidase polypeptide Va (E.C.1.9.3.1), Cytochrome c oxidase polypeptide Vb (E.C.1.9.3.1), Cytochrome c oxidase polypeptide VIa-heart (E.C.1.9.3.1), Cytochrome c oxidase subunit VIb isoform 1 (E.C.1.9.3.1), Cytochrome c oxidase polypeptide VIc (E.C.1.9.3.1), Cytochrome c oxidase polypeptide VIIa-heart (E.C.1.9.3.1), Cytochrome c oxidase polypeptide VIIb (E.C.1.9.3.1), Cytochrome c oxidase polypeptide VIIc (E.C.1.9.3.1), Cytochrome c oxidase polypeptide VIII-heart (E.C.1.9.3.1)
+REMARK EXPERIMENTAL_METHOD X-ray diffraction
+REMARK RESOLUTION 2.1
+REMARK ORGANISM_NAME Bos taurus
+REMARK ORGANISM_ID 9913
+ATOM      3  CA ZTHR A 316      65.271 292.470 200.383 T     0.71 
+ATOM      3  CB ZTHR A 316      64.615 293.094 199.165 T     0.71 
+ATOM      1  OG1ZTHR A 316      65.426 294.179 198.731 T     0.71 
+ATOM      3  CA ZSER A 255      60.001 295.500 211.861 S     0.52 
+ATOM      3  CB ZSER A 255      61.497 295.762 211.841 S     0.52 
+ATOM      1  OG ZSER A 255      62.091 295.244 210.664 S     0.52 
+ATOM      0  CD ZLYS A 319      65.191 294.755 204.809 K     0.71 
+ATOM      0  CE ZLYS A 319      64.479 295.387 206.007 K     0.71 
+ATOM      0  NZ ZLYS A 319      65.108 295.073 207.318 K     0.71 
+END

@@ -1,0 +1,23 @@
+REMARK TEMPLATE
+REMARK CLUSTER 1_1_2
+REMARK REPRESENTING 58 CATALYTIC SITES
+REMARK ID 3kfu_E142-E162-E163-E165-E164-E66-E141
+REMARK MCSA_ID 731
+REMARK PDB_ID 3kfu
+REMARK UNIPROT_ID Q9LCX3
+REMARK EC 6.3.5.7
+REMARK ENZYME Non-discriminating and archaeal-type aspartyl-tRNA synthetase, Glutamyl-tRNA(Gln) amidotransferase subunit A (E.C.6.3.5.-), Aspartyl/glutamyl-tRNA(Asn/Gln) amidotransferase subunit B (E.C.6.3.5.-), Glutamyl-tRNA(Gln) amidotransferase subunit C (E.C.6.3.5.-)/RNA complex
+REMARK EXPERIMENTAL_METHOD X-ray diffraction
+REMARK RESOLUTION 3.0
+REMARK ORGANISM_NAME Thermus thermophilus
+REMARK ORGANISM_ID 300852
+ATOM      0  CA ZANY E 163      19.387 -22.289  19.159 TGDA  1.13 
+ATOM      0  C  ZANY E 163      20.182 -23.566  18.983 TGDA  1.13 
+ATOM      0  O  ZANY E 163      21.387 -23.532  18.742 TGDA  1.13 
+ATOM      3  CA ZSER E 165      18.954 -26.970  22.455 S     0.89 
+ATOM      3  CB ZSER E 165      18.006 -26.138  23.321 S     0.89 
+ATOM      1  OG ZSER E 165      18.354 -24.763  23.289 S     0.89 
+ATOM      0  CA ZANY E 164      20.120 -25.998  18.983 G     0.54 
+ATOM      0  C  ZANY E 164      19.993 -26.808  20.257 G     0.54 
+ATOM      0  O  ZANY E 164      20.661 -27.827  20.429 G     0.54 
+END

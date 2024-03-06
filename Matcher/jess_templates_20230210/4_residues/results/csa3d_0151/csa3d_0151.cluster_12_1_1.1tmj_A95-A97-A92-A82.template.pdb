@@ -1,0 +1,26 @@
+REMARK TEMPLATE
+REMARK CLUSTER 12_1_1
+REMARK REPRESENTING 1 CATALYTIC SITES
+REMARK ID 1tmj_A95-A97-A92-A82
+REMARK MCSA_ID 151
+REMARK PDB_ID 1tmj
+REMARK UNIPROT_ID P26281
+REMARK EC 2.7.6.3
+REMARK ENZYME 2-amino-4-hydroxy-6-hydroxymethyldihydropteridine pyrophosphokinase (E.C.2.7.6.3)
+REMARK EXPERIMENTAL_METHOD X-ray diffraction
+REMARK RESOLUTION 1.45
+REMARK ORGANISM_NAME Escherichia coli
+REMARK ORGANISM_ID 562
+ATOM      3  CG ZASP A  95      -7.648   1.130   9.079 D     0.00 
+ATOM      3  OD1ZASP A  95      -6.975   0.982   8.035 D     0.00 
+ATOM      3  OD2ZASP A  95      -7.297   1.909   9.996 D     0.00 
+ATOM      3  CG ZASP A  97      -4.080   0.059   9.266 D     0.00 
+ATOM      3  OD1ZASP A  97      -4.059   0.528   8.110 D     0.00 
+ATOM      3  OD2ZASP A  97      -4.816   0.520  10.159 D     0.00 
+ATOM      0  CZ ZARG A  92     -13.046   6.325   3.140 R     0.00 
+ATOM      3  NH1ZARG A  92     -13.393   5.406   2.251 R     0.00 
+ATOM      3  NH2ZARG A  92     -13.725   7.472   3.144 R     0.00 
+ATOM      0  CZ ZARG A  82     -23.743   2.195   3.406 R     0.00 
+ATOM      3  NH1ZARG A  82     -23.402   3.476   3.495 R     0.00 
+ATOM      3  NH2ZARG A  82     -24.993   1.867   3.097 R     0.00 
+END

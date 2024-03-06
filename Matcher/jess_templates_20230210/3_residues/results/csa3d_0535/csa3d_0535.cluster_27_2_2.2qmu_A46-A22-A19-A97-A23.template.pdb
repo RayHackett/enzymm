@@ -1,0 +1,23 @@
+REMARK TEMPLATE
+REMARK CLUSTER 27_2_2
+REMARK REPRESENTING 1 CATALYTIC SITES
+REMARK ID 2qmu_A46-A22-A19-A97-A23
+REMARK MCSA_ID 535
+REMARK PDB_ID 2qmu
+REMARK UNIPROT_ID Q980A5
+REMARK EC 3.6.5.3
+REMARK ENZYME Translation initiation factor 2 gamma subunit, Translation initiation factor 2 alpha subunit, Translation initiation factor 2 beta subunit
+REMARK EXPERIMENTAL_METHOD X-ray diffraction
+REMARK RESOLUTION 3.2
+REMARK ORGANISM_NAME Sulfolobus solfataricus
+REMARK ORGANISM_ID 273057
+ATOM      0  CA ZANY A  46      39.570  15.948   7.576 TS    0.00 
+ATOM      0  C  ZANY A  46      40.662  16.876   8.056 TS    0.00 
+ATOM      0  O  ZANY A  46      41.809  16.490   8.224 TS    0.00 
+ATOM      0  CG ZHIS A  97      47.328  22.713  19.547 H     0.00 
+ATOM      8  ND1ZHIS A  97      47.031  21.464  20.057 H     0.00 
+ATOM      8  CD2ZHIS A  97      48.525  23.063  20.079 H     0.00 
+ATOM      3  CA ZTHR A  23      34.064  28.228  18.870 TS    0.00 
+ATOM      3  CB ZTHR A  23      34.614  26.801  19.053 TS    0.00 
+ATOM      1  OG1ZTHR A  23      35.921  26.719  18.485 TS    0.00 
+END

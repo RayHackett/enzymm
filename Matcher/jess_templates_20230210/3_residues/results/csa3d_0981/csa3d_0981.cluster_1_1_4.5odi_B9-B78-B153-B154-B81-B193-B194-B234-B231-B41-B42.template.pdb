@@ -1,0 +1,23 @@
+REMARK TEMPLATE
+REMARK CLUSTER 1_1_4
+REMARK REPRESENTING 1 CATALYTIC SITES
+REMARK ID 5odi_B9-B78-B153-B154-B81-B193-B194-B234-B231-B41-B42
+REMARK MCSA_ID 981
+REMARK PDB_ID 5odi
+REMARK UNIPROT_ID A0A2D0TCB4
+REMARK EC 1.8.98.1
+REMARK ENZYME FAD dependent oxidoreductase, CoB/CoM heterodisulfide reductase, subunit B (E.C.1.8.98.1), CoB/CoM heterodisulfide reductase, subunit C, Methyl-viologen-reducing hydrogenase delta subunit, Hydrogen dehydrogenase (E.C.1.12.1.2)
+REMARK EXPERIMENTAL_METHOD X-ray diffraction
+REMARK RESOLUTION 2.4
+REMARK ORGANISM_NAME Methanothermococcus thermolithotrophicus DSM 2095
+REMARK ORGANISM_ID 523845
+ATOM      0  CA ZCYS B 153      23.558 -33.664  25.823 C     0.00 
+ATOM      0  CB ZCYS B 153      24.968 -33.102  25.757 C     0.00 
+ATOM      0  SG ZCYS B 153      26.213 -34.199  26.471 C     0.00 
+ATOM      0  CG ZHIS B 154      23.645 -31.579  21.460 H     0.00 
+ATOM      8  ND1ZHIS B 154      24.678 -32.437  21.132 H     0.00 
+ATOM      8  CD2ZHIS B 154      24.161 -30.357  21.726 H     0.00 
+ATOM      0  CA ZCYS B 193      28.909 -36.299  27.740 C     0.00 
+ATOM      0  CB ZCYS B 193      29.620 -35.037  27.246 C     0.00 
+ATOM      0  SG ZCYS B 193      30.007 -35.021  25.472 C     0.00 
+END
