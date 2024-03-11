@@ -354,48 +354,44 @@ def get_vec_template(residue):
 
         return vec, [middle_atom_index, first_atom_index, second_atom_index], res_type
         
-def calculate_template_orientation_vectors():
-    if not Path('./Downloads/Template_vec_dict.json').is_file():
-        Template_vec_dict = {}
-        Template_list = get_template_files() # load all the Template files into a list
-        for Template in Template_list:
-            if Template not in Template_vec_dict:
-                Template_vec_dict[Template] = {}
-            atom_lines = []
-            with open(Template, 'r') as f: # read the Template
-                Result = f.readlines()
-                for line in Result:
-                    if line[:4] == 'ATOM':
-                        atom_lines.append(line)
+def calculate_template_orientation_vectors(Template_list):
+    Template_vec_dict = {}
+    for Template in Template_list:
+        if Template not in Template_vec_dict:
+            Template_vec_dict[Template] = {}
+        atom_lines = []
+        with open(Template, 'r') as f: # read the Template
+            Result = f.readlines()
+            for line in Result:
+                if line[:4] == 'ATOM':
+                    atom_lines.append(line)
 
-            residue_positions = [] # a list of positions for each atom in each residue (list of numpy arrays)
-            residue_generator = chunks(atom_lines, 3)
-            for index, residue in enumerate(residue_generator): # iterate over residues with index
-                if index not in Template_vec_dict[Template]:
-                    Template_vec_dict[Template][index] = {}
-                vec_all = get_vec_template(residue) # calculate the vector for each residue
+        residue_positions = [] # a list of positions for each atom in each residue (list of numpy arrays)
+        residue_generator = chunks(atom_lines, 3)
+        for index, residue in enumerate(residue_generator): # iterate over residues with index
+            if index not in Template_vec_dict[Template]:
+                Template_vec_dict[Template][index] = {}
+            vec_all = get_vec_template(residue) # calculate the vector for each residue
 
-                if vec_all[0] == 'err':
-                    print(Template)
-                    sys.exit()
+            if vec_all[0] == 'err':
+                print(Template)
+                sys.exit()
 
-                Template_vec_dict[Template][index]['vector'] = vec_all[0]
-                Template_vec_dict[Template][index]['index_order'] = vec_all[1]
-                Template_vec_dict[Template][index]['res_type'] = vec_all[2]
+            Template_vec_dict[Template][index]['vector'] = vec_all[0]
+            Template_vec_dict[Template][index]['index_order'] = vec_all[1]
+            Template_vec_dict[Template][index]['res_type'] = vec_all[2]
 
-                res_pos = np.empty(shape=(3, 3)) # initialize an empty array
-                for jndex, atom in enumerate(residue):
-                    atom_x = float(atom[30:38])
-                    atom_y = float(atom[38:46])
-                    atom_z = float(atom[46:54])
-                    res_pos[jndex] = np.array([atom_x, atom_y, atom_z]) # fill the array at a given row
-                residue_positions.append(res_pos.tolist()) # to make it json serializable
+            res_pos = np.empty(shape=(3, 3)) # initialize an empty array
+            for jndex, atom in enumerate(residue):
+                atom_x = float(atom[30:38])
+                atom_y = float(atom[38:46])
+                atom_z = float(atom[46:54])
+                res_pos[jndex] = np.array([atom_x, atom_y, atom_z]) # fill the array at a given row
+            residue_positions.append(res_pos.tolist()) # to make it json serializable
 
-                Template_vec_dict[Template]['residue_positions'] = residue_positions
+            Template_vec_dict[Template]['residue_positions'] = residue_positions
 
-        Path('./Downloads').mkdir(parents=True, exist_ok=True)
-        with open(Path('./Downloads/Template_vec_dict.json'), 'w') as f:
-            json.dump(Template_vec_dict, f)
+    return Template_vec_dict
             
 def check_other_files():
     Path('./data').mkdir(parents=True, exist_ok=True)

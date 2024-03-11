@@ -24,20 +24,21 @@ Outputs:
 """
 
 import sys
+import glob
 import subprocess
 import re
 import argparse
 import json
 from pathlib import Path
-from importlib.resources import files
 
 from .jess import filter_output # yannis filtering script
-
+from .prepare_Templates import get_template_files, evaluate_Temp_res_num, template_relative_order, calculate_template_orientation_vectors
+from .template import Template, load_templates
 
 d = Path(__file__).resolve().parent
 
-def jess_call(template_res_num, pdb_file, template_file, jess_params):
-    out_name = str(jess_path) + '/' + Path(pdb_file).name.split('.')[0] + '_?res.pdb'.replace('?',str(template_res_num))
+def jess_call(template_res_num, pdb_file, template_file, jess_params, outdir):
+    out_name = str(outdir) + '/' + Path(pdb_file).name.split('.')[0] + '_?res.pdb'.replace('?',str(template_res_num))
     
     # jess parameters
     # we use different parameters for different template residue numbers - higher number more generous parameters
@@ -73,6 +74,16 @@ def jess_filter(input_file):    # filter with yannis script
     #         f.write(str(i) + '\n')
         
     return filtered_output
+
+def test_parser(filtered_output):
+    entries = filtered_output.split('\n\n') # double linebreak seperarates matches
+    split_entries = [] # list of matches
+    for entry in entries:
+        split_entry = entry.split('\n') # split_entry is a list of lines
+        if all(split_entry):
+            split_entries.append(split_entry) # list of lists
+
+    return split_entries
     
 def parse_jess(filtered_output):
     entries = filtered_output.split('\n\n') # double linebreak seperarates matches
@@ -305,7 +316,7 @@ def parse_jess(filtered_output):
                 # get the total number templates in the group which is the third cluster digit
                 total_group = int(Path(match['Template']).name.split('.')[1][-1])
                 # generate a general name by replacing the 2nd digit with ?
-                general_name = re.sub("(cluster_.)_\d_", r"\1_?_", Path(match['Template']).name)
+                general_name = re.sub(r"(cluster_.)_\d_", r"\1_?_", Path(match['Template']).name)
 
                 # generate all other possible template names by replacement of the 2nd digit
                 possible_names = set()
@@ -331,7 +342,7 @@ def merge_dicts(dica, dicb):
     return dicc
             
         
-def main(start_file, jess_params):
+def main(start_file, jess_params, outdir):
     
     ############## Loading globally used dictionaries ##################
     
@@ -355,77 +366,73 @@ def main(start_file, jess_params):
     
     ############# Loading Files with annotation data ######################
     
-    global ec_dict
-    # m-csa entry map to EC number
-    # every m-csa entry only has one EC number
-    with open(Path(d, '../Downloads/MCSA_EC_mapping.json'), 'r') as f:
-        ec_dict = json.load(f)
-    # json always converts keys to strings. we want int type
-    ec_dict = {int(k):str(v) for k,v in ec_dict.items()}
+    # global ec_dict
+    # # m-csa entry map to EC number
+    # # every m-csa entry only has one EC number
+    # with open(Path(d, '../Downloads/MCSA_EC_mapping.json'), 'r') as f:
+    #     ec_dict = json.load(f)
+    # # json always converts keys to strings. we want int type
+    # ec_dict = {int(k):str(v) for k,v in ec_dict.items()}
     
-    # I got this csv from Neera originally. Data is from 2020
-    cofactor_df = pd.read_csv(Path(d, '../Downloads/EClist_cofactors_forRH.csv'))
-    global cofactor_dict
-    cofactor_dict = {}
-    for index, row in cofactor_df.iterrows():
-        if row['EC'] not in cofactor_dict:
-            cofactor_dict[row['EC']] = []
-        cofactor_dict[row['EC']].append(row['Cof_ID'])
+    # # I got this csv from Neera originally. Data is from 2020
+    # cofactor_df = pd.read_csv(Path(d, '../Downloads/EClist_cofactors_forRH.csv'))
+    # global cofactor_dict
+    # cofactor_dict = {}
+    # for index, row in cofactor_df.iterrows():
+    #     if row['EC'] not in cofactor_dict:
+    #         cofactor_dict[row['EC']] = []
+    #     cofactor_dict[row['EC']].append(row['Cof_ID'])
     
-    global mcsa_cath
-    # m-csa entry map to CATH id
-    # entry have have multiple CATH ids
-    with open(Path(d, '../Downloads/MCSA_CATH_mapping.json'), 'r') as f:
-        mcsa_cath = json.load(f)
-    # json always converts keys to strings. we want int type
-    mcsa_cath = {int(k): v for k,v in mcsa_cath.items()}
+    # global mcsa_cath
+    # # m-csa entry map to CATH id
+    # # entry have have multiple CATH ids
+    # with open(Path(d, '../Downloads/MCSA_CATH_mapping.json'), 'r') as f:
+    #     mcsa_cath = json.load(f)
+    # # json always converts keys to strings. we want int type
+    # mcsa_cath = {int(k): v for k,v in mcsa_cath.items()}
     
-    # load the tsv file from cath which maps cath domains to alphafold stuctures
-    # requires pandas
-    global cath_df
-    # ftp ftp://orengoftp.biochem.ucl.ac.uk/
-    # /alphafold/cath-v4.3.0-model-organisms/cath-v4_3_0.alphafold-v2.2022-11-22.tsv
-    cath_df = pd.read_csv(Path(d, '../Downloads/cath-v4_3_0.alphafold-v2.2022-11-22.tsv'), sep='\t')
-    domains = cath_df['domain_ID'].to_list()
-    Uniprot_IDs = []
-    for i in domains:
-        Uniprot_IDs.append(i.split('_')[1])
-    cath_df['Uniprot_ID'] = Uniprot_IDs # add a column with just the Uniprot id
+    # # load the tsv file from cath which maps cath domains to alphafold stuctures
+    # # requires pandas
+    # global cath_df
+    # # ftp ftp://orengoftp.biochem.ucl.ac.uk/
+    # # /alphafold/cath-v4.3.0-model-organisms/cath-v4_3_0.alphafold-v2.2022-11-22.tsv
+    # cath_df = pd.read_csv(Path(d, '../Downloads/cath-v4_3_0.alphafold-v2.2022-11-22.tsv'), sep='\t')
+    # domains = cath_df['domain_ID'].to_list()
+    # Uniprot_IDs = []
+    # for i in domains:
+    #     Uniprot_IDs.append(i.split('_')[1])
+    # cath_df['Uniprot_ID'] = Uniprot_IDs # add a column with just the Uniprot id
     
-    # This maps PDBchains to Uniprot IDs, CATHs and ECs
-    global pdb_sifts_df
-    pdb_sifts_df = pd.read_csv(Path(d, '../Downloads/pdb_sifts.csv'))
-    # PDBchain column has PDB in lowercase!
+    # # This maps PDBchains to Uniprot IDs, CATHs and ECs
+    # global pdb_sifts_df
+    # pdb_sifts_df = pd.read_csv(Path(d, '../Downloads/pdb_sifts.csv'))
+    # # PDBchain column has PDB in lowercase!
     
-    global MCSA_interpro_dict
-    # dictonariy mapping M-CSA entries to Interpro Identifiers
-    # Interpro Acceccesions at the Domain, Family and Superfamily level
-    # are searched for the reference sequences of each M-CSA entry.
-    # Note that an M-CSA entry may have multiple reference sequences
-    with open(Path(d, '../Downloads/MCSA_interpro_dict.json'), 'r') as f:
-        MCSA_interpro_dict = json.load(f)
-    # json always converts keys to strings. we want int type
-    MCSA_interpro_dict = {int(k): v for k,v in MCSA_interpro_dict.items()}
+    # global MCSA_interpro_dict
+    # # dictonariy mapping M-CSA entries to Interpro Identifiers
+    # # Interpro Acceccesions at the Domain, Family and Superfamily level
+    # # are searched for the reference sequences of each M-CSA entry.
+    # # Note that an M-CSA entry may have multiple reference sequences
+    # with open(Path(d, '../Downloads/MCSA_interpro_dict.json'), 'r') as f:
+    #     MCSA_interpro_dict = json.load(f)
+    # # json always converts keys to strings. we want int type
+    # MCSA_interpro_dict = {int(k): v for k,v in MCSA_interpro_dict.items()}
+
+    # We precalculate all relevant info on templates here
+    #####################################################
     
-    # load dictionary mapping Template to number of residues
-    global Template_res_num_dict
-    with open(Path(d, '../Downloads/Template_res_num_dict.json'), 'r') as f:
-        Template_res_num_dict = json.load(f)
-    
-    # load dictionary mapping Template to the relative order of residues therein
-    global Template_res_order_dict
-    with open(Path(d, '../Downloads/Template_res_order_dict.json'), 'r') as f:
-        Template_res_order_dict = json.load(f)
-        
-    # load the dicionary with solvent accessible surface area for each residue in each template
-    global Template_res_dssp_dict
-    with open(Path(d, '../Downloads/Template_res_dssp_dict.json'), 'r') as f:
-        Template_res_dssp_dict = json.load(f)
-        
-    # load the dictionary with the orientation vector for each residue in each template
-    global Template_vec_dict
-    with open(Path(d, '../Downloads/Template_vec_dict.json'), 'r') as f:
-        Template_vec_dict = json.load(f)
+    Template_list = get_template_files()
+    # Returns (1) dict with keys = (int) size of template, values = (set) set of templates
+    # Returns (2) dict with keys = (str) name of template, value = (int) size of template - useful as lookup table
+    Resnum_per_Template_dict, Template_res_num_dict = evaluate_Temp_res_num(Template_list)
+
+     # Returns dict with keys = (str) name of template, value = (list) list of relative order of residues (e.g. 1, 3, 2, 0) - useful as lookup table
+    Template_res_order_dict = template_relative_order(Template_list)
+
+    # Retruns dict with keys = (str) name of template, value = (dict) with info on vector per residue in template
+    Template_vec_dict = calculate_template_orientation_vectors(Template_list)
+
+    ### TODO you might want to write these dictionaries to the outdir and check before a run if they already exist - or outsource this entirely to a prerun script :(
         
     ################# Running Jess ###################################
     print('jess parameters: ', jess_params)
@@ -438,13 +445,12 @@ def main(start_file, jess_params):
     working_file = start_file # start_file is the original input of query structures to search
     for template_res_num in [8, 7, 6, 5, 4, 3]:
 
-        template_folder = 'jess_templates_20230210.{}_residues'.format(str(template_res_num))
-        template_file = Path(files(template_folder).joinpath('list_of_{}_residue_templates.list'.format(str(template_res_num))))
+        working_template_library = Resnum_per_Template_dict[template_res_num]
         
         print('Now on template res num', template_res_num)
         # prevous_file is the used input file (= the previous working file)
         # out_name is the name of the file to which the results of the jess search were written
-        previous_file, out_name = jess_call(template_res_num, working_file, template_file, jess_params)
+        previous_file, out_name = jess_call(template_res_num, working_file, working_template_library, jess_params, outdir)
         print('jess input was', previous_file)
         print('jess writing to', out_name)
         
@@ -454,6 +460,9 @@ def main(start_file, jess_params):
         old_input_queries = [i.strip() for i in query_lines]
         
         filtered_output = jess_filter(out_name)
+
+        splitted = test_parser(filtered_output)
+        print(splitted)
 
         # mydict = parse_jess(filtered_output)
         # # now the results from mydict get added to the all_res_dict
@@ -495,17 +504,19 @@ def main(start_file, jess_params):
         # with open(Path(jess_path,Path(filtered_outfile).name.split('.')[0] + '_info.json'), 'w') as f:
         #     json.dump(mydict, f)
         
-    with open(Path(jess_results_path,Path(working_file).name.split('.')[0] + 'all_res_info.json'), 'w') as f:
-        json.dump(all_res_dict, f)
+    # with open(Path(jess_results_path,Path(working_file).name.split('.')[0] + 'all_res_info.json'), 'w') as f:
+    #     json.dump(all_res_dict, f)
         
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--input', help='file containing a list of pdb files seperated by linebreaks.')
     parser.add_argument('-j', '--jess', nargs = '+', help='Jess space seperated parameters rmsd, distance, max_dynamic_distance, score_cutoff, optional flags as a string')
+    parser.add_argument('-o', '--output', help='Output Directory to which results should get written', default=Path.cwd())
     args = parser.parse_args()
     
     start_file = args.input
     jess_params = [i for i in args.jess]
-    main(start_file, jess_params)
+    outdir = args.output
+    main(start_file, jess_params, outdir)
     
