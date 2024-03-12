@@ -18,7 +18,7 @@ __all__ = [
 ]
 
 def chunks(lst, n):
-    """Yield successive n-sized chunks from lst."""
+    """`int`: Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
 
@@ -37,22 +37,19 @@ def get_template_files(directory_path, extension='.pdb'):
 
 @dataclass
 class Vec3:
-    '''Class for storing 3D vectors in XYZ'''
+    '''`int`: Class for storing 3D vectors in XYZ'''
     x: float
     y: float
     z: float
 
 @dataclass
 class Residue:
-    """Class for storing Residues (defined as 3 atoms) belonging to a Template and associated residue level information"""
-
+    """`int`: Class for storing Residues (defined as 3 atoms) belonging to a Template and associated residue level information"""
     atoms: Tuple[Atom, Atom, Atom]
 
-    # TODO TypeError: object.__init__() takes exactly one argument (the instance to initialize)
-    def __init__(self, atoms: Tuple[Atom, Atom, Atom]) -> None:
-        if not atoms:
+    def __post_init__(self) -> None:
+        if not self.atoms:
             raise ValueError("Cannot create a residue with no atoms")
-        super().__init__(atoms)
 
     @classmethod
     def get_vec_template(atoms: Tuple[Atom, Atom, Atom]) -> Vec3:
@@ -106,35 +103,49 @@ class Residue:
 
     @property
     def aa_type(self) -> str:
+        """`int`: Get the amino-acid type as three letter code from the first atom
+        """
         return self.atoms[0].aa_type
 
     @property
     def allowed_residues(self) -> str:
+        """`int`: Get the allowed residue types as string of single letter codes from the first atom
+        """
         return self.atoms[0].allowed_residues
 
     @property
     def specificity(self) -> int:
+        """`int`: Get the residue specificity (interger) from the first atom. <100 is specific
+        """
         return self.atoms[0].specificity
 
     @property
     def backbone(self) -> bool:
+        """`int`: Get boolean indicated if the residue is composed of backbone atoms from the first atom
+        """
         return self.atoms[0].backbone
 
     @property
     def pdb_residue(self) -> int:
+        """`int`: Get the pdb residue number from the first atom
+        """
         return self.atoms[0].pdb_residue
 
     @property
     def chain(self) -> str:
+        """`int`: Get the pdb chain id from the first atom
+        """
         return self.atoms[0].chain
 
     @property
     def orientation_vector(self, atoms) -> Vec3:
+        """`int`: Calculate the residue orientation vector according to the residue type
+        """
         return self.get_vec_template(atoms)
 
 @dataclass
 class Atom:
-    ''' Class for storing Atom information from a Template file'''
+    '''`int`:Class for storing Atom information from a Template file'''
     x: float
     y: float
     z: float
@@ -167,7 +178,7 @@ class Atom:
 
 @dataclass
 class Template:
-    """Class for storing Templates and associated information"""
+    """`int`: Class for storing Templates and associated information"""
     residues: list[Residue]
     pdb_id: str = field(default=None)
     mcsa_id: int = field(default=None)
@@ -183,6 +194,8 @@ class Template:
     # TODO am I using self and cls correctly??
     # TODO should I use the parse functions like this - like static methods inside the class?
     def load(cls, file: TextIO, warn: bool = True) -> Template:
+        """`int`: Function to parse a template and its associated info into a Template object from TextIO
+        """
         atom_lines = []
         residues = []
         metadata = {}
@@ -204,7 +217,7 @@ class Template:
             if tokens[0] == 'REMARK':
                 parser = _PARSERS.get(tokens[1])
                 if parser is not None:
-                    parser(tokens, metadata, warn=warn) # TODO parser functions do not need call to self since they fill metadata?
+                    parser(tokens, metadata, warn=warn) # TODO parser functions do not need self as input since they fill metadata?
             elif tokens[0] == 'ATOM':
                 atom_lines.append(line)
             else:
@@ -225,13 +238,15 @@ class Template:
 
     @property
     def true_size(self) -> int: # Number of residues in the template as counted by triplets of atoms
-        #TODO add int staements like this to other properties for auto-generating documentation
         """`int`: The number of residues in the template, as counted by triplets of atoms.
         """
         return len(self.residues)
     
     @cached_property
-    def size(self) -> int: # Number of residues as evaluated, the effective size
+    def size(self) -> int:
+        """`int`: The number of unique residues in the template, excluding backbone residues and unspecific residues.
+        """
+        # Number of residues as evaluated, the effective size
         # Effective size of a template is not necessarily equal to the number of atom triplets in a template:
         # Residues matching ANY amino acid type are not counted as they are too general
         # These have a value of 100 or hgiher in the second column indicating unspecific residues
@@ -252,19 +267,28 @@ class Template:
 
     @cached_property
     def multimeric(self) -> bool: # if the template is split across multiple protein chains
+        """`int`: Boolean if the template residues stem from multiple protein chains
+        """
         return all(res.chain == residues[0].chain for res in residues)
 
     @cached_property
     def relative_order(self) -> list: # list with length of deduplicated true_size
-        # Now extract relative template order
-        pdb_residue_list = [res.pdb_residue for res in residues]
-        deduplicated_residue_list = list(dict.fromkeys(pdb_residue_list)) # remove duplicates while preserving order
-        sorted_residues = sorted(deduplicated_residue_list)
-        return [sorted_residues.index(i) for i in deduplicated_residue_list] # determine the relative order of residues
-
+        """`int`: Relative order of residues in the Template sorted by the pdb residue number. This only works for non-multimeric Templates
+        """
+        if self.multimeric():
+            return None
+        else:
+            # Now extract relative template order
+            pdb_residue_list = [res.pdb_residue for res in residues]
+            deduplicated_residue_list = list(dict.fromkeys(pdb_residue_list)) # remove duplicates while preserving order
+            sorted_residues = sorted(deduplicated_residue_list)
+            return [sorted_residues.index(i) for i in deduplicated_residue_list] # determine the relative order of residues
+    
+    @staticmethod
     def parse_pdb_id(tokens: list[str], metadata: dict[str, object], warn: bool = True):
         metadata['pdb_id'] = tokens[2]
 
+    @staticmethod
     def parse_uniprot_id(tokens: list[str], metadata: dict[str, object], warn: bool = True):
         match = re.search(r'[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2}', tokens[2])
         if match:
@@ -273,6 +297,7 @@ class Template:
             if warn:
                 warnings.warn(f'Did not find a valid UniProt ID, found {tokens[2]}')
 
+    @staticmethod
     def parse_mcsa_id(tokens: list[str], metadata: dict[str, object], warn: bool = True):
         try:
             metadata['mcsa_id'] = int(tokens[2])
@@ -280,12 +305,15 @@ class Template:
             if warn:
                 warnings.warn(f'Did not find a M-CSA ID, found {tokens[2]}')
 
+    @staticmethod
     def parse_cluster(tokens: list[str], metadata: dict[str, object], warn: bool = True):
         metadata['cluster'] = tokens[2]
 
+    @staticmethod
     def parse_organism_name(tokens: list[str], metadata: dict[str, object], warn: bool = True):
         metadata['organism'] = tokens[2]
 
+    @staticmethod
     def parse_organism_id(tokens: list[str], metadata: dict[str, object], warn: bool = True):
         try:
             metadata['organism_id'] = int(tokens[2])
@@ -293,6 +321,7 @@ class Template:
             if warn:
                 warnings.warn(f'Ill-formatted organism ID: {tokens[2]}')
 
+    @staticmethod
     def parse_resolution(tokens: list[str], metadata: dict[str, object], warn: bool = True):
         try:
             metadata['resolution'] = float(tokens[2])
@@ -300,9 +329,11 @@ class Template:
             if warn:
                 warnings.warn(f'Ill-formatted pdb resolution: {tokens[2]}')
 
+    @staticmethod
     def parse_experimental_method(tokens: list[str], metadata: dict[str, object], warn: bool = True):
         metadata['experimental_method'] = tokens[2]
 
+    @staticmethod
     def parse_ec(tokens: list[str], metadata: dict[str, object], warn: bool = True):
         match = re.search(r'\d{1,2}(\.(\-|\d{1,2})){3}', tokens[2])
         if match:
@@ -333,3 +364,4 @@ if __name__ == "__main__":
     # TODO this is here for debugging purposes - delete later
     templates = list(load_templates())
     print(len(templates))
+
