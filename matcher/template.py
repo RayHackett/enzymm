@@ -201,15 +201,15 @@ class Template:
         metadata = {}
 
         _PARSERS = {
-            'PDB_ID': cls.parse_pdb_id,
-            'UNIPROT_ID': cls.parse_uniprot_id,
-            'MCSA_ID': cls.parse_mcsa_id,
-            'CLUSTER': cls.parse_cluster,
-            'ORGANISM_NAME': cls.parse_organism_name,
-            'ORGANISM_ID': cls.parse_organism_id,
-            'RESOLUTION': cls.parse_resolution,
-            'EXPERIMENTAL_METHOD': cls.parse_experimental_method,
-            'EC': cls.parse_ec
+            'PDB_ID': cls._parse_pdb_id,
+            'UNIPROT_ID': cls._parse_uniprot_id,
+            'MCSA_ID': cls._parse_mcsa_id,
+            'CLUSTER': cls._parse_cluster,
+            'ORGANISM_NAME': cls._parse_organism_name,
+            'ORGANISM_ID': cls._parse_organism_id,
+            'RESOLUTION': cls._parse_resolution,
+            'EXPERIMENTAL_METHOD': cls._parse_experimental_method,
+            'EC': cls._parse_ec
         }
                 
         for line in filter(str.strip, file):
@@ -284,12 +284,12 @@ class Template:
             sorted_residues = sorted(deduplicated_residue_list)
             return [sorted_residues.index(i) for i in deduplicated_residue_list] # determine the relative order of residues
     
-    @staticmethod
-    def parse_pdb_id(tokens: list[str], metadata: dict[str, object], warn: bool = True):
+    @classmethod
+    def _parse_pdb_id(cls, tokens: list[str], metadata: dict[str, object], warn: bool = True):
         metadata['pdb_id'] = tokens[2]
 
-    @staticmethod
-    def parse_uniprot_id(tokens: list[str], metadata: dict[str, object], warn: bool = True):
+    @classmethod
+    def _parse_uniprot_id(cls, tokens: list[str], metadata: dict[str, object], warn: bool = True):
         match = re.search(r'[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2}', tokens[2])
         if match:
             metadata['uniprot_id'] = match.group()
@@ -297,44 +297,44 @@ class Template:
             if warn:
                 warnings.warn(f'Did not find a valid UniProt ID, found {tokens[2]}')
 
-    @staticmethod
-    def parse_mcsa_id(tokens: list[str], metadata: dict[str, object], warn: bool = True):
+    @classmethod
+    def _parse_mcsa_id(cls, tokens: list[str], metadata: dict[str, object], warn: bool = True):
         try:
             metadata['mcsa_id'] = int(tokens[2])
         except ValueError:
             if warn:
                 warnings.warn(f'Did not find a M-CSA ID, found {tokens[2]}')
 
-    @staticmethod
-    def parse_cluster(tokens: list[str], metadata: dict[str, object], warn: bool = True):
+    @classmethod
+    def _parse_cluster(cls, tokens: list[str], metadata: dict[str, object], warn: bool = True):
         metadata['cluster'] = tokens[2]
 
-    @staticmethod
-    def parse_organism_name(tokens: list[str], metadata: dict[str, object], warn: bool = True):
+    @classmethod
+    def _parse_organism_name(cls, tokens: list[str], metadata: dict[str, object], warn: bool = True):
         metadata['organism'] = tokens[2]
 
-    @staticmethod
-    def parse_organism_id(tokens: list[str], metadata: dict[str, object], warn: bool = True):
+    @classmethod
+    def _parse_organism_id(cls, tokens: list[str], metadata: dict[str, object], warn: bool = True):
         try:
             metadata['organism_id'] = int(tokens[2])
         except ValueError:
             if warn:
                 warnings.warn(f'Ill-formatted organism ID: {tokens[2]}')
 
-    @staticmethod
-    def parse_resolution(tokens: list[str], metadata: dict[str, object], warn: bool = True):
+    @classmethod
+    def _parse_resolution(cls, tokens: list[str], metadata: dict[str, object], warn: bool = True):
         try:
             metadata['resolution'] = float(tokens[2])
         except ValueError:
             if warn:
                 warnings.warn(f'Ill-formatted pdb resolution: {tokens[2]}')
 
-    @staticmethod
-    def parse_experimental_method(tokens: list[str], metadata: dict[str, object], warn: bool = True):
+    @classmethod
+    def _parse_experimental_method(cls, tokens: list[str], metadata: dict[str, object], warn: bool = True):
         metadata['experimental_method'] = tokens[2]
 
-    @staticmethod
-    def parse_ec(tokens: list[str], metadata: dict[str, object], warn: bool = True):
+    @classmethod
+    def _parse_ec(cls, tokens: list[str], metadata: dict[str, object], warn: bool = True):
         match = re.search(r'\d{1,2}(\.(\-|\d{1,2})){3}', tokens[2])
         if match:
             metadata['ec'] = match.group()
