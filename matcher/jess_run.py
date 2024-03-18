@@ -31,67 +31,65 @@ import argparse
 import json
 from pathlib import Path
 
-from .jess import filter_output # yannis filtering script
-from .prepare_Templates import get_template_files, evaluate_Temp_res_num, template_relative_order, calculate_template_orientation_vectors
+from typing import Optional, Union, TextIO, Iterator
+from functools import cached_property
+from dataclasses import dataclass, field
+
+import pyjess # cython port of Jess to python package
+from .jess.filter_hits import filter_hits
 from .template import Template, load_templates
 
 d = Path(__file__).resolve().parent
 
-def jess_call(template_res_num, pdb_file, template_file, jess_params, outdir):
-    out_name = str(outdir) + '/' + Path(pdb_file).name.split('.')[0] + '_?res.pdb'.replace('?',str(template_res_num))
-    
-    # jess parameters
-    # we use different parameters for different template residue numbers - higher number more generous parameters
-    rmsd = jess_params[0] # in Angstrom, typcically set to 2
-    distance = jess_params[1] # in Angstrom between 1.0 and 1.5 - lower is more strict. This changes with template size
-    max_dynamic_distance = jess_params[2] # if equal to distance dynamic is off: this option is currenlty dysfunctional
-    score_cutoff = jess_params[3] # Reads B-factor column in .pdb files: atoms below this cutoff will be disregarded. Could be pLDDT for example
-    
-    # the first four params are rmsd, distance, max_dynamic_distance and score_cutoff.
-    # The (optional) fifth is a string controlling output format
-    if len(jess_params) == 5:
-        optional_flags = jess_params[4] # optional flags as a string without spaces
-        script = ' '.join(['jess', str(template_file), str(pdb_file), str(rmsd), str(distance), str(max_dynamic_distance), str(score_cutoff), str(optional_flags), '>', str(out_name)])
-    elif len(jess_params) == 4:
-        script = ' '.join(['jess', str(template_file), str(pdb_file), str(rmsd), str(distance), str(max_dynamic_distance), str(score_cutoff), '>', str(out_name)])
-    else:
-        sys.exit('Wrong number of Jess Parameters')
-    
-    subprocess.check_call(script, shell=True)
-    
-    return pdb_file, out_name
+def jess_call(molecule: TextIO, templates: List[Template], rmsd: float, distance_cutoff: float, max_dynamic_distance: float): #TODO this should be plddt cutoff not max dyn dist
+    # molecule is a pdb object
+    # templates is a list of template objects
+    # Create a Jess instance and use it to query a molecule (a PDB structure) against the stored templates:
+    for molecule in molecules:
+        query = jess.query(molecule, rmsd_threshold=2.0, distance_cutoff=3.0, max_dynamic_distance=3.0)
 
-def jess_filter(input_file):    # filter with yannis script
-    with open(input_file, 'r') as f:
-        data = f.readlines()
-    filtered_output = filter_output.main(data)
-    
-    ## To write intermediate outputs use
-    ## This gets written to same dir as input_file
-    # filtered_outfile = input_file.replace('.pdb', '_filtered.pdb')
-    # with open(filtered_outfile, 'w') as f:
-    #     for i in filtered_output:
-    #         f.write(str(i) + '\n')
-        
-    return filtered_output
+        if query: # if any hits were found
+            # retain only the hit with the lowest e-value for each query
+            best_hits = filter_hits(query)
 
-def test_parser(filtered_output):
-    entries = filtered_output.split('\n\n') # double linebreak seperarates matches
-    split_entries = [] # list of matches
-    for entry in entries:
-        split_entry = entry.split('\n') # split_entry is a list of lines
-        if all(split_entry):
-            split_entries.append(split_entry) # list of lists
+            #The hits are computed iteratively, and the different output statistics are computed on-the-fly when requested:
+            for hit in best_hits:
+                print(hit.molecule.id, hit.template.name, hit.rmsd, hit.log_evalue)
+                for atom in hit.atoms():
+                    print(atom.name, atom.x, atom.y, atom.z)
 
-    return split_entries
+        return best_hits
+
+@dataclass
+def Match:
+    """"`int`: Class for storing annotated Jess hits"""
+    template
+    query
+    ** inherit properties from hit
+
+    # calculate
+    avg_orientation
+    preserved_residue_order
+
+    # Lookup
+    uniprot_id
+    query_ec
+    query_cath
+    query_interpro
+    query_is_catalytic
+
+    #Lookup
+    template_cath
+    template_interpro
+
+    cofactors # associated via query or template ec
+
+    **all other template properties and attributes
+
+
+
     
-def parse_jess(filtered_output):
-    entries = filtered_output.split('\n\n') # double linebreak seperarates matches
-    split_entries = [] # list of matches
-    for entry in entries:
-        split_entry = entry.split('\n') # split_entry is a list of lines
-        if all(split_entry):
-            split_entries.append(split_entry) # list of lists
+def (filtered_output):
         
     mydict = {}
     for entry in range(len(split_entries)): # iterating over all matches; entry is now an index
@@ -136,27 +134,7 @@ def parse_jess(filtered_output):
         E_val = float(Remark_line.split()[7])
         Result = split_entries[entry] # the coordinate info
         
-        # Temp_res_num is not necessarily equal to the resnumber given in path:
-        # Residues matching ANY amino acid type are not counted as they are too general
-        # Even if a Residue must match a particular AA, 6 atoms from a given residue may be selected
-        # once for main chain and once for side chain
-        # Therefore we only count unique template residues!
-        Temp_res_num = Template_res_num_dict[Template]
             
-        # check if the Template is split over multiple chains
-        # this method will fail with chain names such as A1 which contain numeric characters
-        res_list = Path(Template).name.split('.')[2].split('_')[1].split('-')
-        chains = set(re.sub('[0-9]', '', i) for i in res_list) # get only the chain name by removing numeric characters
-        if len(chains) > 1: # more than one chain means multimeric template
-            multimeric = True
-        else:
-            multimeric = False
-            
-        # add Template CATH annotations from M-CSA
-        if mcsa_cath[int(MCSA_entry)]:
-            Template_CATH = set(mcsa_cath[int(MCSA_entry)])
-        else:
-            Template_CATH = set()
             
         # add additional EC and CATH annotations via sifts directly from the pdb from which the template was made
         Template_PDB = Path(Template).name.split('.')[2].split('_')[0]
@@ -328,22 +306,28 @@ def parse_jess(filtered_output):
                 else:
                     match['complete'] = False
     return mydict
-
-def merge_dicts(dica, dicb):
-    dicc={}
-    for key_a, value_a in dica.items():
-        if key_a in dicb.keys():
-            dicc[key_a] = dica[key_a] | dicb[key_a]
-        else:
-            dicc[key_a] = value_a
-    for key_b, value_b in dicb.items():
-        if key_b not in dicc.keys():
-            dicc[key_b] = value_b
-    return dicc
             
         
-def main(start_file, jess_params, outdir):
+def main(start_file: Path,  rmsd: float, distance: float, max_dynamic_distance: float, score_cutoff: float, outdir: Path, search_incrementally: bool):
     
+    def read_line_by_line(file: Path) -> Iterator[Path]:
+        try:
+            for path in open(start_file):
+                yield path
+        except FileNotFoundError:
+            print(f"Input file not found: {start_file}")
+
+    for path in read_line_by_line(start_file):
+        if path.exists():
+            # check if its a .pdb or .ent file
+            if path.suffix.lower() not in {".pdb", ".ent"}:
+                raise ValueError(f'File {path} did not have expected .pdb or .ent extensions')
+        else:
+            raise FileNotFoundError(f'Molecule file {path} does not exist')
+
+    if not outdir.is_dir():
+        raise FileNotFoundError(f"'{outdir}' is not an existing directory.")
+
     ############## Loading globally used dictionaries ##################
     
     global Uniprot_json_data
@@ -416,53 +400,41 @@ def main(start_file, jess_params, outdir):
     # with open(Path(d, '../Downloads/MCSA_interpro_dict.json'), 'r') as f:
     #     MCSA_interpro_dict = json.load(f)
     # # json always converts keys to strings. we want int type
-    # MCSA_interpro_dict = {int(k): v for k,v in MCSA_interpro_dict.items()}
-
-    # We precalculate all relevant info on templates here
-    #####################################################
-    
-    Template_list = get_template_files()
-    # Returns (1) dict with keys = (int) size of template, values = (set) set of templates
-    # Returns (2) dict with keys = (str) name of template, value = (int) size of template - useful as lookup table
-    Resnum_per_Template_dict, Template_res_num_dict = evaluate_Temp_res_num(Template_list)
-
-     # Returns dict with keys = (str) name of template, value = (list) list of relative order of residues (e.g. 1, 3, 2, 0) - useful as lookup table
-    Template_res_order_dict = template_relative_order(Template_list)
-
-    # Retruns dict with keys = (str) name of template, value = (dict) with info on vector per residue in template
-    Template_vec_dict = calculate_template_orientation_vectors(Template_list)
-
-    ### TODO you might want to write these dictionaries to the outdir and check before a run if they already exist - or outsource this entirely to a prerun script :(
+    # MCSA_interpro_dict = {int(k): v for k,v in MCSA_interpro_dict.items()}(
         
     ################# Running Jess ###################################
-    print('jess parameters: ', jess_params)
-    # this is the final output dictionary
+    print('jess parameters: ', rmsd, distance, max_dynamic_distance, score_cutoff)
+    print('writing results to {}'.str(Path(outdir).absolute()))
+
     all_res_dict = {}
     
     # we iterate over templates starting with the ones with the largest ones
     # we start the search with all the input queries
     # by changing the working_file during the loop we can exclude queries from searches with smaller templates
     working_file = start_file # start_file is the original input of query structures to search
+    scanned_molecule_paths = set()
     for template_res_num in [8, 7, 6, 5, 4, 3]:
-
-        working_template_library = Resnum_per_Template_dict[template_res_num]
-        
         print('Now on template res num', template_res_num)
-        # prevous_file is the used input file (= the previous working file)
-        # out_name is the name of the file to which the results of the jess search were written
-        previous_file, out_name = jess_call(template_res_num, working_file, working_template_library, jess_params, outdir)
-        print('jess input was', previous_file)
-        print('jess writing to', out_name)
-        
-        # make a list of all the scanned queries
-        with open(previous_file, 'r') as f:
-            query_lines = f.readlines()
-        old_input_queries = [i.strip() for i in query_lines]
-        
-        filtered_output = jess_filter(out_name)
+        # load the templates with a given residue number
+        templates = list(load_templates(files(__package__).joinpath('jess_templates_20230210', '{}_residues'.format(template_res_num))))
 
-        splitted = test_parser(filtered_output)
-        print(splitted)
+        already_scanned = set()
+        # Pass all the molecule paths as a list to the jess_call function
+        for molecule_path in read_line_by_line(start_file):
+
+            # if false, if hits for a structure were found with a large template, no not continue searching with smaller templates
+            if search_incrementally == False:
+                if molecule_path not in scanned_molecule_paths:
+                    with open(molecule_path, 'r') as molecule:
+                        # one could filter templates here too by any property or attribute of the template class in template.py
+                        best_hit = jess_call(molecule, templates, rmsd_threshold=rmsd, distance_cutoff=distance, max_dynamic_distance=max_dynamic_distance)
+                        if best_hit:
+                            already_scanned.add(molecule_path)
+            else:
+                # search with smaller templates too even if searches with larger templates returned hits
+                best_hit = jess_call(molecule, templates, rmsd_threshold=rmsd, distance_cutoff=distance, max_dynamic_distance=max_dynamic_distance)
+
+        scanned_molecule_paths.extend(already_scanned)
 
         # mydict = parse_jess(filtered_output)
         # # now the results from mydict get added to the all_res_dict
@@ -488,35 +460,35 @@ def main(start_file, jess_params, outdir):
         # with open(new_working_file, 'w') as f:
         #     for i in new_working_list:
         #         f.write(i + '\n')
-                
-        #######################################################
-        # We can change the working_file to new_working_file 
-        # to exclude already matched queries from future searches
-        # simply uncomment the following line:
-        # working_file = new_working_file
-        
-        # might need to change the way output files are aggregated at the end to make this work
-        
-        # OR we can just keep the start_file as our working file
-        # if we dont want to exclude any queries from searches with smaller templates
-        ########################################################
         
         # with open(Path(jess_path,Path(filtered_outfile).name.split('.')[0] + '_info.json'), 'w') as f:
         #     json.dump(mydict, f)
         
     # with open(Path(jess_results_path,Path(working_file).name.split('.')[0] + 'all_res_info.json'), 'w') as f:
     #     json.dump(all_res_dict, f)
+    
         
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--input', help='file containing a list of pdb files seperated by linebreaks.')
+    parser.add_argument('-i', '--input', type=Path, help='file containing a list of pdb files seperated by linebreaks.')
     parser.add_argument('-j', '--jess', nargs = '+', help='Jess space seperated parameters rmsd, distance, max_dynamic_distance, score_cutoff, optional flags as a string')
-    parser.add_argument('-o', '--output', help='Output Directory to which results should get written', default=Path.cwd())
+    parser.add_argument('-o', '--output', type=Path, help='Output Directory to which results should get written', default=Path.cwd())
+    # TODO add search_incrementally as an argument too
     args = parser.parse_args()
     
     start_file = args.input
     jess_params = [i for i in args.jess]
-    outdir = args.output
-    main(start_file, jess_params, outdir)
+
+    # jess parameters
+    # we use different parameters for different template residue numbers - higher number more generous parameters
+    rmsd = jess_params[0] # in Angstrom, typcically set to 2
+    distance = jess_params[1] # in Angstrom between 1.0 and 1.5 - lower is more strict. This changes with template size
+    max_dynamic_distance = jess_params[2] # if equal to distance dynamic is off: this option is currenlty dysfunctional
+    score_cutoff = jess_params[3] # Reads B-factor column in .pdb files: atoms below this cutoff will be disregarded. Could be pLDDT for example
     
+    if len(jess_params) != 4:
+        sys.exit('Wrong number of Jess Parameters') # TODO what kind of error should I throw?
+
+    outdir = args.output
+    main(start_file, rmsd, distance, max_dynamic_distance, score_cutoff, outdir, search_incrementally=True)

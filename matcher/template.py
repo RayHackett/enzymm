@@ -5,7 +5,7 @@ import warnings
 import re
 from importlib.resources import files
 from pathlib import Path
-from typing import Optional, Union, TextIO, Iterator
+from typing import List, Tuple, Optional, Union, TextIO, Iterator
 from functools import cached_property
 from dataclasses import dataclass, field
 
@@ -17,7 +17,7 @@ __all__ = [
     "load_templates",
 ]
 
-def chunks(lst, n):
+def chunks(lst: List, n: int) -> Iterator[List]:
     """`int`: Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
@@ -179,7 +179,7 @@ class Atom:
 @dataclass
 class Template:
     """`int`: Class for storing Templates and associated information"""
-    residues: list[Residue]
+    residues: List[Residue]
     pdb_id: str = field(default=None)
     mcsa_id: int = field(default=None)
     cluster: str = field(default=None)
@@ -189,6 +189,8 @@ class Template:
     resolution: float = field(default=None)
     experimental_method: str = field(default=None)
     ec: str = field(default=None)
+    cath: str = field(default=None)
+    interpro: List[str] = field(default=None)
 
     @classmethod
     # TODO am I using self and cls correctly??
@@ -272,7 +274,7 @@ class Template:
         return all(res.chain == residues[0].chain for res in residues)
 
     @cached_property
-    def relative_order(self) -> list: # list with length of deduplicated true_size
+    def relative_order(self) -> List[int]: # list with length of deduplicated true_size
         """`int`: Relative order of residues in the Template sorted by the pdb residue number. This only works for non-multimeric Templates
         """
         if self.multimeric():
@@ -285,11 +287,11 @@ class Template:
             return [sorted_residues.index(i) for i in deduplicated_residue_list] # determine the relative order of residues
     
     @classmethod
-    def _parse_pdb_id(cls, tokens: list[str], metadata: dict[str, object], warn: bool = True):
+    def _parse_pdb_id(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
         metadata['pdb_id'] = tokens[2]
 
     @classmethod
-    def _parse_uniprot_id(cls, tokens: list[str], metadata: dict[str, object], warn: bool = True):
+    def _parse_uniprot_id(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
         match = re.search(r'[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2}', tokens[2])
         if match:
             metadata['uniprot_id'] = match.group()
@@ -298,7 +300,7 @@ class Template:
                 warnings.warn(f'Did not find a valid UniProt ID, found {tokens[2]}')
 
     @classmethod
-    def _parse_mcsa_id(cls, tokens: list[str], metadata: dict[str, object], warn: bool = True):
+    def _parse_mcsa_id(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
         try:
             metadata['mcsa_id'] = int(tokens[2])
         except ValueError:
@@ -306,15 +308,15 @@ class Template:
                 warnings.warn(f'Did not find a M-CSA ID, found {tokens[2]}')
 
     @classmethod
-    def _parse_cluster(cls, tokens: list[str], metadata: dict[str, object], warn: bool = True):
+    def _parse_cluster(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
         metadata['cluster'] = tokens[2]
 
     @classmethod
-    def _parse_organism_name(cls, tokens: list[str], metadata: dict[str, object], warn: bool = True):
+    def _parse_organism_name(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
         metadata['organism'] = tokens[2]
 
     @classmethod
-    def _parse_organism_id(cls, tokens: list[str], metadata: dict[str, object], warn: bool = True):
+    def _parse_organism_id(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
         try:
             metadata['organism_id'] = int(tokens[2])
         except ValueError:
@@ -322,7 +324,7 @@ class Template:
                 warnings.warn(f'Ill-formatted organism ID: {tokens[2]}')
 
     @classmethod
-    def _parse_resolution(cls, tokens: list[str], metadata: dict[str, object], warn: bool = True):
+    def _parse_resolution(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
         try:
             metadata['resolution'] = float(tokens[2])
         except ValueError:
@@ -330,17 +332,35 @@ class Template:
                 warnings.warn(f'Ill-formatted pdb resolution: {tokens[2]}')
 
     @classmethod
-    def _parse_experimental_method(cls, tokens: list[str], metadata: dict[str, object], warn: bool = True):
+    def _parse_experimental_method(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
         metadata['experimental_method'] = tokens[2]
 
     @classmethod
-    def _parse_ec(cls, tokens: list[str], metadata: dict[str, object], warn: bool = True):
+    def _parse_ec(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
         match = re.search(r'\d{1,2}(\.(\-|\d{1,2})){3}', tokens[2])
         if match:
             metadata['ec'] = match.group()
         else:
             if warn:
                 warnings.warn(f'Did not find a valid EC number, found {tokens[2]}')
+
+    @cached_property
+    def _load_cath(self, warn: bool = True) -> str:
+        # There are two sources:
+        # Source 1: M-CSA which provides cath annotations for either residue homologs or for m-csa entries
+        mcsa_cath_file=files(__package__).joinpath('data', 'MCSA_CATH_mapping.json')
+        if not Path(mcsa_cath_file).exists():
+            raise FileNotFoundError(mcsa_cath_file)
+
+        
+        # Source 2: pdb to sifts mapping which maps CATH to pdb chain IDs and UniProt IDs, sifts also provides UniProt to EC mapping
+        pdb_sifts=files(__package__).joinpath('data', 'pdb_sifts.csv')
+        if not Path(pdb_sifts).exists():
+            raise FileNotFoundError(pdb_sifts)
+
+        
+        
+
                 
 
 def load_templates(template_dir=files(__package__).joinpath('jess_templates_20230210')) -> Iterator[Template]:
@@ -362,6 +382,9 @@ def load_templates(template_dir=files(__package__).joinpath('jess_templates_2023
 
 if __name__ == "__main__":
     # TODO this is here for debugging purposes - delete later
-    templates = list(load_templates())
-    print(len(templates))
+    # templates = list(load_templates())
+    # print(len(templates))
+    for template_res_num in [8, 7, 6, 5, 4, 3]:
+        templates = list(load_templates(files(__package__).joinpath('jess_templates_20230210', '{}_residues'.format(template_res_num))))
+        print(len(templates))
 
