@@ -33,6 +33,17 @@ def request_url(url, acceptable_stati, timeout=10, max_retries=10):
     else:
         print('Failed to get url', url, ' with status code: ', r.status_code)
 
+def convert_sets_to_lists(obj):
+    # This function recursively turns sets to lists inside nested dictionaries
+    if isinstance(obj, set):
+        return list(obj)
+    elif isinstance(obj, dict):
+        return {key: convert_sets_to_lists(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_sets_to_lists(item) for item in obj]
+    else:
+        return obj
+
 def fasta_batching(input_file, splits, out_path, out_name):
     with open(input_file, 'r') as f:
         data = f.read()

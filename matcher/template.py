@@ -3,9 +3,10 @@ from __future__ import annotations
 import glob
 import warnings
 import re
+import json
 from importlib.resources import files
 from pathlib import Path
-from typing import List, Tuple, Optional, Union, TextIO, Iterator
+from typing import List, Tuple, Set, Dict, Optional, Union, TextIO, Iterator, ClassVar
 from functools import cached_property
 from dataclasses import dataclass, field
 
@@ -18,7 +19,7 @@ __all__ = [
 ]
 
 def chunks(lst: List, n: int) -> Iterator[List]:
-    """`int`: Yield successive n-sized chunks from lst."""
+    """Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
 
@@ -37,14 +38,14 @@ def get_template_files(directory_path, extension='.pdb'):
 
 @dataclass
 class Vec3:
-    '''`int`: Class for storing 3D vectors in XYZ'''
+    '''Class for storing 3D vectors in XYZ'''
     x: float
     y: float
     z: float
 
 @dataclass
 class Residue:
-    """`int`: Class for storing Residues (defined as 3 atoms) belonging to a Template and associated residue level information"""
+    """Class for storing Residues (defined as 3 atoms) belonging to a Template and associated residue level information"""
     atoms: Tuple[Atom, Atom, Atom]
 
     def __post_init__(self) -> None:
@@ -52,7 +53,7 @@ class Residue:
             raise ValueError("Cannot create a residue with no atoms")
 
     @classmethod
-    def get_vec_template(atoms: Tuple[Atom, Atom, Atom]) -> Vec3:
+    def get_vec_template(cls, atoms: Tuple[Atom, Atom, Atom]) -> Vec3:
         # dictionary in which the vectors from start to finish are defined for each aminoacid type
         # the orientation vector is calculated differently for different aminoacid types
         vector_atom_type_dict = {'GLY': ('C','O'),
@@ -103,13 +104,13 @@ class Residue:
 
     @property
     def aa_type(self) -> str:
-        """`int`: Get the amino-acid type as three letter code from the first atom
+        """`str`: Get the amino-acid type as three letter code from the first atom
         """
         return self.atoms[0].aa_type
 
     @property
     def allowed_residues(self) -> str:
-        """`int`: Get the allowed residue types as string of single letter codes from the first atom
+        """`str`: Get the allowed residue types as string of single letter codes from the first atom
         """
         return self.atoms[0].allowed_residues
 
@@ -129,7 +130,7 @@ class Residue:
     def pdb_residue(self) -> int:
         """`int`: Get the pdb residue number from the first atom
         """
-        return self.atoms[0].pdb_residue
+        return int(self.atoms[0].pdb_residue)
 
     @property
     def chain(self) -> str:
@@ -138,14 +139,14 @@ class Residue:
         return self.atoms[0].chain
 
     @property
-    def orientation_vector(self, atoms) -> Vec3:
+    def orientation_vector(self) -> Vec3:
         """`int`: Calculate the residue orientation vector according to the residue type
         """
-        return self.get_vec_template(atoms)
+        return self.get_vec_template(self.atoms)
 
 @dataclass
 class Atom:
-    '''`int`:Class for storing Atom information from a Template file'''
+    '''Class for storing Atom information from a Template file'''
     x: float
     y: float
     z: float
@@ -178,25 +179,25 @@ class Atom:
 
 @dataclass
 class Template:
-    """`int`: Class for storing Templates and associated information"""
+    """Class for storing Templates and associated information"""
     residues: List[Residue]
-    pdb_id: str = field(default=None)
-    mcsa_id: int = field(default=None)
-    cluster: str = field(default=None)
-    uniprot_id: str = field(default=None)
-    organism: str = field(default=None)
+    pdb_id: str
+    mcsa_id: int
+    cluster: str
+    uniprot_id: Optional[str] = field(default=None)
+    organism: Optional[str] = field(default=None)
     organism_id: Optional[int] = field(default=None)
-    resolution: float = field(default=None)
-    experimental_method: str = field(default=None)
-    ec: str = field(default=None)
-    cath: str = field(default=None)
-    interpro: List[str] = field(default=None)
+    resolution: Optional[float] = field(default=None)
+    experimental_method: Optional[str] = field(default=None)
+    ec: Optional[Set[str]] = field(default=None)
+
+    _CATH_MAPPING: ClassVar[Dict[str, List[str]]]
+    _EC_MAPPING: ClassVar[Dict[str, List[str]]]
+    _PDB_SIFTS: ClassVar[Dict[str, Dict[str, List[str]]]]
 
     @classmethod
-    # TODO am I using self and cls correctly??
-    # TODO should I use the parse functions like this - like static methods inside the class?
     def load(cls, file: TextIO, warn: bool = True) -> Template:
-        """`int`: Function to parse a template and its associated info into a Template object from TextIO
+        """Function to parse a template and its associated info into a Template object from TextIO
         """
         atom_lines = []
         residues = []
@@ -219,7 +220,7 @@ class Template:
             if tokens[0] == 'REMARK':
                 parser = _PARSERS.get(tokens[1])
                 if parser is not None:
-                    parser(tokens, metadata, warn=warn) # TODO parser functions do not need self as input since they fill metadata?
+                    parser(tokens, metadata, warn=warn)
             elif tokens[0] == 'ATOM':
                 atom_lines.append(line)
             else:
@@ -232,6 +233,21 @@ class Template:
             if len(unique_residues) != 1:
                 raise ValueError('Multiple residues found in atom lines')
             residues.append(Residue(atoms))
+
+        # also include EC annotations from the M-CSA mapping
+        metadata['ec'].add(cls._EC_MAPPING[str(metadata['mcsa_id'])])
+
+        # Since Templates may contain residues from multiple chains
+        pdbchains = set()
+        for res in residues:
+            pdbchains.add(str(metadata['pdb_id'] + res.chain))
+
+        # Iterating of all pdbchains which were part of the Template
+        for pdbchain in pdbchains:
+            # also include EC annotations from PDB-SIFTS
+            subdict = cls._PDB_SIFTS.get(pdbchain, None)
+            if subdict: # TODO this is an ugly workaround: Technically this is a bug either with missing annotations in SIFTS or due to wierd chain name conventions in .cif files
+                metadata['ec'].update(subdict.get('ec').copy())
 
         return Template(
             residues = residues,
@@ -262,33 +278,41 @@ class Template:
         # again a reason to only count unique residues
 
         effective_size = 0
-        for residue in residues:
+        for residue in self.residues:
             if residue.specificity < 100 and residue.backbone == False: # type specific and not Backbone
                 effective_size += 1
         return effective_size
 
     @cached_property
     def multimeric(self) -> bool: # if the template is split across multiple protein chains
-        """`int`: Boolean if the template residues stem from multiple protein chains
+        """`bool`: Boolean if the template residues stem from multiple protein chains
         """
-        return all(res.chain == residues[0].chain for res in residues)
+        return all(res.chain == self.residues[0].chain for res in self.residues)
 
     @cached_property
     def relative_order(self) -> List[int]: # list with length of deduplicated true_size
-        """`int`: Relative order of residues in the Template sorted by the pdb residue number. This only works for non-multimeric Templates
+        """`list` of `int`: Relative order of residues in the Template sorted by the pdb residue number. This only works for non-multimeric Templates
         """
-        if self.multimeric():
-            return None
+        if self.multimeric:
+            return [0]
         else:
             # Now extract relative template order
-            pdb_residue_list = [res.pdb_residue for res in residues]
+            pdb_residue_list = [res.pdb_residue for res in self.residues]
             deduplicated_residue_list = list(dict.fromkeys(pdb_residue_list)) # remove duplicates while preserving order
             sorted_residues = sorted(deduplicated_residue_list)
             return [sorted_residues.index(i) for i in deduplicated_residue_list] # determine the relative order of residues
     
+    @property
+    def cath(self) -> List[str]:
+        """`list` of `str`: List of CATH Ids associated with that Template"""
+        return self._CATH_MAPPING[str(self.mcsa_id)].copy()
+
     @classmethod
     def _parse_pdb_id(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
-        metadata['pdb_id'] = tokens[2]
+        if not tokens[2]:
+            raise ValueError(f'Did not find a PDB ID, found {tokens[2]}')
+        else:
+            metadata['pdb_id'] = tokens[2]
 
     @classmethod
     def _parse_uniprot_id(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
@@ -303,13 +327,15 @@ class Template:
     def _parse_mcsa_id(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
         try:
             metadata['mcsa_id'] = int(tokens[2])
-        except ValueError:
-            if warn:
-                warnings.warn(f'Did not find a M-CSA ID, found {tokens[2]}')
+        except ValueError as exc:
+                raise ValueError(f'Did not find a M-CSA ID, found {tokens[2]}') # from exc
 
     @classmethod
     def _parse_cluster(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
-        metadata['cluster'] = tokens[2]
+        if not tokens[2]:
+            raise ValueError(f'Did not find a Cluster ID, found {tokens[2]}')
+        else:
+            metadata['cluster'] = tokens[2]
 
     @classmethod
     def _parse_organism_name(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
@@ -337,33 +363,33 @@ class Template:
 
     @classmethod
     def _parse_ec(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
-        match = re.search(r'\d{1,2}(\.(\-|\d{1,2})){3}', tokens[2])
-        if match:
-            metadata['ec'] = match.group()
+        metadata['ec'] = set()
+        matches = [match.group() for match in re.finditer(r'\d{1,2}(\.(\-|\d{1,2})){3}', tokens[2])]
+        non_cat_matches = [match.group() for match in re.finditer(r'\d{1,2}(\.(\-|\d{1,2}|n\d{1,2})){3}', tokens[2])] 
+        if matches:
+            metadata['ec'].update(matches)
+        elif non_cat_matches:
+            metadata['ec'].update(non_cat_matches)
+            if warn:
+                warnings.warn(f'Rare EC number {non_cat_matches} presumed to be noncatalytic detected!')
         else:
             if warn:
                 warnings.warn(f'Did not find a valid EC number, found {tokens[2]}')
 
-    @cached_property
-    def _load_cath(self, warn: bool = True) -> str:
-        # There are two sources:
-        # Source 1: M-CSA which provides cath annotations for either residue homologs or for m-csa entries
-        mcsa_cath_file=files(__package__).joinpath('data', 'MCSA_CATH_mapping.json')
-        if not Path(mcsa_cath_file).exists():
-            raise FileNotFoundError(mcsa_cath_file)
+# Populate the mapping of MCSA IDs to CATH numbers so that it can be accessed
+# by individual templates in the `Template.cath` property.
+# Source: M-CSA which provides cath annotations for either residue homologs or for m-csa entries
+with files(__package__).joinpath('data', 'MCSA_CATH_mapping.json').open() as f:
+    Template._CATH_MAPPING = json.load(f)
 
-        
-        # Source 2: pdb to sifts mapping which maps CATH to pdb chain IDs and UniProt IDs, sifts also provides UniProt to EC mapping
-        pdb_sifts=files(__package__).joinpath('data', 'pdb_sifts.csv')
-        if not Path(pdb_sifts).exists():
-            raise FileNotFoundError(pdb_sifts)
+with files(__package__).joinpath('data', 'MCSA_EC_mapping.json').open() as f:
+    Template._EC_MAPPING = json.load(f)
 
-        
-        
+# Source: CATH, EC and InterPro from PDB-SIFTS through mapping to the pdbchain
+with files(__package__).joinpath('data', 'pdb_sifts.json').open() as f:
+    Template._PDB_SIFTS = json.load(f)
 
-                
-
-def load_templates(template_dir=files(__package__).joinpath('jess_templates_20230210')) -> Iterator[Template]:
+def load_templates(template_dir=files(__package__).joinpath('jess_templates_20230210')) -> Iterator[Tuple[Template, Path]]:
     """Load templates from a given directory, recursively.
     """
     if not Path(template_dir).exists():
@@ -375,10 +401,41 @@ def load_templates(template_dir=files(__package__).joinpath('jess_templates_2023
     for template_file in template_files:
         with template_file.open() as f:
             try:
-                # maybe we want to yield the filepath to the template too? like as a tuple or something??
-                yield Template.load(file=f)
+                # Yield the Template and its filepath as a tuple
+                yield (Template.load(file=f), template_file)
             except ValueError as exc:
-                raise ValueError(f"Failed to parse {template_file!r}") # from exc
+                raise ValueError(f"Failed to parse {template_file}!") # from exc
+
+
+def check_template(Template_tuple: Tuple[Template, Path], warn: bool = True):
+    if warn:
+        Template, filepath = Template_tuple
+
+        # Raise warnings if some properties could not be annotated!
+        if not Template.ec:
+            warnings.warn(f'Even after annotating with M-CSA and PDB-SIFTS mapping, unable to find EC number for the template file {filepath}')
+
+        # if not Template.cath:
+        #     warnings.warn(f'Could not find CATH annotations for the following template file {filepath}')
+
+        # check overlap between sifts mapping and CATH, EC annotations
+        # Source: pdb to sifts mapping which maps CATH to pdb chain IDs and UniProt IDs, sifts also provides UniProt to EC mapping
+        # Since Templates may contain residues from multiple chains
+        pdbchains = set()
+        for res in Template.residues:
+            pdbchains.add(Template.pdb_id + res.chain)
+
+        # Iterating of all pdbchains which were part of the Template
+        for pdbchain in pdbchains:
+            # also include EC annotations from PDB-SIFTS
+            subdict = Template._PDB_SIFTS.get(pdbchain, None)
+            if subdict: # TODO this is an ugly workaround: Technically this is a bug either with missing annotations in SIFTS or due to wierd chain name conventions in .cif files
+                # if Template.cath and subdict['cath']:
+                #     if not set(Template.cath) & set(subdict['cath']):
+                #         warnings.warn(f'Did not find an intersection of CATH domains as annotated by the M-CSA ID {Template.mcsa_id} with {Template.cath} versus PDF-SIFTS {Template._PDB_SIFTS[pdbchain]['cath']} for Template {filepath} from pdb {Template.pdb_id}')
+
+                if Template.uniprot_id != subdict['uniprot_id']:
+                    warnings.warn(f'Different UniProt Accessions {Template.uniprot_id} and {Template._PDB_SIFTS[pdbchain]['uniprot_id']} found in Template {filepath} from pdbid {Template.pdb_id}')
 
 if __name__ == "__main__":
     # TODO this is here for debugging purposes - delete later
@@ -387,4 +444,6 @@ if __name__ == "__main__":
     for template_res_num in [8, 7, 6, 5, 4, 3]:
         templates = list(load_templates(files(__package__).joinpath('jess_templates_20230210', '{}_residues'.format(template_res_num))))
         print(len(templates))
+        for template in templates:
+            check_template(template)
 

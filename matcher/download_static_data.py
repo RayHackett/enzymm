@@ -5,7 +5,7 @@ import urllib.request
 import gzip
 import shutil
 
-from common_functions import request_url
+from common_functions import request_url, convert_sets_to_lists
 
 def check_other_files():
     Path('./data').mkdir(parents=True, exist_ok=True)
@@ -67,7 +67,7 @@ def check_other_files():
         urllib.request.urlretrieve('ftp://orengoftp.biochem.ucl.ac.uk/alphafold/cath-v4.3.0-model-organisms/cath-v4_3_0.alphafold-v2.2022-11-22.tsv', './data/cath-v4_3_0.alphafold-v2.2022-11-22.tsv')
 
 def make_pdb_sifts_df():
-    if not Path('./data/pdb_sifts.csv').is_file():
+    if not Path('./data/pdb_sifts.json').is_file():
         check_other_files()
 
         PDBchain_to_CATH_Uniprot = Path('./data/pdb_chain_cath_uniprot.csv')
@@ -76,24 +76,42 @@ def make_pdb_sifts_df():
         CATH_names_mapping = Path('./data/cath-domain-list.txt')
 
         # load them all as df
-        pdb_cath_uniprot_df = pd.read_csv(PDBchain_to_CATH_Uniprot, comment='#', names=['PDB', 'CHAIN', 'UNIPROT_ID', 'CATH_ID'])
-        pdb_enzyme_uniprot_df = pd.read_csv(PDBchain_to_EC_Uniprot, comment='#', names=['PDB', 'CHAIN', 'UNIPROT_ID', 'EC_NUMBER'])
-        pdb_interpro_uniprot_df = pd.read_csv(PDBchain_to_InterPro, comment='#', names=['PDB', 'CHAIN', 'UNIPROT_ID', 'INTERPRO']) # TODO
-        cath_naming_df = pd.read_csv(CATH_names_mapping, comment='#', sep=r'\s+', header=None, dtype=str)
+        pdb_cath_uniprot_df = pd.read_csv(PDBchain_to_CATH_Uniprot, comment='#', dtype=str, na_filter=False)
+        pdb_enzyme_uniprot_df = pd.read_csv(PDBchain_to_EC_Uniprot, comment='#', dtype=str, na_filter=False)
+        pdb_interpro_uniprot_df = pd.read_csv(PDBchain_to_InterPro, comment='#', dtype=str, na_filter=False)
+        cath_naming_df = pd.read_csv(CATH_names_mapping, comment='#', sep=r'\s+', header=None, dtype=str, na_filter=False)
 
         # join the right columns to form the CATH NUMBER
         cath_naming_df['CATH_NUMBER'] = cath_naming_df[1] + '.' + cath_naming_df[2] + '.' + cath_naming_df[3] + '.' + cath_naming_df[4]
         # rename a column
         cath_naming_df.rename(columns = {0:'CATH_ID'}, inplace=True)
+        pdb_cath_uniprot_df = pdb_cath_uniprot_df.merge(cath_naming_df[['CATH_ID', 'CATH_NUMBER']], on='CATH_ID') # add in the CATH number by CATH_ID
+
+        pdb_enzyme_uniprot_df["PDBCHAIN"] = pdb_enzyme_uniprot_df["PDB"] + pdb_enzyme_uniprot_df["CHAIN"]
+        pdb_cath_uniprot_df["PDBCHAIN"] = pdb_cath_uniprot_df["PDB"] + pdb_cath_uniprot_df["CHAIN"]
+        pdb_interpro_uniprot_df["PDBCHAIN"] = pdb_interpro_uniprot_df["PDB"] + pdb_interpro_uniprot_df["CHAIN"]
+
+        sifts_dict = {}
+        for row in pdb_enzyme_uniprot_df.itertuples():
+            if row.PDBCHAIN not in sifts_dict:
+                sifts_dict[row.PDBCHAIN] = {'uniprot_id': row.ACCESSION, 'cath': set(), 'ec': set(), 'interpro': set()}
+            sifts_dict[row.PDBCHAIN]['ec'].add(row.EC_NUMBER)
+        for row in pdb_cath_uniprot_df.itertuples():
+            if row.PDBCHAIN not in sifts_dict:
+                sifts_dict[row.PDBCHAIN] = {'uniprot_id': row.SP_PRIMARY, 'cath': set(), 'ec': set(), 'interpro': set()}
+            sifts_dict[row.PDBCHAIN]['cath'].add(row.CATH_NUMBER)
+        for row in pdb_interpro_uniprot_df.itertuples():
+            if row.PDBCHAIN not in sifts_dict:
+                sifts_dict[row.PDBCHAIN] = {'uniprot_id': None, 'cath': set(), 'ec': set(), 'interpro': set()}
+            sifts_dict[row.PDBCHAIN]['interpro'].add(row.INTERPRO_ID)
+
+        # turn sets to lists to make it json serializable
+        sifts_dict = convert_sets_to_lists(sifts_dict)
 
         # merge the dataframes
-        temp = pd.merge(pdb_cath_uniprot_df, pdb_enzyme_uniprot_df, how="outer", on=None) # outer merge
-        temp = pd.merge(temp, pdb_interpro_uniprot_df, how="outer", on=None) # outer merge
-        pdb_sifts_df = temp.merge(cath_naming_df[['CATH_ID', 'CATH_NUMBER']], on='CATH_ID') # add in the CATH number by CATH_ID
-        pdb_sifts_df['PDBchain'] = pdb_sifts_df['PDB']+pdb_sifts_df['CHAIN'] # add a column for PDBchain by joining
-
         Path('./data').mkdir(parents=True, exist_ok=True)
-        pdb_sifts_df.to_csv(Path('./data/pdb_sifts.csv'), index=False)
+        with open(Path('./data/pdb_sifts.json'), 'w') as f:
+            json.dump(sifts_dict, f, indent=4, sort_keys=True)
 
 def get_mcsa_ec():
     # m-csa entry map to EC number
@@ -116,11 +134,11 @@ def get_mcsa_ec():
 
             Path('./data').mkdir(parents=True, exist_ok=True)
             with open(Path('./data/MCSA_EC_mapping.json'), 'w') as f:
-                json.dump(ec_dict, f)
+                json.dump(ec_dict, f, indent=4, sort_keys=True)
 
 def get_mcsa_cath():
     # m-csa entry map to CATH id
-    # entry have have multiple CATH ids
+    # entry have multiple CATH ids
     if not Path('./data/MCSA_CATH_mapping.json').is_file():
         mcsa_cath = {}
         for page in range(1,12):
@@ -141,12 +159,11 @@ def get_mcsa_cath():
             
             Path('./data').mkdir(parents=True, exist_ok=True)
             with open(Path('./data/MCSA_CATH_mapping.json'), 'w') as f:
-                json.dump(mcsa_cath, f)
+                json.dump(mcsa_cath, f, indent=4, sort_keys=True)
 
 def download_static_data():
     get_mcsa_ec()
     get_mcsa_cath()
-    #get_mcsa_interpro()
     check_other_files()
     make_pdb_sifts_df()
     
