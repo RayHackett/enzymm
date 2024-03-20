@@ -53,7 +53,7 @@ class Residue:
             raise ValueError("Cannot create a residue with no atoms")
 
     @classmethod
-    def get_vec_template(cls, atoms: Tuple[Atom, Atom, Atom]) -> Vec3:
+    def calc_residue_orientation(cls, atoms: Tuple[Atom, Atom, Atom]) -> Vec3:
         # dictionary in which the vectors from start to finish are defined for each aminoacid type
         # the orientation vector is calculated differently for different aminoacid types
         vector_atom_type_dict = {'GLY': ('C','O'),
@@ -142,7 +142,7 @@ class Residue:
     def orientation_vector(self) -> Vec3:
         """`int`: Calculate the residue orientation vector according to the residue type
         """
-        return self.get_vec_template(self.atoms)
+        return self.calc_residue_orientation(self.atoms)
 
 @dataclass
 class Atom:
@@ -385,6 +385,12 @@ with files(__package__).joinpath('data', 'MCSA_CATH_mapping.json').open() as f:
 with files(__package__).joinpath('data', 'MCSA_EC_mapping.json').open() as f:
     Template._EC_MAPPING = json.load(f)
 
+# global MCSA_interpro_dict
+# # dictonariy mapping M-CSA entries to Interpro Identifiers
+# # Interpro Acceccesions at the Domain, Family and Superfamily level
+# # are searched for the reference sequences of each M-CSA entry.
+# # Note that an M-CSA entry may have multiple reference sequences
+
 # Source: CATH, EC and InterPro from PDB-SIFTS through mapping to the pdbchain
 with files(__package__).joinpath('data', 'pdb_sifts.json').open() as f:
     Template._PDB_SIFTS = json.load(f)
@@ -413,7 +419,7 @@ def check_template(Template_tuple: Tuple[Template, Path], warn: bool = True):
 
         # Raise warnings if some properties could not be annotated!
         if not Template.ec:
-            warnings.warn(f'Even after annotating with M-CSA and PDB-SIFTS mapping, unable to find EC number for the template file {filepath}')
+            warnings.warn(f'Could not find EC number annotations for the template file {filepath}')
 
         # if not Template.cath:
         #     warnings.warn(f'Could not find CATH annotations for the following template file {filepath}')
@@ -443,7 +449,6 @@ if __name__ == "__main__":
     # print(len(templates))
     for template_res_num in [8, 7, 6, 5, 4, 3]:
         templates = list(load_templates(files(__package__).joinpath('jess_templates_20230210', '{}_residues'.format(template_res_num))))
-        print(len(templates))
         for template in templates:
             check_template(template)
 

@@ -27,7 +27,7 @@ def filter_hits(hits: List[pyjess.Hit], all_instances=False) -> List[pyjess.Hit]
 def _get_highest_scored_hit(hits: List[pyjess.Hit]) -> pyjess.Hit:
     # takes a list of matches and returns the match with the best (aka lowest) e-value score
     if not hits:
-        raise ValueError('Did not recieve any hits')
+        raise ValueError('Did not recieve any unique hits')
     best_hit = min(hits, key=attrgetter('log_evalue'))
     return best_hit
 
@@ -37,10 +37,11 @@ def _best_match(hits: List[pyjess.Hit], all_instances=False) -> List[pyjess.Hit]
     # takes a list of matches, filters out self-matches and returns the best match or matches
     unique_hits = []
     for hit in hits:
+        # TODO implement check for D-value == 1, otherwise continue
         # This is to discard self matches when cross-comparing templates
         if hit.template == hit.target: # change this accoridng to above comments
             continue # skips over the appending bit below
-        unique_hits.append(best_hit)
+        unique_hits.append(hit)
     if all_instances:  
         # do not filter by highest score
         return unique_hits # ! This is a list of hit objects
