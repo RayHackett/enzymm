@@ -4,9 +4,16 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from pathlib import Path
+from typing import List, Iterator
 import time
 
-def request_url(url, acceptable_stati, timeout=10, max_retries=10):
+def ranked_argsort(lst: List[int]) -> List[int]:
+    """ Return a list of the same order in which the elements values correspond to their ranked values"""
+    unique_values = sorted(set(lst))
+    ranks = {v: i+1 for i, v in enumerate(unique_values)}
+    return [ranks[i] for i in lst]
+
+def request_url(url: str, acceptable_stati: List[int], timeout: int =10, max_retries: int =10):
     # TODO figure out maxretries
 
     session = requests.Session()
@@ -106,7 +113,7 @@ def json_extract(obj, key):
     values = extract(obj, arr, key)
     return values
 
-def chunks(lst, n):
+def chunks(lst: List, n: int) -> Iterator[List]:
     """Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
         yield lst[i:i + n]

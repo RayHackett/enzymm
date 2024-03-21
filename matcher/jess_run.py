@@ -30,14 +30,15 @@ import re
 import argparse
 import json
 from pathlib import Path
-
 from typing import Optional, Union, TextIO, Iterator
 from functools import cached_property
 from dataclasses import dataclass, field
 
 import pyjess # cython port of Jess to python package
+
 from .jess.filter_hits import filter_hits
 from .template import Template, load_templates
+from .common_files import chunks, ranked_argsort
 
 d = Path(__file__).resolve().parent
 
@@ -62,8 +63,8 @@ def jess_call(molecule: TextIO, templates: List[Template], rmsd: float, distance
         return best_hits
 
 @dataclass
-def Match:
-    """"`int`: Class for storing annotated Jess hits"""
+class Match:
+    """"Class for storing annotated Jess hits"""
     template
     query
     ** inherit properties from Hit
@@ -81,25 +82,100 @@ def Match:
     # Hit.rmsd
     # Hit.log-evalue
 
+    @cached_property
+    def multimeric(self) -> bool:
+        """`bool`: Boolean if the atoms in the hit stem from multiple protein chains
+        """
+        return all(atom.chain == self.atoms[0].chain for atom in self.atoms)
 
-    # ## Furthermore we need:
-    # # Hit.Result # the coordinate info
-    # # Hit.Result.Residues # with all info on residue numbers and residue chain ids and atom types, ideally this should conserve order!!!
-    # # Calculate:
-    # # Hit.relative_order
+    @cached_property
+    def preserved_resid_order(self) -> bool:
+        """`bool`: Boolean if the residues in the template and in the matched query structure have the same relative order.
+        This is a good filtering parameter but excludes hits on examples of convergent evolution or circular permutations
+        """
+        if self.multimeric:
+            return False
+        else:
+            # Now extract relative atom order in hit
+            return ranked_argsort([atom.residue_number for atom in self.atoms]) == Template.relative_order
 
-    # # Check if residue order is the same in template and the query match: Template.relative_order and Hit.relative_order
-    # # this is a good filtering parameter but excludes hits on examples of convergent evolution or circular permutations
-    # Preserved_resid_order = False
-    # if Hit.relative_order == Template.relative_order:
-    #     Preserved_resid_order = True
+    @classmethod
+    def calc_residue_orientation(cls, atoms: Tuple[pyjess.Atom, pyjess.Atom, pyjess.Atom]) -> Template.Vec3:
+        # dictionary in which the vectors from start to finish are defined for each aminoacid type
+        # the orientation vector is calculated differently for different aminoacid types
+        vector_atom_type_dict = {'GLY': ('C','O'),
+                            'ALA': ('CA','CB'),
+                            'VAL': ('CA','CB'),
+                            'LEU': ('CA','CB'),
+                            'ILE': ('CA','CB'),
+                            'MET': ('CG','SD'),
+                            'PHE': ('CZ','mid'),
+                            'TYR': ('CZ','OH'),
+                            'TRP': ('CZ2','NE1'),
+                            'CYS': ('CB','SG'),
+                            'PRO': ('C','O'),
+                            'SER': ('CB','OG'),
+                            'THR': ('CB','OG1'),
+                            'ASN': ('CG','OD1'),
+                            'GLN': ('CD','OE1'),
+                            'LYS': ('CE','NZ'),
+                            'ARG': ('CZ','mid'),
+                            'HIS': ('CG','ND1'),
+                            'ASP': ('CG','mid'),
+                            'GLU': ('CD','mid'),
+                            'PTM': ('CA','CB'),
+                            'ANY': ('C','O')}
+
+        vectup = vector_atom_type_dict[atoms[0].residue_name]
+        # In residues with two identical atoms, the vector is calculated between the middle atom and the mid point between the identical pair
+        if vectup[1] == 'mid':
+            try:
+                middle = next(Atom for Atom in atoms if Atom.name == vectup[0])
+                side1, side2 = [atom for atom in atoms if atom != middle]
+                midpoint = [(side1.x + side2.x) / 2, (side1.y + side2.y) / 2, (side1.z + side2.z) / 2]
+                return Vec3(middle.x - midpoint[0], middle.y - midpoint[1], middle.z - midpoint[2])
+            except StopIteration:
+                raise ValueError(f"Failed to find middle atom for amino-acid {atoms[0].residue_name!r}") from None
+                
+        else: # from first atom to second atom
+            try:
+                first_atom = next(Atom for Atom in atoms if Atom.name == vectup[0])
+            except StopIteration:
+                raise ValueError(f'Failed to find first atom for amino-acid {atoms[0].residue_name!r}') from None
+            try:
+                second_atom = next(Atom for Atom in atoms if Atom.name == vectup[1])
+            except StopIteration:
+                raise ValueError(f'Failed to find second atom for amino-acid {atoms[0].residue_name!r}') from None
+                
+            return first_atom - second_atom
+
+    # # Hit.atoms is a list of matched atoms with all info on residue numbers and residue chain ids and atom types, ideally this should conserve order!!!
+    residues : List[Tuple[pyjess.Atom, pyjess.Atom, pyjess.Atom]] = []
+    for atom_triplet in chunks(Hit.atoms, 3): # yield chunks of 3 atoms each
+        # check if all three atoms belong to the same residue by adding a tuple of their residue defining properties to a set
+        unique_residues = { (atom.residue_name, atom.chain_id, atom.residue_number) for atom in atom_triplet }
+        if len(unique_residues) != 1:
+            raise ValueError('Mixed up atom triplets. The atoms come from different residues!')
+        residues.append(atom_triplet)
     
-    # # calculate the average angle between the vectors of corresponding matched residues
-    # angle_mean = calculate_residue_orientation(Template, Result)
-        
-    # # calculate
-    # Hit.avg_orientation
-    # Hit.preserved_residue_order
+    @classmethod
+    def angle_mean(temp_vec_list: List[Template.Vec3], match_vec_list: List[Template.Vec3]):
+
+        def angle_between(v1: Template.Vec3, v2: Template.Vec3): # from https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python
+            """ Returns the angle in radians between vectors 'v1' and 'v2':
+            """
+            v1_u = vector / np.linalg.norm(v1) # unit vector
+            v2_u = vector / np.linalg.norm(v2) # unit vector
+            return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+
+        # now calculate the angle between the vector of the template and the query per residue
+        angle_list = []
+        for i in range(len(temp_vec_list)):
+            angle_list.append(angle_between(match_vec_list[i], temp_vec_list[i]))
+
+        return np.mean(angle_list)
+
+    angle_mean = angle_mean([res.orientation_vector for res in Template.residues] , [calc_residue_orientation(atom_triplet) for atom_triplet in residues])
 
     # # Lookup
     # Hit.uniprot_id

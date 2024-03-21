@@ -6,9 +6,11 @@ import re
 import json
 from importlib.resources import files
 from pathlib import Path
-from typing import List, Tuple, Set, Dict, Optional, Union, TextIO, Iterator, ClassVar
+from typing import Sequence, List, Tuple, Set, Dict, Optional, Union, TextIO, Iterator, ClassVar
 from functools import cached_property
 from dataclasses import dataclass, field
+
+from .common_functions import chunks, ranked_argsort
 
 __all__ = [
     "Vec3",
@@ -18,17 +20,12 @@ __all__ = [
     "load_templates",
 ]
 
-def chunks(lst: List, n: int) -> Iterator[List]:
-    """Yield successive n-sized chunks from lst."""
-    for i in range(0, len(lst), n):
-        yield lst[i:i + n]
-
 # Find all template files which end in .pdb
-def get_template_files(directory_path, extension='.pdb'):
+def get_template_paths(directory_path, extension='.pdb'):
     pattern = f"{directory_path}/**/*{extension}"
-    file_names = glob.glob(pattern, recursive=True)
+    file_paths = glob.glob(pattern, recursive=True)
     files = []
-    for file in file_names:
+    for file in file_paths:
         files.append(Path(file))
 
     if files:
@@ -79,34 +76,34 @@ class Residue:
                             'PTM': ('CA','CB'),
                             'ANY': ('C','O')}
         
-        vectup = vector_atom_type_dict[atoms[0].aa_type]
+        vectup = vector_atom_type_dict[atoms[0].residue_name]
         # In residues with two identical atoms, the vector is calculated between the middle atom and the mid point between the identical pair
         if vectup[1] == 'mid':
             try:
-                middle = next(Atom for Atom in atoms if Atom.atom_name == vectup[0])
+                middle = next(Atom for Atom in atoms if Atom.name == vectup[0])
                 side1, side2 = [atom for atom in atoms if atom != middle]
                 midpoint = [(side1.x + side2.x) / 2, (side1.y + side2.y) / 2, (side1.z + side2.z) / 2]
                 return Vec3(middle.x - midpoint[0], middle.y - midpoint[1], middle.z - midpoint[2])
             except StopIteration:
-                raise ValueError(f"Failed to find middle atom for amino-acid {atoms[0].aa_type!r}") from None
+                raise ValueError(f"Failed to find middle atom for amino-acid {atoms[0].residue_name!r}") from None
 
         else: # from first atom to second atom
             try:
-                first_atom = next(Atom for Atom in atoms if Atom.atom_name == vectup[0])
+                first_atom = next(Atom for Atom in atoms if Atom.name == vectup[0])
             except StopIteration:
-                raise ValueError(f'Failed to find first atom for amino-acid {atoms[0].aa_type!r}') from None
+                raise ValueError(f'Failed to find first atom for amino-acid {atoms[0].residue_name!r}') from None
             try:
-                second_atom = next(Atom for Atom in atoms if Atom.atom_name == vectup[1])
+                second_atom = next(Atom for Atom in atoms if Atom.name == vectup[1])
             except StopIteration:
-                raise ValueError(f'Failed to find second atom for amino-acid {atoms[0].aa_type!r}') from None
+                raise ValueError(f'Failed to find second atom for amino-acid {atoms[0].residue_name!r}') from None
                 
             return first_atom - second_atom
 
     @property
-    def aa_type(self) -> str:
+    def residue_name(self) -> str:
         """`str`: Get the amino-acid type as three letter code from the first atom
         """
-        return self.atoms[0].aa_type
+        return self.atoms[0].residue_name
 
     @property
     def allowed_residues(self) -> str:
@@ -127,16 +124,16 @@ class Residue:
         return self.atoms[0].backbone
 
     @property
-    def pdb_residue(self) -> int:
+    def residue_number(self) -> int:
         """`int`: Get the pdb residue number from the first atom
         """
-        return int(self.atoms[0].pdb_residue)
+        return int(self.atoms[0].residue_number)
 
     @property
-    def chain(self) -> str:
-        """`int`: Get the pdb chain id from the first atom
+    def chain_id(self) -> str:
+        """`int`: Get the pdb chain_id id from the first atom
         """
-        return self.atoms[0].chain
+        return self.atoms[0].chain_id
 
     @property
     def orientation_vector(self) -> Vec3:
@@ -150,27 +147,27 @@ class Atom:
     x: float
     y: float
     z: float
-    atom_name: str
-    aa_type: str
+    name: str
+    residue_name: str
     allowed_residues: str
     specificity: int
     backbone: bool
-    pdb_residue: str
-    chain: str
+    residue_number: int
+    chain_id: str
 
     @classmethod
     def loads(cls, line: str) -> Atom:
         x = float(line[30:38])
         y = float(line[38:46])
         z = float(line[46:54])
-        atom_name = str(line[12:16].strip())
-        aa_type = str(line[17:20].strip())
+        name = str(line[12:16].strip())
+        residue_name = str(line[17:20].strip())
         allowed_residues = str(line[55:61].strip())
         specificity = int(line[8:11])
         backbone = line[17:20].strip() == 'ANY'
-        pdb_residue = int(line[22:26])
-        chain = str(line[20:22].strip())
-        return cls(x=x, y=y, z=z, atom_name=atom_name, aa_type=aa_type, allowed_residues=allowed_residues, specificity=specificity, backbone=backbone, pdb_residue=pdb_residue, chain=chain)
+        residue_number = int(line[22:26])
+        chain_id = str(line[20:22].strip())
+        return cls(x=x, y=y, z=z, name=name, residue_name=residue_name, allowed_residues=allowed_residues, specificity=specificity, backbone=backbone, residue_number=residue_number, chain_id=chain_id)
 
     def __sub__(self, other):
         if not isinstance(other, Atom):
@@ -190,6 +187,7 @@ class Template:
     resolution: Optional[float] = field(default=None)
     experimental_method: Optional[str] = field(default=None)
     ec: Optional[Set[str]] = field(default=None)
+    #raw_template: pyjess.Template
 
     _CATH_MAPPING: ClassVar[Dict[str, List[str]]]
     _EC_MAPPING: ClassVar[Dict[str, List[str]]]
@@ -201,7 +199,9 @@ class Template:
         """
         atom_lines = []
         residues = []
-        metadata = {}
+        metadata: dict[str, object] = {
+            "ec": set(),
+        }
 
         _PARSERS = {
             'PDB_ID': cls._parse_pdb_id,
@@ -227,31 +227,31 @@ class Template:
                 continue
 
         for atom_triplet in chunks(atom_lines, 3): # yield chunks of 3 atom lines each
-            atoms = tuple(Atom.loads(line) for line in atom_triplet)
+            atoms: Tuple[Atom, Atom, Atom] = tuple(Atom.loads(line) for line in atom_triplet)  # type: ignore
             # check if all three atoms belong to the same residue by adding a tuple of their residue defining properties to a set
-            unique_residues = { (atom.aa_type, atom.chain, atom.pdb_residue) for atom in atoms }
+            unique_residues = { (atom.residue_name, atom.chain_id, atom.residue_number) for atom in atoms }
             if len(unique_residues) != 1:
                 raise ValueError('Multiple residues found in atom lines')
             residues.append(Residue(atoms))
 
         # also include EC annotations from the M-CSA mapping
-        metadata['ec'].add(cls._EC_MAPPING[str(metadata['mcsa_id'])])
+        metadata['ec'].add(cls._EC_MAPPING[str(metadata['mcsa_id'])])  # type: ignore
 
         # Since Templates may contain residues from multiple chains
         pdbchains = set()
         for res in residues:
-            pdbchains.add(str(metadata['pdb_id'] + res.chain))
+            pdbchains.add("{}{}".format(metadata['pdb_id'], res.chain_id))
 
         # Iterating of all pdbchains which were part of the Template
         for pdbchain in pdbchains:
             # also include EC annotations from PDB-SIFTS
-            subdict = cls._PDB_SIFTS.get(pdbchain, None)
-            if subdict: # TODO this is an ugly workaround: Technically this is a bug either with missing annotations in SIFTS or due to wierd chain name conventions in .cif files
-                metadata['ec'].update(subdict.get('ec').copy())
+            subdict = cls._PDB_SIFTS.get(pdbchain)
+            if subdict is not None: # TODO this is an ugly workaround: Technically this is a bug either with missing annotations in SIFTS or due to wierd chain name conventions in .cif files
+                metadata['ec'].update(subdict.get('ec').copy())  # type: ignore
 
         return Template(
             residues = residues,
-            **metadata, # unpack everything we parsed into metadata
+            **metadata, # type: ignore # unpack everything we parsed into metadata
         )
 
     @property
@@ -287,7 +287,7 @@ class Template:
     def multimeric(self) -> bool: # if the template is split across multiple protein chains
         """`bool`: Boolean if the template residues stem from multiple protein chains
         """
-        return all(res.chain == self.residues[0].chain for res in self.residues)
+        return all(res.chain_id == self.residues[0].chain_id for res in self.residues)
 
     @cached_property
     def relative_order(self) -> List[int]: # list with length of deduplicated true_size
@@ -297,10 +297,7 @@ class Template:
             return [0]
         else:
             # Now extract relative template order
-            pdb_residue_list = [res.pdb_residue for res in self.residues]
-            deduplicated_residue_list = list(dict.fromkeys(pdb_residue_list)) # remove duplicates while preserving order
-            sorted_residues = sorted(deduplicated_residue_list)
-            return [sorted_residues.index(i) for i in deduplicated_residue_list] # determine the relative order of residues
+            return ranked_argsort([res.residue_number for res in self.residues])
     
     @property
     def cath(self) -> List[str]:
@@ -363,13 +360,12 @@ class Template:
 
     @classmethod
     def _parse_ec(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
-        metadata['ec'] = set()
         matches = [match.group() for match in re.finditer(r'\d{1,2}(\.(\-|\d{1,2})){3}', tokens[2])]
         non_cat_matches = [match.group() for match in re.finditer(r'\d{1,2}(\.(\-|\d{1,2}|n\d{1,2})){3}', tokens[2])] 
         if matches:
-            metadata['ec'].update(matches)
+            metadata['ec'].update(matches)  # type: ignore
         elif non_cat_matches:
-            metadata['ec'].update(non_cat_matches)
+            metadata['ec'].update(non_cat_matches)  # type: ignore
             if warn:
                 warnings.warn(f'Rare EC number {non_cat_matches} presumed to be noncatalytic detected!')
         else:
@@ -403,14 +399,14 @@ def load_templates(template_dir=files(__package__).joinpath('jess_templates_2023
     elif not Path(template_dir).is_dir():
         raise NotADirectoryError(template_dir)
 
-    template_files = get_template_files(template_dir)
-    for template_file in template_files:
-        with template_file.open() as f:
+    template_paths = get_template_paths(template_dir)
+    for template_path in template_paths:
+        with template_path.open() as f:
             try:
                 # Yield the Template and its filepath as a tuple
-                yield (Template.load(file=f), template_file)
+                yield (Template.load(file=f), template_path)
             except ValueError as exc:
-                raise ValueError(f"Failed to parse {template_file}!") # from exc
+                raise ValueError(f"Failed to parse {template_path}!") # from exc
 
 
 def check_template(Template_tuple: Tuple[Template, Path], warn: bool = True):
@@ -429,7 +425,7 @@ def check_template(Template_tuple: Tuple[Template, Path], warn: bool = True):
         # Since Templates may contain residues from multiple chains
         pdbchains = set()
         for res in Template.residues:
-            pdbchains.add(Template.pdb_id + res.chain)
+            pdbchains.add(Template.pdb_id + res.chain_id)
 
         # Iterating of all pdbchains which were part of the Template
         for pdbchain in pdbchains:
