@@ -14,7 +14,7 @@ def filter_hits(hits: List[pyjess.Hit], all_instances=False) -> List[pyjess.Hit]
     # For each sub-list find the best hit and append it to a list (of length equal to the number of sub-lists)
     # Group hit objects by the pair (hit.template, hit.target)
     def get_key(obj) -> Tuple[str, str]:
-        return obj.template, obj.target
+        return obj.template, obj.query
 
     grouped_hits = [list(g) for _, g in itertools.groupby(sorted(hits, key=get_key), get_key)]
 
@@ -41,7 +41,7 @@ def _best_match(hits: List[pyjess.Hit], all_instances=False) -> List[pyjess.Hit]
         if hit.determinant != 1.0:
             continue # skips the rest of the loop
         # This is to discard self matches when cross-comparing templates
-        if hit.template == hit.target: # change this accoridng to above comments
+        if hit.template == hit.query: # change this accoridng to above comments
             continue # skips the rest of the loop
         unique_hits.append(hit)
     if all_instances:  

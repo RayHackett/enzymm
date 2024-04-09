@@ -1,11 +1,11 @@
 from pathlib import Path
 import json
-import pandas as pd
+import pandas as pd # type: ignore
 import urllib.request
 import gzip
 import shutil
 
-from common_functions import request_url, convert_sets_to_lists
+from utils import request_url, convert_sets_to_lists
 
 def check_other_files():
     Path('./data').mkdir(parents=True, exist_ok=True)

@@ -10,7 +10,7 @@ from typing import Sequence, List, Tuple, Set, Dict, Optional, Union, TextIO, It
 from functools import cached_property
 from dataclasses import dataclass, field
 
-from .common_functions import chunks, ranked_argsort
+from .utils import chunks, ranked_argsort
 
 __all__ = [
     "Vec3",
@@ -391,6 +391,11 @@ with files(__package__).joinpath('data', 'MCSA_EC_mapping.json').open() as f:
 with files(__package__).joinpath('data', 'pdb_sifts.json').open() as f:
     Template._PDB_SIFTS = json.load(f)
 
+# # add a list of cofactors associated with each EC number from Neeras List
+# cofactors = set()
+# if Template_EC in cofactor_dict:
+#     cofactors.update(cofactor_dict[Template_EC])
+
 def load_templates(template_dir=files(__package__).joinpath('jess_templates_20230210')) -> Iterator[Tuple[Template, Path]]:
     """Load templates from a given directory, recursively.
     """
@@ -435,9 +440,9 @@ def check_template(Template_tuple: Tuple[Template, Path], warn: bool = True):
                 # if Template.cath and subdict['cath']:
                 #     if not set(Template.cath) & set(subdict['cath']):
                 #         warnings.warn(f'Did not find an intersection of CATH domains as annotated by the M-CSA ID {Template.mcsa_id} with {Template.cath} versus PDF-SIFTS {Template._PDB_SIFTS[pdbchain]['cath']} for Template {filepath} from pdb {Template.pdb_id}')
-
-                if Template.uniprot_id != subdict['uniprot_id']:
-                    warnings.warn(f'Different UniProt Accessions {Template.uniprot_id} and {Template._PDB_SIFTS[pdbchain]['uniprot_id']} found in Template {filepath} from pdbid {Template.pdb_id}')
+                sifts_uniprot = subdict['uniprot_id']
+                if Template.uniprot_id != sifts_uniprot:
+                    warnings.warn(f'Different UniProt Accessions {Template.uniprot_id} and {sifts_uniprot} found in Template {filepath} from pdbid {Template.pdb_id}')
 
 if __name__ == "__main__":
     # TODO this is here for debugging purposes - delete later
