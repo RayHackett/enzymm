@@ -171,7 +171,7 @@ class Atom:
 
     def __sub__(self, other):
         if not isinstance(other, Atom):
-            return NotImplemented #TODO is this a type error then?
+            raise TypeError(f'Expected an instance of "Atom" but got {type(other)}')
         return Vec3(self.x - other.x, self.y - other.y, self.z - other.z)
 
 @dataclass
@@ -325,7 +325,7 @@ class Template:
         try:
             metadata['mcsa_id'] = int(tokens[2])
         except ValueError as exc:
-                raise ValueError(f'Did not find a M-CSA ID, found {tokens[2]}') # from exc # TODO what does this as exc do?
+                raise ValueError(f'Did not find a M-CSA ID, found {tokens[2]}') # from exc # TODO what should i do with exc?
 
     @classmethod
     def _parse_cluster(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):

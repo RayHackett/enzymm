@@ -55,7 +55,7 @@ class TestAtom(unittest.TestCase):
         self.assertEqual(self.atom3.residue_number, 156)
         self.assertEqual(self.atom3.chain_id, 'A')
 
-        #self.assertEqual(self.atom1-self.atom2, template.Vec3(-0.308, 0.734, 0.967))
+        #self.assertEqual(self.atom1-self.atom2, template.Vec3(-0.308, 0.734, 0.967)) #TODO numerical error
 
 class TestTemplate(unittest.TestCase):
     def setUp(self):
@@ -64,20 +64,20 @@ class TestTemplate(unittest.TestCase):
     
     def test_attributes(self):
         self.assertEqual(self.template1.pdb_id, '1b74')
-        #self.assertEqual(self.template1.mcsa_id, 1)
+        self.assertEqual(self.template1.mcsa_id, 1)
         self.assertEqual(self.template1.cluster, '1_1_1')
         self.assertEqual(self.template1.uniprot_id, 'P56868')
         self.assertEqual(self.template1.organism, 'Aquifex pyrophilus')
         self.assertEqual(self.template1.organism_id, '2714')
         self.assertEqual(self.template1.resolution, 2.3)
         self.assertEqual(self.template1.experimental_method, 'X-ray diffraction')
-        self.assertEqual(self.template1.ec, '5.1.1.3')
+        self.assertEqual(self.template1.ec, ['5.1.1.3']) # could be more info added through sifts
         self.assertEqual(self.template1.size, 6)
         self.assertEqual(self.template1.true_size, 6)
         self.assertEqual(self.template1.multimeric, True)
         self.assertEqual(self.template1.relative_order, [0])
-        self.assertEqual(self.template1.cath, ['3.40.50.1860'])
-        self.assertEqual(len(self.template1.residues), 6) # kind of an integration test
+        self.assertEqual(self.template1.cath, ['3.40.50.1860']) # could be more info added through sifts
+        self.assertEqual(len(self.template1.residues), 6)
 
         # add test for non-multimeric template
 
