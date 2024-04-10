@@ -21,7 +21,7 @@ __all__ = [
 ]
 
 # Find all template files which end in .pdb
-def get_template_paths(directory_path, extension='.pdb'):
+def get_template_paths(directory_path: Path, extension: str ='.pdb') -> List[Path]:
     pattern = f"{directory_path}/**/*{extension}"
     file_paths = glob.glob(pattern, recursive=True)
     files = []
@@ -31,7 +31,7 @@ def get_template_paths(directory_path, extension='.pdb'):
     if files:
         return files
     else:
-        raise ValueError('No template files with the .pdb extension found in this directory')
+        raise ValueError(f'No template files with the {extension} extension found in the {directory_path.resolve()} directory')
 
 @dataclass
 class Vec3:
@@ -187,7 +187,7 @@ class Template:
     resolution: Optional[float] = field(default=None)
     experimental_method: Optional[str] = field(default=None)
     ec: Optional[Set[str]] = field(default=None)
-    #raw_template: pyjess.Template
+    #raw_template: pyjess.Template # TODO could be a place to keep the raw TextIO string too...
 
     _CATH_MAPPING: ClassVar[Dict[str, List[str]]]
     _EC_MAPPING: ClassVar[Dict[str, List[str]]]
@@ -309,7 +309,7 @@ class Template:
         if not tokens[2]:
             raise ValueError(f'Did not find a PDB ID, found {tokens[2]}')
         else:
-            metadata['pdb_id'] = tokens[2]
+            metadata['pdb_id'] = tokens[2].lower()
 
     @classmethod
     def _parse_uniprot_id(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
@@ -325,7 +325,7 @@ class Template:
         try:
             metadata['mcsa_id'] = int(tokens[2])
         except ValueError as exc:
-                raise ValueError(f'Did not find a M-CSA ID, found {tokens[2]}') # from exc
+                raise ValueError(f'Did not find a M-CSA ID, found {tokens[2]}') # from exc # TODO what does this as exc do?
 
     @classmethod
     def _parse_cluster(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
@@ -396,7 +396,7 @@ with files(__package__).joinpath('data', 'pdb_sifts.json').open() as f:
 # if Template_EC in cofactor_dict:
 #     cofactors.update(cofactor_dict[Template_EC])
 
-def load_templates(template_dir=files(__package__).joinpath('jess_templates_20230210')) -> Iterator[Tuple[Template, Path]]:
+def load_templates(template_dir=files(__package__).joinpath('jess_templates_20230210'), warn: bool = True) -> Iterator[Tuple[Template, Path]]:
     """Load templates from a given directory, recursively.
     """
     if not Path(template_dir).exists():
@@ -409,10 +409,9 @@ def load_templates(template_dir=files(__package__).joinpath('jess_templates_2023
         with template_path.open() as f:
             try:
                 # Yield the Template and its filepath as a tuple
-                yield (Template.load(file=f), template_path)
+                yield (Template.load(file=f, warn=warn), template_path)
             except ValueError as exc:
                 raise ValueError(f"Failed to parse {template_path}!") # from exc
-
 
 def check_template(Template_tuple: Tuple[Template, Path], warn: bool = True):
     if warn:
@@ -446,10 +445,10 @@ def check_template(Template_tuple: Tuple[Template, Path], warn: bool = True):
 
 if __name__ == "__main__":
     # TODO this is here for debugging purposes - delete later
-    # templates = list(load_templates())
-    # print(len(templates))
     for template_res_num in [8, 7, 6, 5, 4, 3]:
-        templates = list(load_templates(files(__package__).joinpath('jess_templates_20230210', '{}_residues'.format(template_res_num))))
-        for template in templates:
-            check_template(template)
+        templates = list(load_templates(files(__package__).joinpath('jess_templates_20230210', '{}_residues'.format(template_res_num)), warn=False))
+        print(f'current template size folder: {template_res_num}')
+        print(len(templates))
+        #for template in templates:
+        #    check_template(template)
 

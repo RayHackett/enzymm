@@ -1,10 +1,9 @@
-# common functions script
-
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
+import requests # type: ignore
+from requests.adapters import HTTPAdapter # type: ignore
+from urllib3.util.retry import Retry # type: ignore
 from pathlib import Path
-from typing import List, Iterator
+from typing import Dict, Set, List, Tuple, Iterable, Iterator, TypeVar, Union, Any
+from itertools import islice
 import time
 
 def ranked_argsort(lst: List[int]) -> List[int]:
@@ -40,24 +39,28 @@ def request_url(url: str, acceptable_stati: List[int], timeout: int =10, max_ret
     else:
         print('Failed to get url', url, ' with status code: ', r.status_code)
 
-def convert_sets_to_lists(obj):
-    # This function recursively turns sets to lists inside nested dictionaries
+K = TypeVar('K')  # Type variable for hashable dictionary keys
+V = TypeVar('V', Dict[K, 'V'], List['V'], Set['V'], Tuple['V', ...], str, int, float, bool)  # Add more types if needed
+def convert_sets_to_lists(obj: V) -> Union[Dict[K, V], List[V], Tuple[V, ...], str, int, float, bool]:  # Add more types if needed
+    """ This function turns sets and tuples to lists. It also operates recursively inside nested dictionaries or lists of lists to make them json serializable"""
     if isinstance(obj, set):
         return list(obj)
     elif isinstance(obj, dict):
         return {key: convert_sets_to_lists(value) for key, value in obj.items()}
     elif isinstance(obj, list):
         return [convert_sets_to_lists(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return [convert_sets_to_lists(item) for item in obj]
     else:
         return obj
 
-"""Extract nested values from a JSON tree."""
-def json_extract(obj, key):
-    """Recursively fetch values from nested JSON."""
-    arr = []
+X = TypeVar('X', str, int, float, bool)  # Add more types if needed
+def json_extract(obj: Any, key: X) -> List[X]:
+    """Recursively fetch values from nested dictionary"""
+    arr: List[X] = []
 
-    def extract(obj, arr, key):
-        """Recursively search for values of key in JSON tree."""
+    def extract(obj: Any, arr: List[X], key: X):
+        """Recursively search for values of key in nested dictionary or list tree"""
         if isinstance(obj, dict):
             for k, v in obj.items():
                 if k == key:
@@ -72,8 +75,9 @@ def json_extract(obj, key):
     values = extract(obj, arr, key)
     return values
 
-def chunks(lst: List, n: int) -> Iterator[List]:
-    """Yield successive n-sized chunks from lst."""
-    for i in range(0, len(lst), n):
-        yield lst[i:i + n]
-
+T = TypeVar('T')
+def chunks(iterable: Iterable[T], n: int) -> Iterator[List[T]]:
+    """Yield successive n-sized chunks from iterable."""
+    iterable = iter(iterable)
+    while chunk := list(islice(iterable, n)):
+        yield chunk

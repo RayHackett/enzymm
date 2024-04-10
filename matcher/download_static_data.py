@@ -11,7 +11,7 @@ def check_other_files():
     Path('./data').mkdir(parents=True, exist_ok=True)
 
     EC_cofactor_mapping = Path('./data/EClist_cofactors_forRH.csv')
-    AlphaFold_CATH = Path('./data/cath-v4_3_0.alphafold-v2.2022-11-22.tsv')
+    #AlphaFold_CATH = Path('./data/cath-v4_3_0.alphafold-v2.2022-11-22.tsv')
     PDBchain_to_CATH_Uniprot = Path('./data/pdb_chain_cath_uniprot.csv')
     PDBchain_to_EC_Uniprot = Path('./data/pdb_chain_enzyme.csv')
     PDBchain_to_InterPro = Path('./data/pdb_chain_interpro.csv')
@@ -62,9 +62,9 @@ def check_other_files():
         # Mapping CATH ids to CATH numbers and CATH domain names
         urllib.request.urlretrieve('ftp://orengoftp.biochem.ucl.ac.uk/cath/releases/latest-release/cath-classification-data/cath-domain-list.txt', './data/cath-domain-list.txt')
 
-    if not Path(AlphaFold_CATH).is_file():
-        # Mapping UniProt AFDB Proteins to CATH Domains
-        urllib.request.urlretrieve('ftp://orengoftp.biochem.ucl.ac.uk/alphafold/cath-v4.3.0-model-organisms/cath-v4_3_0.alphafold-v2.2022-11-22.tsv', './data/cath-v4_3_0.alphafold-v2.2022-11-22.tsv')
+    # if not Path(AlphaFold_CATH).is_file():
+    #     # Mapping UniProt AFDB Proteins to CATH Domains
+    #     urllib.request.urlretrieve('ftp://orengoftp.biochem.ucl.ac.uk/alphafold/cath-v4.3.0-model-organisms/cath-v4_3_0.alphafold-v2.2022-11-22.tsv', './data/cath-v4_3_0.alphafold-v2.2022-11-22.tsv')
 
 def make_pdb_sifts_df():
     if not Path('./data/pdb_sifts.json').is_file():

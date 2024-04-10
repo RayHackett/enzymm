@@ -1,0 +1,128 @@
+        ########################### Query name parsing #####################################################################
+        query_name_splitter = re.split(r'\-|_|\.', Path(molecule_path).stem) # split the name on - or _ or .
+        
+        Hit.uniprot_id = ''
+        for index, part in enumerate(query_name_splitter):
+            # Check if Query is a Uniprot Accession number
+            # see https://www.uniprot.org/help/accession_numbers
+            match = re.search('[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2}', part)
+            if match:
+                Hit.uniprot_id = match.group()
+                Uniprot_index = index
+        
+        Query_is_af = False
+        if Hit.uniprot_id and Uniprot_index != 0:
+            # if the query is from Alphafold it has the structure [af|AF][\-|_][Uniprot_id]_xxxxx
+            if query_name_splitter[Uniprot_index-1].upper() == 'AF': # if the bit before the Uniprot id is AF
+                    # CATH Alphafold domains have the structure af_Uniprotid_start_finish
+                    if len(query_name_splitter) == 4 and query_name_splitter[2].isdigit() and query_name_splitter[3].isdigit():
+                        Query_is_af = True
+        
+        # detecting pdb codes is currently a bit difficult as the 4 character ids dont have a particular pattern.
+        # I am pretty sure though that the first character is always 1-9. Zero is not used.
+        # In (the very far) future this will not work and entry ids should be called pdb_00001abc_xyz_v1-2.cif
+        # I assume then it is a pdb identifier with a chain ID
+        elif re.search('^[1-9][a-zA-Z0-9]{3}$', query_name_splitter[0]): # check if the first character is in 1-9
+            Hit.pdb_id = query_name_splitter[0]
+        else:
+            Hit.pdb_id = ''
+
+        # if template and match are derived from the same pdb structure, skip this match
+        if Query.pdb_id:
+            if Template.pdb_id.upper() == Query.pdb_id.upper():
+                continue # this skips this iteration and excludes the match
+            
+        ############################# Below Query Annoations relying on extral data sources ###################
+        
+        # # Lookup
+        # Hit.uniprot_id look up based on name or if pdb id then based on sifts
+        # Hit.pdb_id look up based on name
+        # Hit.ec if pdb then from sifts, otherwise from Uniprot
+        # Hit.cath if pdb then from sifts, otherwise from cath
+        # Hit.is_catalytic #TODO
+        # cofactors # TODO associated via query or template ec
+
+        if Query.pdb_chain:
+            #update via sifts
+
+        if Query.uniprot_id
+            Query_EC.update(get_ec(Uniprot_ID)) # get EC from Uniprot
+            
+        # caths associated which each alphafold structure are loaded into dataframe cath_df
+        all_query_caths = [] # this list will contain dicts with just one key value pair each
+        if Query_is_af:
+            query_df = cath_df.loc[cath_df['domain_ID'] == Query]
+            cath_id = query_df['sfam_id'].to_list() # get the cath id
+            residue_pos = query_df['domain_ID'].to_list() # this column contains start-end residue positions
+            for i in range(len(cath_id)):
+                all_query_caths.append({cath_id[i]: residue_pos[i].split('_')[2:]}) # value is list with [start, end]
+        elif Uniprot_ID:
+            query_df = cath_df.loc[cath_df['Uniprot_ID'] == Uniprot_ID]
+            cath_id = query_df['sfam_id'].to_list() # get the cath id
+            residue_pos = query_df['domain_ID'].to_list() # this column contains start-end residue positions
+            for i in range(len(cath_id)):
+                all_query_caths.append({cath_id[i]: residue_pos[i].split('_')[2:]}) # value is list with [start, end]
+        
+
+        """
+        # add a list of cofactors associated with each EC number
+        cofactors = set()
+        for i in Query_EC:
+            if i in cofactor_dict:
+                cofactors.update(cofactor_dict[i])
+        
+        # check if it is catalytic by looking for EC or GO annotations
+        is_catalytic = False
+        if Uniprot_ID
+            # Is it an enzyme or nonenzyme?
+            is_catalytic = catalytic_checker(Uniprot_ID) # check if the entry has the catalytic GO annotation
+        
+        # Interpro function has its own checker to correctly handle UniProt or PDB accessions.
+        if Query_is_PDBchain:
+            domains, fams, superfams = get_interpro(Query)
+        elif Uniprot_ID:
+            domains, fams, superfams = get_interpro(Uniprot_ID)
+        else:
+            domains = []
+            fams = []
+            superfams = []
+            
+        Query_InterPro = {'domains': domains, 'families': fams, 'superfamilies': superfams}
+        
+        # add annotation if there is an active site or binding site annotation in Uniprot
+        active_resids = []
+        binding_resids = []
+        if Uniprot_ID:
+            active_resids, binding_resids = annotate_sites_from_Uniprot(Uniprot_ID)
+            
+        """
+            
+        #####################################################################################################
+
+    ############# Loading Files with annotation data ######################
+    
+    # # I got this csv from Neera originally. Data is from 2020
+    # cofactor_df = pd.read_csv(Path(d, '../Downloads/EClist_cofactors_forRH.csv'))
+    # global cofactor_dict
+    # cofactor_dict = {}
+    # for index, row in cofactor_df.iterrows():
+    #     if row['EC'] not in cofactor_dict:
+    #         cofactor_dict[row['EC']] = []
+    #     cofactor_dict[row['EC']].append(row['Cof_ID'])
+    
+    # # load the tsv file from cath which maps cath domains to alphafold stuctures
+    # # requires pandas
+    # global cath_df
+    # # ftp ftp://orengoftp.biochem.ucl.ac.uk/
+    # # /alphafold/cath-v4.3.0-model-organisms/cath-v4_3_0.alphafold-v2.2022-11-22.tsv
+    # cath_df = pd.read_csv(Path(d, '../Downloads/cath-v4_3_0.alphafold-v2.2022-11-22.tsv'), sep='\t')
+    # domains = cath_df['domain_ID'].to_list()
+    # Uniprot_IDs = []
+    # for i in domains:
+    #     Uniprot_IDs.append(i.split('_')[1])
+    # cath_df['Uniprot_ID'] = Uniprot_IDs # add a column with just the Uniprot id
+    
+    # # This maps PDBchains to Uniprot IDs, CATHs and ECs
+    # global pdb_sifts_df
+    # pdb_sifts_df = pd.read_csv(Path(d, '../Downloads/pdb_sifts.csv'))
+    # # PDBchain column has PDB in lowercase!
