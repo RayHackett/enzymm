@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import List, Optional, Union, TextIO, Iterator
 from functools import cached_property
 from dataclasses import dataclass, field
+import tempfile
 import csv
 
 import pyjess # cython port of Jess to python package
@@ -18,9 +19,13 @@ __all__ = [
 @dataclass
 class Match:
     """"Class for storing annotated Jess hits"""
-    template
-    query # This is the target structure
-    # ** inherit properties from Hit
+    template: Template
+    hit: pyjess.Hit
+
+    # TODO add classmethod to map from hit.template.name to my templates...
+    # template should then be a part of Match
+
+    # This is the target structure
     ## make sure you have the following template attributes
     # Template.ec
     # Template.cath
@@ -36,6 +41,26 @@ class Match:
     # Hit.log-evalue
     # Hit.complete # initialize as false but change it later
     # maybe have the raw PDB output for use with pymol too
+
+    def dump(self, tsv_writer: writer):
+        tsv_writer.writerow([
+                            self.molecule,
+                            self.template.id,
+                            self.template.size,
+                            self.template.true_size,
+                            self.template.mcsa_id,
+                            self.template.uniprot_id,
+                            self.template.pdb_id,
+                            self.template.ec,
+                            self.template.cath,
+                            self.template.multimeric,
+                            self.multimeric,
+                            self.rmsd,
+                            self.log_evalue,
+                            self.orientation,
+                            self.preserved_order,
+                            self.completeness,
+                            self.matched_residues])
 
     @cached_property
     def multimeric(self) -> bool:
@@ -140,27 +165,96 @@ class Match:
     def orientation(self) -> float:
         return angle_mean([res.orientation_vector for res in Template.residues] , [calc_residue_orientation(atom_triplet) for atom_triplet in residues])
 
-def jess_call(molecule: pyjess.molecule, templates: List[Template], rmsd: float, distance_cutoff: float, max_dynamic_distance: float) -> List[pyjess.Hit]: #TODO this should be plddt cutoff not max dyn dist
-    # TODO how do I control the killswitch?
-    # TODO how does pyjess handle optional jess flags?
-    # TODO molecule is a Molecule() instance. See below. Is this implementation fine?
-    # TODO templates is a list of template objects and not path-strings - can pyjess handle that?
-    jess = Jess(templates) # Create a Jess instance and use it to query a molecule (a PDB structure) against the stored templates:
-    query = jess.query(molecule=molecule, rmsd_threshold=2.0, distance_cutoff=3.0, max_dynamic_distance=3.0)
+def jess_call(pyjess_molecule: pyjess.molecule, pyjess_templates: Iterable[pyjess.Template], rmsd: float, distance_cutoff: float, max_dynamic_distance: float, max_candidates: int) -> List[pyjess.Hit]:
+    # killswitch is controlled by max_candidates. Internal default is currently 10000
+    jess = Jess(pyjess_templates) # Create a Jess instance and use it to query a molecule (a PDB structure) against the stored templates:
+    query = jess.query(pyjess_molecule=molecule, rmsd_threshold=2.0, distance_cutoff=3.0, max_dynamic_distance=3.0, max_candidates=10000)
 
     if query: # if any hits were found
-        # retain only the hit with the lowest e-value for each query
-        best_hits = filter_hits(query)
+        return filter_hits(query) # retain only the hit with the lowest e-value for each query-template pair
 
-    return best_hits
+def _single_query_run(outdir: Path, molecule_path: Path, pyjess_templates: Iterable[pyjess.Template], rmsd: float, distance: float, max_dynamic_distance: float, conservation_cutoff: float, complete_search: bool):
+    # TODO should this function return anything?
+    molecule = Molecule(molecule_path, conservation_cutoff=conservation_cutoff) # This controls the B-factor column and removes anything smaller
+    all_hits = []
+    if complete_search == False: # if false, if hits for a structure were found with a large template, no not continue searching with smaller templates
+        if not all_hits:
+            best_hits = jess_call(pyjess_molecule=molecule, pyjess_templates=pyjess_templates, rmsd_threshold=rmsd, distance_cutoff=distance, max_dynamic_distance=max_dynamic_distance)
+            if best_hits:
+                for hit in best_hits:
+                    all_hits.extend(Matcher(hit))
+    else: # search with smaller templates too even if searches with larger templates returned hits
+        best_hist = jess_call(pyjess_molecule=molecule, pyjess_templates=pyjess_templates, rmsd_threshold=rmsd, distance_cutoff=distance, max_dynamic_distance=max_dynamic_distance)
+        if best_hits:
+            all_hits.extend(best_hits)
 
-def matcher_run(query_path: Path, rmsd: float, distance: float, max_dynamic_distance: float, score_cutoff: float, outdir: Path, complete_search: bool, warn: bool = True):
+    # TODO what kind of method is this? how to I add a required attribute to a class object afterwards?
+    def _check_completeness(all_hits):
+        # only after all templates of a certain size have been scanned could we compute the completeness tag
+        
+        # Group hit objects by the pair (hit.template.m-csa, first digit of hit.template.cluster)
+        def get_key(obj) -> Tuple[str, str]:
+            return obj.template.msca_id, Template.cluster.split('.')[0] # split on . and take the first digit which is the cluster number
 
+        grouped_hits = [list(g) for _, g in itertools.groupby(sorted(all_hits, key=get_key), get_key)]
+
+        for cluster_hits in grouped_hits:
+            # For each query check if all Templates assigned to the same cluster targeted that structure
+            #
+            # TODO report statistics on this: This percentage of queries had a complete active site as reported by the completeness tag
+            # Filter this by template clusters with >1 member of course or report seperately by the number of clustermembers
+            # or say like: This template cluster was always complete while this template cluster was only complete X times out of Y Queries matched to one member
+            #
+            # get the total number templates from the first hit in each cluster which is the third cluster digit
+            total_clustermembers = int(cluster_hits[0].Template.cluster.split('.')[2])
+            # check if all the cluster members with all 2nd digit identiers up to and including total_clustermembers are present in the group,
+            indexed_possible_cluster_members = list(range(total_clustermembers))
+            possible_cluster_members = [x+1 for x in indexed_possible_cluster_members]
+            
+            found_cluster_members = [int(hit.Template.cluster.split('.')[1]) for hit in cluster_hits] # second number is the current cluster member number
+
+            if found_cluster_members == possible_cluster_members:
+                for hit in cluster_hits:
+                    hit.complete = True
+
+    results_path = Path(outdir, "results/").mkdir(parents=True, exist_ok=True)
+    # TODO somehow we need to give unique filenames in case molecule_path.stem is not unique
+    with open(Path(results_path, f'{molecule_path.stem}_matches.tsv'), 'w', newline='', encoding ="utf-8") as tsvfile:
+        writer = csv.writer(tsvfile, delimiter='\t', lineterminator='\n')
+        writer.writerow([
+                        "query_id",
+                        "template_id",
+                        "template_size",
+                        "template_true_size",
+                        "template_mcsa_id",
+                        "template_uniprot_id",
+                        "template_pdb_id",
+                        "template_ec",
+                        "template_cath",
+                        "template_multimeric",
+                        "query_uniprot_id",
+                        "query_pdb_id",
+                        "query_ec",
+                        "query_cath",
+                        "query_multimeric",
+                        "rmsd",
+                        "log_evalue",
+                        "orientation",
+                        "preserved_order",
+                        "completeness",
+                        "matched_residues"])
+        for hit in all_hits:
+            hit.dump(writer) # one line per match
+
+def matcher_run(query_path: Path, rmsd: float, distance: float, max_dynamic_distance: float, conservation_cutoff: float, outdir: Path, complete_search: bool, warn: bool = True):
+
+    ####### Checking outdir ##########################################
     if not outdir.is_dir():
         outdir.mkdir(parents=True, exist_ok=True)
         if warn:
             warnings.warn(f"'{outdir}' directory did not exist and was created")
     
+    ######## Checking query input files #################################
     def pdb_file_check(path_to_check: Path) -> bool:
         return Path(path_to_check).exists() and Path(path_to_check).suffix.lower() in {".pdb", ".ent"}
 
@@ -177,114 +271,31 @@ def matcher_run(query_path: Path, rmsd: float, distance: float, max_dynamic_dist
         except:
             raise FileNotFoundError(f'File {query_path} did not exist or did not contain any paths to files with the expected .pdb or .ent extensions')
 
-        ################# Running Jess ###################################
-        # TODO set level of verbosity and then print if conditions apply
-        print('jess parameters: ', rmsd, distance, max_dynamic_distance, score_cutoff)
-        print('complete_search is set to: ', complete_search)
-        print('writing results to {}'.str(Path(outdir).absolute()))
+    ################# Running Jess ###################################
+    # TODO set level of verbosity and then print if conditions apply
+    print('jess parameters: ', rmsd, distance, max_dynamic_distance, score_cutoff)
+    print('complete_search is set to: ', complete_search)
+    print('writing results to {}'.str(Path(outdir).absolute()))
+    
+    # we iterate over templates starting with the ones with the largest ones
+    for template_res_num in [8, 7, 6, 5, 4, 3]:
+        print('Now on template res num', template_res_num)
+        # load the templates with a given residue number, yields tuple with (Template,Path)
+        templates = list(load_templates(files(__package__).joinpath('jess_templates_20230210', '{}_residues'.format(template_res_num)))[0])
         
-        # we iterate over templates starting with the ones with the largest ones
-        for template_res_num in [8, 7, 6, 5, 4, 3]:
-            print('Now on template res num', template_res_num)
-            # load the templates with a given residue number, yields tuple with (Template,Path)
-            templates = list(load_templates(files(__package__).joinpath('jess_templates_20230210', '{}_residues'.format(template_res_num)))[0])
-            
-            for template in templates:
-                check_template(template, warn=warn) # TODO if specific warnings are found, drop this template
-            # one could filter templates here too by any property or attribute of the template class in template.py
+        # check each template
+        for template in templates:
+            check_template(template, warn=warn) # TODO if specific warnings are found, drop this template
+        # one could filter templates here too by any property or attribute of the template class in template.py
 
-            for molecule_path in molecule_paths:
-                molecule = Molecule(molecule_path)
-                all_hits = []
-                if complete_search == False: # if false, if hits for a structure were found with a large template, no not continue searching with smaller templates
-                    if not all_hits:
-                        best_hits = jess_call(molecule, templates, rmsd_threshold=rmsd, distance_cutoff=distance, max_dynamic_distance=max_dynamic_distance)
-                        if best_hits:
-                            all_hits.extend(best_hits)
-                else: # search with smaller templates too even if searches with larger templates returned hits
-                    best_hist = jess_call(molecule, templates, rmsd_threshold=rmsd, distance_cutoff=distance, max_dynamic_distance=max_dynamic_distance)
-                    if best_hits:
-                        all_hits.extend(best_hits)
+        # Create an iterable of pyjess.Template objects from my list of template.Template objects
+        # Jess currently expects an iterable of paths as templates - I will instead pass a library of paths to temporary pdbs written by my template.to_pyjess_template function
+        pyjess_templates = (template.to_pyjess_template() for template in templates)
 
-                # TODO what kind of method is this? how to I add a required attribute to a class object afterwards?
-                def _check_completeness():
-                    # only after all templates of a certain size have been scanned could we compute the completeness tag
-                    
-                    # Group hit objects by the pair (hit.template.m-csa, first digit of hit.template.cluster)
-                    def get_key(obj) -> Tuple[str, str]:
-                        return obj.template.msca_id, Template.cluster.split('.')[0] # split on . and take the first digit which is the cluster number
+        # iterate over all the query molecules passed
+        for molecule_path in molecule_paths:
+            _single_query_run(outdir=outdir, molecule_path=molecule_path, pyjess_templates=pyjess_templates, rmsd_threshold=rmsd, distance_cutoff=distance, max_dynamic_distance=max_dynamic_distance, complete_search=complete_search)
 
-                    grouped_hits = [list(g) for _, g in itertools.groupby(sorted(all_hits, key=get_key), get_key)]
-
-                    for cluster_hits in grouped_hits:
-                        # For each query check if all Templates assigned to the same cluster targeted that structure
-                        #
-                        # TODO report statistics on this: This percentage of queries had a complete active site as reported by the completeness tag
-                        # Filter this by template clusters with >1 member of course or report seperately by the number of clustermembers
-                        # or say like: This template cluster was always complete while this template cluster was only complete X times out of Y Queries matched to one member
-                        #
-                        # get the total number templates from the first hit in each cluster which is the third cluster digit
-                        total_clustermembers = int(cluster_hits[0].Template.cluster.split('.')[2])
-                        # check if all the cluster members with all 2nd digit identiers up to and including total_clustermembers are present in the group,
-                        indexed_possible_cluster_members = list(range(total_clustermembers))
-                        possible_cluster_members = [x+1 for x in indexed_possible_cluster_members]
-                        
-                        found_cluster_members = [int(hit.Template.cluster.split('.')[1]) for hit in cluster_hits] # second number is the current cluster member number
-
-                        if found_cluster_members == possible_cluster_members:
-                            for hit in cluster_hits:
-                                hit.complete = True
-
-                results_path = Path(outdir, "results/").mkdir(parents=True, exist_ok=True)
-                # TODO somehow we need to give unique filenames in case molecule_path.stem is not unique
-                with open(Path(results_path, f'{molecule_path.stem}_matches.tsv'), 'w', newline='', encoding ="utf-8") as tsvfile:
-                    writer = csv.writer(tsvfile, delimiter='\t', lineterminator='\n')
-                    writer.writerow([
-                                    "query_id",
-                                    "template_id",
-                                    "template_size",
-                                    "template_true_size",
-                                    "template_mcsa_id",
-                                    "template_uniprot_id",
-                                    "template_pdb_id",
-                                    "template_ec",
-                                    "template_cath",
-                                    "template_multimeric",
-                                    "query_uniprot_id",
-                                    "query_pdb_id",
-                                    "query_ec",
-                                    "query_cath",
-                                    "query_multimeric",
-                                    "rmsd",
-                                    "log_evalue",
-                                    "orientation",
-                                    "preserved_order",
-                                    "completeness",
-                                    "matched_residues"])
-                    for hit in all_hits: # one line per match
-                        writer.writerow([
-                                        hit.query.id,
-                                        hit.template.id,
-                                        hit.template.size,
-                                        hit.template.true_size,
-                                        hit.template.mcsa_id,
-                                        hit.template.uniprot_id,
-                                        hit.template.pdb_id,
-                                        hit.template.ec,
-                                        hit.template.cath,
-                                        hit.template.multimeric,
-                                        hit.query.uniprot_id,
-                                        hit.query.pdb_id,
-                                        hit.query.ec,
-                                        hit.query.cath,
-                                        hit.multimeric,
-                                        hit.rmsd,
-                                        hit.log_evalue,
-                                        hit.orientation,
-                                        hit.preserved_order,
-                                        hit.completeness,
-                                        hit.matched_residues])
-            
         # TODO what should i retrun? a path to the output file? a bool if any hits were found?
         # return
         
@@ -307,6 +318,6 @@ if __name__ == "__main__":
     rmsd = jess_params[0] # in Angstrom, typcically set to 2
     distance = jess_params[1] # in Angstrom between 1.0 and 1.5 - lower is more strict. This changes with template size
     max_dynamic_distance = jess_params[2] # if equal to distance dynamic is off: this option is currenlty dysfunctional
-    score_cutoff = jess_params[3] # Reads B-factor column in .pdb files: atoms below this cutoff will be disregarded. Could be pLDDT for example
+    conservation_cutoff = jess_params[3] # Reads B-factor column in .pdb files: atoms below this cutoff will be disregarded. Could be pLDDT for example
 
-    matcher_run(query_path=query_path, rmsd=rmsd, distance=distance, max_dynamic_distance=max_dynamic_distance, score_cutoff=score_cutoff, outdir=outdir, complete_search=complete_search)
+    matcher_run(query_path=query_path, rmsd=rmsd, distance=distance, max_dynamic_distance=max_dynamic_distance, conservation_cutoff=conservation_cutoff, outdir=outdir, complete_search=complete_search)

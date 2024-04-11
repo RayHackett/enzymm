@@ -9,6 +9,9 @@ from pathlib import Path
 from typing import Sequence, List, Tuple, Set, Dict, Optional, Union, TextIO, Iterator, ClassVar
 from functools import cached_property
 from dataclasses import dataclass, field
+import io
+import tempfile
+import pyjess
 
 from .utils import chunks, ranked_argsort
 
@@ -144,30 +147,46 @@ class Residue:
 @dataclass
 class Atom:
     '''Class for storing Atom information from a Template file'''
+    specificity: int
+    name: str
+    residue_name: str
+    backbone: bool
+    chain_id: str
+    residue_number: int
     x: float
     y: float
     z: float
-    name: str
-    residue_name: str
     allowed_residues: str
-    specificity: int
-    backbone: bool
-    residue_number: int
-    chain_id: str
+    altloc: Optional[str] = field(default=None)
+    flexibility: Optional[float] = field(default=None)
 
     @classmethod
     def loads(cls, line: str) -> Atom:
+        ## this uses a modified PDB format
+        # first four characters are 'ATOM' [0:4]
+        specificity = int(line[7:11]) # inplace of atom number
+        name = str(line[12:16].strip()) # atom_name
+        altloc = str(line[16].strip()) # no idea what this is used for in a template, optional
+        residue_name = str(line[17:20].strip())
+        backbone = line[17:20].strip() == 'ANY'
+        chain_id = str(line[20:22].strip()) # allows for 2 letter chain IDs
+        residue_number = int(line[22:26])
         x = float(line[30:38])
         y = float(line[38:46])
         z = float(line[46:54])
-        name = str(line[12:16].strip())
-        residue_name = str(line[17:20].strip())
-        allowed_residues = str(line[55:61].strip())
-        specificity = int(line[8:11])
-        backbone = line[17:20].strip() == 'ANY'
-        residue_number = int(line[22:26])
-        chain_id = str(line[20:22].strip())
-        return cls(x=x, y=y, z=z, name=name, residue_name=residue_name, allowed_residues=allowed_residues, specificity=specificity, backbone=backbone, residue_number=residue_number, chain_id=chain_id)
+        allowed_residues = str(line[55:60].strip()) # inplace of Occupancy
+        flexibility = float(line[61:66]) # inplace of Temperature Factor, optional
+        # segment identifier: empty
+        # element: empty
+        # charge: empty
+        return cls(specificity=specificity, name=name, altloc=altloc, residue_name=residue_name, backbone=backbone, chain_id=chain_id, residue_number=residue_number, x=x, y=y, z=z, allowed_residues=allowed_residues, flexibility=flexibility)
+
+    def dump(self, file: TextIO):
+        if self.flexibility:
+            pdb_line = f"ATOM  {self.specificity:>5} {self.name:^4}{self.altloc if self.altloc is not None else '':<1}{self.residue_name:<3}{self.chain_id:>2}{self.residue_number:>4}    {self.x:>8.3f}{self.y:>8.3f}{self.z:>8.3f} {self.allowed_residues:<5}{self.flexibility:>5.2f} "
+        else:
+            pdb_line = f"ATOM  {self.specificity:>5} {self.name:^4}{self.altloc if self.altloc is not None else '':<1}{self.residue_name:<3}{self.chain_id:>2}{self.residue_number:>4}    {self.x:>8.3f}{self.y:>8.3f}{self.z:>8.3f} {self.allowed_residues:<5}{'':<5} "
+        file.write(pdb_line)
 
     def __sub__(self, other):
         if not isinstance(other, Atom):
@@ -186,14 +205,19 @@ class Template:
     organism_id: Optional[int] = field(default=None)
     resolution: Optional[float] = field(default=None)
     experimental_method: Optional[str] = field(default=None)
+    enzyme_discription: Optional[str] = field(default=None)
+    represented_sites: Optional[int] = field(default=None)
     ec: Optional[Set[str]] = field(default=None)
-    #raw_template: pyjess.Template # TODO could be a place to keep the raw TextIO string too...
 
     _CATH_MAPPING: ClassVar[Dict[str, List[str]]]
     _EC_MAPPING: ClassVar[Dict[str, List[str]]]
     _PDB_SIFTS: ClassVar[Dict[str, Dict[str, List[str]]]]
 
-    @classmethod
+    @classmethod # reading from text
+    def loads(cls, text: str, warn: bool = True) -> Template:
+        return cls.load(io.StringIO(text), warn=warn)
+
+    @classmethod # reading from TextIO
     def load(cls, file: TextIO, warn: bool = True) -> Template:
         """Function to parse a template and its associated info into a Template object from TextIO
         """
@@ -212,7 +236,9 @@ class Template:
             'ORGANISM_ID': cls._parse_organism_id,
             'RESOLUTION': cls._parse_resolution,
             'EXPERIMENTAL_METHOD': cls._parse_experimental_method,
-            'EC': cls._parse_ec
+            'EC': cls._parse_ec,
+            'ENZYME': cls._parse_enzyme_discription,
+            'REPRESENTING': cls._parse_represented_sites
         }
                 
         for line in filter(str.strip, file):
@@ -253,6 +279,49 @@ class Template:
             residues = residues,
             **metadata, # type: ignore # unpack everything we parsed into metadata
         )
+
+    def dump(self, file: TextIO):
+        file.write(f'REMARK TEMPLATE')
+        file.write(f'REMARK ID {self.id}')
+        file.write(f'REMARK PDB_ID {self.pdb_id}')
+        file.write(f'REMARK MCSA_ID {self.mcsa_id}')
+        file.write(f'REMARK UNIPROT_ID {self.uniprot_id}')
+        file.write(f'REMARK CLUSTER {self.cluster}')
+        file.write(f'REMARK ORGANISM_NAME {self.organism}')
+        file.write(f'REMARK ORGANISM_ID {self.organism_id}')
+        file.write(f'REMARK RESOLUTION {self.resolution}')
+        file.write(f'REMARK EXPERIMENTAL_METHOD {self.experimental_method}')
+        file.write(f'REMARK ENZYME {self.enzyme_discription}')
+        file.write(f'REMARK REPRESENTING {self.represented_sites} CATALYTIC SITES')
+        file.write(f'REMARK EXPERIMENTAL_METHOD {self.experimental_method}')
+        file.write(f'REMARK EC {", ".join(self.ec)}')
+        file.write(f'REMARK CATH {", ".join(self.cath)}')
+        file.write(f'REMARK SIZE {self.size}')
+        file.write(f'REMARK TRUE_SIZE {self.true_size}')
+        file.write(f'REMARK MULTIMERIC {self.multimeric}')
+        file.write(f'REMARK RELATIVE_ORDER {self.relative_order}')
+
+        for residue in self.residues:
+            file.write(f'REMARK ORIENTATION_VECTOR OF RESIDUE {residue.residue_number}: {residue.orientation_vector.x:.3f} {residue.orientation_vector.y:.3f} {residue.orientation_vector.z:.3f}')
+
+        for residue in self.residues:
+            for atom in residue:
+                atom.dump(file)
+        
+        file.write('END')
+
+    def to_pyjess_template(self) -> pyjess.Template:
+        with tempfile.NamedTemporaryFile() as f:
+            template.dump(f) # writing to tempfile f
+            f.flush() # makes sure the file is written to the disk and not in IO-buffer
+            pyjess.Template(self.id, f.name)
+        # return Path(f).resolve() # TODO does pyjess expect a path to this temp file? or what
+
+    @property
+    def id(self) -> str: # pyjess templates need a name, so mine do too
+        """`str`: The name of the template composed of M-CSA ID, true size, pdb_id, cluster seperated by underscores
+        """
+        return f'{self.mcsa_id}_{self.size}_{self.pdb_id}_{self.cluster}'
 
     @property
     def true_size(self) -> int: # Number of residues in the template as counted by triplets of atoms
@@ -300,9 +369,9 @@ class Template:
             return ranked_argsort([res.residue_number for res in self.residues])
     
     @property
-    def cath(self) -> List[str]:
-        """`list` of `str`: List of CATH Ids associated with that Template"""
-        return self._CATH_MAPPING[str(self.mcsa_id)].copy()
+    def cath(self) -> Set[str]:
+        """`set` of `str`: Set of CATH Ids associated with that Template"""
+        return set(self._CATH_MAPPING[str(self.mcsa_id)].copy())
 
     @classmethod
     def _parse_pdb_id(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
@@ -325,7 +394,7 @@ class Template:
         try:
             metadata['mcsa_id'] = int(tokens[2])
         except ValueError as exc:
-                raise ValueError(f'Did not find a M-CSA ID, found {tokens[2]}') # from exc # TODO what should i do with exc?
+                raise ValueError(f'Did not find a M-CSA ID, found {tokens[2]}') from exc
 
     @classmethod
     def _parse_cluster(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
@@ -336,7 +405,7 @@ class Template:
 
     @classmethod
     def _parse_organism_name(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
-        metadata['organism'] = tokens[2]
+        metadata['organism'] = ' '.join(tokens[2:])
 
     @classmethod
     def _parse_organism_id(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
@@ -356,7 +425,7 @@ class Template:
 
     @classmethod
     def _parse_experimental_method(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
-        metadata['experimental_method'] = tokens[2]
+        metadata['experimental_method'] = ' '.join(tokens[2:])
 
     @classmethod
     def _parse_ec(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
@@ -371,6 +440,18 @@ class Template:
         else:
             if warn:
                 warnings.warn(f'Did not find a valid EC number, found {tokens[2]}')
+
+    @classmethod
+    def _parse_enzyme_discription(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
+        metadata['enzyme_discription'] = ' '.join(tokens[2:])
+
+    @classmethod
+    def _parse_represented_sites(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
+        try:
+            metadata['represented_sites'] = int(tokens[2])
+        except ValueError:
+            if warn:
+                warnings.warn(f'Ill-formatted number of represented sites: {tokens[2]}')
 
 # Populate the mapping of MCSA IDs to CATH numbers so that it can be accessed
 # by individual templates in the `Template.cath` property.
