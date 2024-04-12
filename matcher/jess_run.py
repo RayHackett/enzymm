@@ -35,8 +35,8 @@ class Match:
                 str(self.template.mcsa_id),
                 str(self.template.uniprot_id),
                 str(self.template.pdb_id),
-                ",".join(self.template.ec),
-                ",".join(self.template.cath),
+                ",".join(self.template.ec if self.template.ec is not None else ''),
+                ",".join(self.template.cath if self.template.cath else ''),
                 str(self.template.multimeric),
                 str(self.multimeric),
                 str(self.hit.rmsd),
@@ -44,14 +44,14 @@ class Match:
                 str(self.orientation),
                 str(self.preserved_resid_order),
                 str(self.completeness),
-                ",".join(self.matched_residues)]
+                (','.join(','.join(t) for t in self.matched_residues))]
 
     @cached_property
-    def atom_triplets(self) -> List[Tuple[pyjess.Atom, pyjess.Atom, pyjess.Atom]]:
+    def atom_triplets(self) -> List[List[pyjess.Atom]]:
         # list with matched residues
         # # Hit.atoms is a list of matched atoms with all info on residue numbers and residue chain ids and atom types, this should conserve order if Hit.atoms is a list!!!
-        atom_triplets : List[Tuple[pyjess.Atom, pyjess.Atom, pyjess.Atom]] = []
-        for atom_triplet in chunks(self.hit.atoms, 3): # yield chunks of 3 atoms each
+        atom_triplets : List[List[pyjess.Atom]] = []
+        for atom_triplet in chunks(self.hit.atoms(), 3): # yield chunks of 3 atoms each
             # check if all three atoms belong to the same residue by adding a tuple of their residue defining properties to a set
             unique_residues = { (atom.residue_name, atom.chain_id, atom.residue_number) for atom in atom_triplet }
             if len(unique_residues) != 1:
@@ -68,7 +68,7 @@ class Match:
         """`bool`: Boolean if the atoms in the hit stem from multiple protein chains
         """
         # note that these are pyjess atom objects!
-        return all(atom.chain_id == self.hit.atoms[0].chain_id for atom in self.hit.atoms)
+        return all(atom.chain_id == self.hit.atoms()[0].chain_id for atom in self.hit.atoms())
         # TODO pyjess atoms need to be iterable
 
     @cached_property
@@ -80,7 +80,7 @@ class Match:
             return False
         else:
             # Now extract relative atom order in hit
-            return ranked_argsort([atom.residue_number for atom in self.hit.atoms]) == Template.relative_order
+            return ranked_argsort([atom.residue_number for atom in self.hit.atoms()]) == Template.relative_order
 
     @cached_property
     def match_vector_list(cls) -> List[Vec3]:

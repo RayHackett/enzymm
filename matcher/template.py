@@ -294,8 +294,8 @@ class Template:
         file.write(f'REMARK ENZYME {self.enzyme_discription}')
         file.write(f'REMARK REPRESENTING {self.represented_sites} CATALYTIC SITES')
         file.write(f'REMARK EXPERIMENTAL_METHOD {self.experimental_method}')
-        file.write(f'REMARK EC {",".join(self.ec)}')
-        file.write(f'REMARK CATH {",".join(self.cath)}')
+        file.write(f'REMARK EC {",".join(self.ec) if self.ec is not None else ''}')
+        file.write(f'REMARK CATH {",".join(self.cath) if self.cath else ''}')
         file.write(f'REMARK SIZE {self.size}')
         file.write(f'REMARK TRUE_SIZE {self.true_size}')
         file.write(f'REMARK MULTIMERIC {self.multimeric}')
@@ -502,8 +502,8 @@ def check_template(Template_tuple: Tuple[Template, Path], warn: bool = True) -> 
         if not Template.ec:
             warnings.warn(f'Could not find EC number annotations for the template file {filepath}')
 
-        # if not Template.cath:
-        #     warnings.warn(f'Could not find CATH annotations for the following template file {filepath}')
+        if not Template.cath:
+            warnings.warn(f'Could not find CATH annotations for the following template file {filepath}')
 
         # check overlap between sifts mapping and CATH, EC annotations
         # Source: pdb to sifts mapping which maps CATH to pdb chain IDs and UniProt IDs, sifts also provides UniProt to EC mapping
