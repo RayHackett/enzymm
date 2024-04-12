@@ -20,7 +20,7 @@ def filter_hits(hits: List[pyjess.Hit], all_instances=False) -> List[pyjess.Hit]
 
     best_hits = []
     for hits in grouped_hits:
-        best_hits.append(_best_match(hits))
+        best_hits.extend(_best_match(hits))
 
     return best_hits
 
@@ -41,7 +41,7 @@ def _best_match(hits: List[pyjess.Hit], all_instances=False) -> List[pyjess.Hit]
         if hit.determinant != 1.0:
             continue # skips the rest of the loop
         # This is to discard self matches when cross-comparing templates
-        if hit.template == hit.query: # change this accoridng to above comments
+        if hit.template == hit.molecule.id: # TODO change this accoridng to above comments
             continue # skips the rest of the loop
         unique_hits.append(hit)
     if all_instances:  

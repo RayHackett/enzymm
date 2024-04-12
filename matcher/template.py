@@ -294,8 +294,8 @@ class Template:
         file.write(f'REMARK ENZYME {self.enzyme_discription}')
         file.write(f'REMARK REPRESENTING {self.represented_sites} CATALYTIC SITES')
         file.write(f'REMARK EXPERIMENTAL_METHOD {self.experimental_method}')
-        file.write(f'REMARK EC {", ".join(self.ec)}')
-        file.write(f'REMARK CATH {", ".join(self.cath)}')
+        file.write(f'REMARK EC {",".join(self.ec)}')
+        file.write(f'REMARK CATH {",".join(self.cath)}')
         file.write(f'REMARK SIZE {self.size}')
         file.write(f'REMARK TRUE_SIZE {self.true_size}')
         file.write(f'REMARK MULTIMERIC {self.multimeric}')
@@ -305,17 +305,17 @@ class Template:
             file.write(f'REMARK ORIENTATION_VECTOR OF RESIDUE {residue.residue_number}: {residue.orientation_vector.x:.3f} {residue.orientation_vector.y:.3f} {residue.orientation_vector.z:.3f}')
 
         for residue in self.residues:
-            for atom in residue:
+            for atom in residue.atoms:
                 atom.dump(file)
         
         file.write('END')
 
     def to_pyjess_template(self) -> pyjess.Template:
-        with tempfile.NamedTemporaryFile() as f:
-            template.dump(f) # writing to tempfile f
+        with tempfile.NamedTemporaryFile(mode='w') as f: # TODO is this bad? default is mode w+b
+            self.dump(f.open()) # writing to tempfile f
             f.flush() # makes sure the file is written to the disk and not in IO-buffer
-            pyjess.Template(self.id, f.name)
-        # return Path(f).resolve() # TODO does pyjess expect a path to this temp file? or what
+            f.seek(0)
+            return pyjess.Template.loads(f.read())
 
     @property
     def id(self) -> str: # pyjess templates need a name, so mine do too
@@ -477,12 +477,12 @@ with files(__package__).joinpath('data', 'pdb_sifts.json').open() as f:
 # if Template_EC in cofactor_dict:
 #     cofactors.update(cofactor_dict[Template_EC])
 
-def load_templates(template_dir=files(__package__).joinpath('jess_templates_20230210'), warn: bool = True) -> Iterator[Tuple[Template, Path]]:
+def load_templates(template_dir: Path = Path(str(files(__package__).joinpath('jess_templates_20230210'))), warn: bool = True) -> Iterator[Tuple[Template, Path]]:
     """Load templates from a given directory, recursively.
     """
-    if not Path(template_dir).exists():
+    if not template_dir.exists():
         raise FileNotFoundError(template_dir)
-    elif not Path(template_dir).is_dir():
+    elif not template_dir.is_dir():
         raise NotADirectoryError(template_dir)
 
     template_paths = get_template_paths(template_dir)
@@ -494,7 +494,7 @@ def load_templates(template_dir=files(__package__).joinpath('jess_templates_2023
             except ValueError as exc:
                 raise ValueError(f"Failed to parse {template_path}!") # from exc
 
-def check_template(Template_tuple: Tuple[Template, Path], warn: bool = True):
+def check_template(Template_tuple: Tuple[Template, Path], warn: bool = True) -> bool:
     if warn:
         Template, filepath = Template_tuple
 
@@ -524,10 +524,14 @@ def check_template(Template_tuple: Tuple[Template, Path], warn: bool = True):
                 if Template.uniprot_id != sifts_uniprot:
                     warnings.warn(f'Different UniProt Accessions {Template.uniprot_id} and {sifts_uniprot} found in Template {filepath} from pdbid {Template.pdb_id}')
 
+        return True # change this to false if you want to exclude templates based on any of their properties!
+    else:
+        return True
+
 if __name__ == "__main__":
     # TODO this is here for debugging purposes - delete later
     for template_res_num in [8, 7, 6, 5, 4, 3]:
-        templates = list(load_templates(files(__package__).joinpath('jess_templates_20230210', '{}_residues'.format(template_res_num)), warn=False))
+        templates = list(load_templates(Path(str(files(__package__).joinpath('jess_templates_20230210', f'{template_res_num}_residues'))), warn=False))
         print(f'current template size folder: {template_res_num}')
         print(len(templates))
         #for template in templates:
