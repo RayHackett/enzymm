@@ -11,6 +11,7 @@ from functools import cached_property
 from dataclasses import dataclass, field
 import io
 import tempfile
+
 import pyjess
 
 from .utils import chunks, ranked_argsort
@@ -34,7 +35,7 @@ def get_template_paths(directory_path: Path, extension: str ='.pdb') -> List[Pat
     if files:
         return files
     else:
-        raise ValueError(f'No template files with the {extension} extension found in the {directory_path.resolve()} directory')
+        raise FileNotFoundError(f'No template files with the {extension} extension found in the {directory_path.resolve()} directory')
 
 @dataclass
 class Vec3:

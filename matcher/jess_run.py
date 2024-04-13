@@ -8,6 +8,7 @@ import tempfile
 import warnings
 import csv
 import numpy as np
+import itertools
 
 import pyjess # cython port of Jess to python package
 
@@ -44,7 +45,7 @@ class Match:
                 str(self.orientation),
                 str(self.preserved_resid_order),
                 str(self.completeness),
-                (','.join(','.join(t) for t in self.matched_residues))]
+                (','.join('_'.join(t) for t in self.matched_residues))]
 
     @cached_property
     def atom_triplets(self) -> List[List[pyjess.Atom]]:
@@ -235,7 +236,7 @@ def _single_query_run(outdir: Path, molecule_path: Path, pyjess_templates: Itera
         for match in matches:
             writer.writerow(match.dump()) # one line per match
 
-def matcher_run(query_path: Path, rmsd: float, distance: float, max_dynamic_distance: float, conservation_cutoff: float, outdir: Path, warn: bool = True, verbose: bool = False):
+def matcher_run(query_path: Path, template_path: Path, rmsd: float, distance: float, max_dynamic_distance: float, conservation_cutoff: float, outdir: Path, warn: bool = True, verbose: bool = False):
 
     ####### Checking outdir ##########################################
     try:
@@ -265,48 +266,54 @@ def matcher_run(query_path: Path, rmsd: float, distance: float, max_dynamic_dist
                     molecule_paths.append(Path(line.strip()))
         except:
             raise FileNotFoundError(f'File {query_path} did not exist or did not contain any paths to files with the expected .pdb or .ent extensions')
+        
+
+    ######## Checking template path ##################################
+    if template_path:
+        template_tuples = list(load_templates(template_path, warn=warn))
+    else:
+        template_tuples = list(load_templates(warn=warn)) # default templates
+
+    # check each template and if it passes add it to the mapping dictionary and transform it to a pyjess.Template and add it to a list of pyjess.Template objects
+    pyjess_templates: List[pyjess.Template] = [] # List of pyjess.Template objects
+    id_to_template: Dict[str, Template] = {} # mapping pyjess.Template ID to my Template objects
+    for template_tuple in template_tuples:
+        if check_template(template_tuple, warn=warn): # returns True if the Template passed all checks or if warn is set to False
+            pyjess_template = template_tuple[0].to_pyjess_template()
+            pyjess_templates.append(pyjess_template)
+            id_to_template[pyjess_template.id] = template_tuple[0]
 
     ################# Running Jess ###################################
     # TODO set level of verbosity and then print if conditions apply
     if verbose:
+        if template_path:
+            print()
+        else:
+            print('Using default templates from the M-CSA')
         print('jess parameters are: ', rmsd, distance, max_dynamic_distance, conservation_cutoff)
-    
-    # we iterate over templates starting with the ones with the largest ones
-    for template_res_num in [8, 7, 6, 5, 4, 3]:
-        if verbose:
-            print('Now on template res num {template_res_num}')
-        # load the templates with a given residue number, yields tuple with (Template,Path)
-        template_tuples = list(load_templates(Path(str(files(__package__).joinpath('jess_templates_20230210', f'{template_res_num}_residues'))), warn=False))
-        
-        # check each template and if it passes add it to the mapping dictionary and transform it to a pyjess.Template and add it to a list of pyjess.Template objects
-        pyjess_templates: List[pyjess.Template] = [] # List of pyjess.Template objects
-        id_to_template: Dict[str, Template] = {} # mapping pyjess.Template ID to my Template objects
-        for template_tuple in template_tuples:
-            if check_template(template_tuple, warn=warn): # returns True if the Template passed all checks or if warn is set to False
-                pyjess_template = template_tuple[0].to_pyjess_template()
-                pyjess_templates.append(pyjess_template)
-                id_to_template[pyjess_template.id] = template_tuple[0]
 
-        # iterate over all the query molecules passed
-        for molecule_path in molecule_paths:
-            _single_query_run(outdir=outdir, molecule_path=molecule_path, pyjess_templates=pyjess_templates, id_to_template=id_to_template, rmsd=rmsd, distance=distance, max_dynamic_distance=max_dynamic_distance, conservation_cutoff=conservation_cutoff)
+    # iterate over all the query molecules passed
+    for molecule_path in molecule_paths:
+        _single_query_run(outdir=outdir, molecule_path=molecule_path, pyjess_templates=pyjess_templates, id_to_template=id_to_template, rmsd=rmsd, distance=distance, max_dynamic_distance=max_dynamic_distance, conservation_cutoff=conservation_cutoff)
 
-        # TODO what should i retrun? a path to the output file? a bool if any hits were found?
-        # return
+    # TODO what should i retrun? a path to the output file? a bool if any hits were found?
+    # return
         
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--input', type=Path, help='File path of the query pdb file OR File path of a file listing multiple query pdb files seperated by linebreaks')
+    parser.add_argument('-i', '--input', type=Path, help='File path of a single query pdb file OR File path of a file listing multiple query pdb files seperated by linebreaks')
+    parser.add_argument('-t', '--template_dir', type=Path, default=None, help='Path to directory containing jess templates. This directory will be recursively searched.')
     parser.add_argument('-j', '--jess', nargs = 4, type=float, help='Jess space seperated parameters rmsd, distance, max_dynamic_distance, score_cutoff')
-    parser.add_argument('-o', '--output', type=Path, help='Output Directory to which results should get written')
+    parser.add_argument('-o', '--output_dir', type=Path, help='Output Directory to which results should get written')
     parser.add_argument('-v', '--verbose', type=bool, default=False, help='If process information and time progress should be printed to the command line')
     parser.add_argument('-w', '--warn', type=bool, default=True, help='If warings about bad template processing or suspicous and missing annotations should be raised')
     args = parser.parse_args()
     
     query_path = args.input
+    template_path = args.template_dir
     jess_params = [i for i in args.jess]
-    outdir = args.output
+    outdir = args.output_dir
     warn = args.warn
     verbose = args.verbose
 
@@ -317,4 +324,4 @@ if __name__ == "__main__":
     max_dynamic_distance = jess_params[2] # if equal to distance dynamic is off: this option is currenlty dysfunctional
     conservation_cutoff = jess_params[3] # Reads B-factor column in .pdb files: atoms below this cutoff will be disregarded. Could be pLDDT for example
 
-    matcher_run(query_path=query_path, rmsd=rmsd, distance=distance, max_dynamic_distance=max_dynamic_distance, conservation_cutoff=conservation_cutoff, outdir=outdir, warn=warn, verbose=verbose)
+    matcher_run(query_path=query_path, template_path=template_path, rmsd=rmsd, distance=distance, max_dynamic_distance=max_dynamic_distance, conservation_cutoff=conservation_cutoff, outdir=outdir, warn=warn, verbose=verbose)
