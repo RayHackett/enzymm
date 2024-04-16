@@ -6,7 +6,7 @@ import re
 import json
 from importlib.resources import files
 from pathlib import Path
-from typing import Sequence, List, Tuple, Set, Dict, Optional, Union, TextIO, Iterator, ClassVar
+from typing import Sequence, List, Tuple, Set, Dict, Optional, Union, TextIO, Iterator, ClassVar, IO
 from functools import cached_property
 from dataclasses import dataclass, field
 import io
@@ -182,7 +182,7 @@ class Atom:
         # charge: empty
         return cls(specificity=specificity, name=name, altloc=altloc, residue_name=residue_name, backbone=backbone, chain_id=chain_id, residue_number=residue_number, x=x, y=y, z=z, allowed_residues=allowed_residues, flexibility=flexibility)
 
-    def dump(self, file: TextIO):
+    def dump(self, file: IO[str]):
         if self.flexibility:
             pdb_line = f"ATOM  {self.specificity:>5} {self.name:^4}{self.altloc if self.altloc is not None else '':<1}{self.residue_name:<3}{self.chain_id:>2}{self.residue_number:>4}    {self.x:>8.3f}{self.y:>8.3f}{self.z:>8.3f} {self.allowed_residues:<5}{self.flexibility:>5.2f} "
         else:
@@ -281,7 +281,7 @@ class Template:
             **metadata, # type: ignore # unpack everything we parsed into metadata
         )
 
-    def dump(self, file: TextIO):
+    def dump(self, file: IO[str]):
         file.write(f'REMARK TEMPLATE')
         file.write(f'REMARK ID {self.id}')
         file.write(f'REMARK PDB_ID {self.pdb_id}')
@@ -312,8 +312,8 @@ class Template:
         file.write('END')
 
     def to_pyjess_template(self) -> pyjess.Template:
-        with tempfile.NamedTemporaryFile(mode='w') as f: # TODO is this bad? default is mode w+b
-            self.dump(f.open()) # writing to tempfile f
+        with tempfile.NamedTemporaryFile(mode='w+') as f: # TODO is this bad? default is mode w+b
+            self.dump(f) # writing to tempfile f
             f.flush() # makes sure the file is written to the disk and not in IO-buffer
             f.seek(0)
             return pyjess.Template.loads(f.read())
@@ -494,6 +494,14 @@ def load_templates(template_dir: Path = Path(str(files(__package__).joinpath('je
                 yield (Template.load(file=f, warn=warn), template_path)
             except ValueError as exc:
                 raise ValueError(f"Failed to parse {template_path}!") # from exc
+
+def group_templates_by_size(templates: List[Template]) -> Dict[int, List[Template]]:
+    grouped_templates: Dict[int, List[Template]] = {}
+    for template in templates:
+        if template.size not in grouped_templates:
+            grouped_templates[template.size] = []
+        grouped_templates[template.size].append(template)
+    return grouped_templates
 
 def check_template(Template_tuple: Tuple[Template, Path], warn: bool = True) -> bool:
     if warn:

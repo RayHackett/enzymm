@@ -13,7 +13,7 @@ import itertools
 import pyjess # cython port of Jess to python package
 
 from .jess.filter_hits import filter_hits
-from .template import Template, Vec3, load_templates, check_template
+from .template import Template, Vec3, load_templates, check_template, group_templates_by_size
 from .utils import chunks, ranked_argsort
 
 __all__ = [
@@ -159,7 +159,7 @@ class Match:
 
         return np.mean(angle_list)
 
-def _single_query_run(outdir: Path, molecule_path: Path, pyjess_templates: Iterable[pyjess.Template], id_to_template: Dict[str, Template], rmsd: float = 2.0, distance: float = 3.0, max_dynamic_distance: float = 3.0, conservation_cutoff: float = 100, max_candidates: int = 10000):
+def _single_query_run(molecule_path: Path, pyjess_templates: Iterable[pyjess.Template], id_to_template: Dict[str, Template], rmsd: float = 2.0, distance: float = 3.0, max_dynamic_distance: float = 3.0, conservation_cutoff: float = 100, max_candidates: int = 10000):
     # TODO should this function return anything?
     molecule = pyjess.Molecule.loads(molecule_path.open().read()) # This controls the B-factor column and removes anything smaller
     # killswitch is controlled by max_candidates. Internal default is currently 10000
@@ -206,44 +206,51 @@ def _single_query_run(outdir: Path, molecule_path: Path, pyjess_templates: Itera
     
     _check_completeness(matches)
 
+    return matches
+
+def write_matches_to_tsv(matches: List[Match], molecule_path: Path, outdir: Path):
     results_path = Path(outdir, "results/")
     results_path.mkdir(parents=True, exist_ok=True)
     # TODO somehow we need to give unique filenames in case molecule_path.stem is not unique
     with open(Path(results_path, f'{molecule_path.stem}_matches.tsv'), 'w', newline='', encoding ="utf-8") as tsvfile:
         writer = csv.writer(tsvfile, delimiter='\t', lineterminator='\n')
-        writer.writerow([
-                        "query_id",
-                        "template_id",
-                        "template_size",
-                        "template_true_size",
-                        "template_mcsa_id",
-                        "template_uniprot_id",
-                        "template_pdb_id",
-                        "template_ec",
-                        "template_cath",
-                        "template_multimeric",
-                        "query_uniprot_id",
-                        "query_pdb_id",
-                        "query_ec",
-                        "query_cath",
-                        "query_multimeric",
-                        "rmsd",
-                        "log_evalue",
-                        "orientation",
-                        "preserved_order",
-                        "completeness",
-                        "matched_residues"])
+        if not Path(results_path, f'{molecule_path.stem}_matches.tsv').exists():
+            writer.writerow([
+                            "query_id",
+                            "template_id",
+                            "template_size",
+                            "template_true_size",
+                            "template_mcsa_id",
+                            "template_uniprot_id",
+                            "template_pdb_id",
+                            "template_ec",
+                            "template_cath",
+                            "template_multimeric",
+                            "query_uniprot_id",
+                            "query_pdb_id",
+                            "query_ec",
+                            "query_cath",
+                            "query_multimeric",
+                            "rmsd",
+                            "log_evalue",
+                            "orientation",
+                            "preserved_order",
+                            "completeness",
+                            "matched_residues"])
         for match in matches:
             writer.writerow(match.dump()) # one line per match
 
-def matcher_run(query_path: Path, template_path: Path, rmsd: float, distance: float, max_dynamic_distance: float, conservation_cutoff: float, outdir: Path, warn: bool = True, verbose: bool = False):
+def matcher_run(query_path: Path, template_path: Path, jess_params: Dict[int, Dict[str, float]], outdir: Path, warn: bool = True, verbose: bool = False, complete_search: bool = True):
+
+    if verbose:
+        print(f'Warnings are set to {warn}')
 
     ####### Checking outdir ##########################################
     try:
         if not outdir.is_dir():
             outdir.mkdir(parents=True, exist_ok=True)
             if warn:
-                warnings.warn(f"'{outdir}' directory did not exist and was created")
+                warnings.warn(f"'{outdir.resolve()}' directory did not exist and was created")
         if verbose:
             print(f'Writing output to {Path(outdir).resolve()}')
 
@@ -254,74 +261,134 @@ def matcher_run(query_path: Path, template_path: Path, rmsd: float, distance: fl
     def pdb_file_check(path_to_check: Path) -> bool:
         return Path(path_to_check).exists() and Path(path_to_check).suffix.lower() in {".pdb", ".ent"}
 
+    molecule_paths: Set[Path] = set()
     if pdb_file_check(query_path):
-        molecule_paths = [query_path]
+        molecule_paths.add(query_path)
     else:
         try:
-            molecule_paths = []
             with open(Path(query_path), 'r') as f:
                 lines = f.readlines()
             for line in lines:
                 if pdb_file_check(Path(line.strip())):
-                    molecule_paths.append(Path(line.strip()))
+                    molecule_paths.add(Path(line.strip()))
         except:
             raise FileNotFoundError(f'File {query_path} did not exist or did not contain any paths to files with the expected .pdb or .ent extensions')
         
 
     ######## Checking template path ##################################
+
     if template_path:
+        if verbose:
+            print(f'loading supplied template files from {template_path.resolve()}')
         template_tuples = list(load_templates(template_path, warn=warn))
     else:
+        if verbose:
+            print('loading default template files')
         template_tuples = list(load_templates(warn=warn)) # default templates
 
+    passer = False
     # check each template and if it passes add it to the mapping dictionary and transform it to a pyjess.Template and add it to a list of pyjess.Template objects
-    pyjess_templates: List[pyjess.Template] = [] # List of pyjess.Template objects
+    template_size_to_pyjess_template_id: Dict[int, List[pyjess.Template]] = {} # Dictionary of List of pyjess.Template objects grouped by Template.size as keys
     id_to_template: Dict[str, Template] = {} # mapping pyjess.Template ID to my Template objects
     for template_tuple in template_tuples:
         if check_template(template_tuple, warn=warn): # returns True if the Template passed all checks or if warn is set to False
             pyjess_template = template_tuple[0].to_pyjess_template()
-            pyjess_templates.append(pyjess_template)
             id_to_template[pyjess_template.id] = template_tuple[0]
+            if template_tuple[0].size not in template_size_to_pyjess_template_id:
+                template_size_to_pyjess_template_id[template_tuple[0].size] = []
+            template_size_to_pyjess_template_id[template_tuple[0].size].append(pyjess_template)
+            if not passer:
+                print('got here once!')
+                passer=True
 
-    ################# Running Jess ###################################
-    # TODO set level of verbosity and then print if conditions apply
-    if verbose:
-        if template_path:
-            print()
-        else:
-            print('Using default templates from the M-CSA')
-        print('jess parameters are: ', rmsd, distance, max_dynamic_distance, conservation_cutoff)
+    print('am not getting here')
+    
+    template_sizes = list(template_size_to_pyjess_template_id.keys())
+    template_sizes.sort(reverse=True) # geta list of template_sizes in decending order
 
-    # iterate over all the query molecules passed
-    for molecule_path in molecule_paths:
-        _single_query_run(outdir=outdir, molecule_path=molecule_path, pyjess_templates=pyjess_templates, id_to_template=id_to_template, rmsd=rmsd, distance=distance, max_dynamic_distance=max_dynamic_distance, conservation_cutoff=conservation_cutoff)
+    remaining_molecule_paths = molecule_paths
+    processed_paths: Set[Path] = set()
+    for template_size in template_sizes:
+        ################# Running Jess ###################################
+        # TODO set level of verbosity and then print if conditions apply
+        if verbose:
+            if template_path:
+                print()
+            else:
+                print('Using default templates from the M-CSA')
+            print(f'Now matching query structure(s) to template of size {template_size}')
+            print(f'jess parameters are: {jess_params[template_size]}')
 
-    # TODO what should i retrun? a path to the output file? a bool if any hits were found?
-    # return
+        pyjess_templates = template_size_to_pyjess_template_id[template_size]
+
+        rmsd = jess_params[template_size]['rmsd']
+        distance = jess_params[template_size]['distance']
+        max_dynamic_distance = jess_params[template_size]['max_dynamic_distance']
+        conservation_cutoff = jess_params[template_size]['conservation_cutoff']
+
+        # iterate over all the query molecules passed
+        for molecule_path in remaining_molecule_paths:
+            matches = _single_query_run(molecule_path=molecule_path, pyjess_templates=pyjess_templates, id_to_template=id_to_template, rmsd=rmsd, distance=distance, max_dynamic_distance=max_dynamic_distance, conservation_cutoff=conservation_cutoff)
+            if matches:
+                write_matches_to_tsv(matches=matches, molecule_path=molecule_path, outdir=outdir)
+                processed_paths.add(molecule_path)
+
+        if not complete_search: # if complete_search is false, then do not search with smaller templates if hits with larger ones have been found.
+            remaining_molecule_paths = molecule_paths.difference(processed_paths) 
+
+        # TODO what should i retrun? a path to the output file? a bool if any hits were found?
+        # return
         
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--input', type=Path, help='File path of a single query pdb file OR File path of a file listing multiple query pdb files seperated by linebreaks')
+    # positional arguments
+    parser.add_argument('input', type=Path, help='File path of a single query pdb file OR File path of a file listing multiple query pdb files seperated by linebreaks')
+    parser.add_argument('output_dir', type=Path, help='Output Directory to which results should get written')
+
+    # optional arguments
+    parser.add_argument('-j', '--jess', nargs = 4, default=None, type=float, help='Fixed Jess parameters for all templates. Jess space seperated parameters rmsd, distance, max_dynamic_distance, score_cutoff')
     parser.add_argument('-t', '--template_dir', type=Path, default=None, help='Path to directory containing jess templates. This directory will be recursively searched.')
-    parser.add_argument('-j', '--jess', nargs = 4, type=float, help='Jess space seperated parameters rmsd, distance, max_dynamic_distance, score_cutoff')
-    parser.add_argument('-o', '--output_dir', type=Path, help='Output Directory to which results should get written')
-    parser.add_argument('-v', '--verbose', type=bool, default=False, help='If process information and time progress should be printed to the command line')
-    parser.add_argument('-w', '--warn', type=bool, default=True, help='If warings about bad template processing or suspicous and missing annotations should be raised')
+    parser.add_argument('-c', '--complete_search', type=bool, default=True, help='If True, continue search with smaller templates even if larger templates have already found hits.')
+    parser.add_argument('-v', '--verbose', default=False, action="store_true", help='If process information and time progress should be printed to the command line')
+    parser.add_argument('-w', '--warn', default=False, action="store_true", help='If warings about bad template processing or suspicous and missing annotations should be raised')
     args = parser.parse_args()
     
     query_path = args.input
     template_path = args.template_dir
-    jess_params = [i for i in args.jess]
+
+    if args.jess:
+        jess_params_list = [i for i in args.jess]
+        # jess parameters
+        # we use different parameters for different template residue numbers - higher number more generous parameters
+        rmsd = jess_params_list[0] # in Angstrom, typcically set to 2
+        distance = jess_params_list[1] # in Angstrom between 1.0 and 1.5 - lower is more strict. This changes with template size
+        max_dynamic_distance = jess_params_list[2] # if equal to distance dynamic is off: this option is currenlty dysfunctional
+        conservation_cutoff = jess_params_list[3] # Reads B-factor column in .pdb files: atoms below this cutoff will be disregarded. Could be pLDDT for example
+
+        jess_params = {
+            3: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance, 'conservation_cutoff': conservation_cutoff},
+            4: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance, 'conservation_cutoff': conservation_cutoff},
+            5: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance, 'conservation_cutoff': conservation_cutoff},
+            6: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance, 'conservation_cutoff': conservation_cutoff},
+            7: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance, 'conservation_cutoff': conservation_cutoff},
+            8: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance, 'conservation_cutoff': conservation_cutoff}}
+
+    else:
+        ####### Default Jess parameters by Size ##################################
+        jess_params = {
+            3: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4, 'conservation_cutoff': 0},
+            4: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4, 'conservation_cutoff': 0},
+            5: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4, 'conservation_cutoff': 0},
+            6: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4, 'conservation_cutoff': 0},
+            7: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4, 'conservation_cutoff': 0},
+            8: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4, 'conservation_cutoff': 0}}
+
+    complete_search = args.complete_search
     outdir = args.output_dir
     warn = args.warn
     verbose = args.verbose
 
-    # jess parameters
-    # we use different parameters for different template residue numbers - higher number more generous parameters
-    rmsd = jess_params[0] # in Angstrom, typcically set to 2
-    distance = jess_params[1] # in Angstrom between 1.0 and 1.5 - lower is more strict. This changes with template size
-    max_dynamic_distance = jess_params[2] # if equal to distance dynamic is off: this option is currenlty dysfunctional
-    conservation_cutoff = jess_params[3] # Reads B-factor column in .pdb files: atoms below this cutoff will be disregarded. Could be pLDDT for example
 
-    matcher_run(query_path=query_path, template_path=template_path, rmsd=rmsd, distance=distance, max_dynamic_distance=max_dynamic_distance, conservation_cutoff=conservation_cutoff, outdir=outdir, warn=warn, verbose=verbose)
+
+    matcher_run(query_path=query_path, template_path=template_path, jess_params=jess_params, outdir=outdir, warn=warn, verbose=verbose, complete_search=complete_search)
