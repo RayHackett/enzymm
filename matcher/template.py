@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 import io
 import tempfile
 
-import pyjess
+import pyjess # type: ignore
 
 from .utils import chunks, ranked_argsort
 
@@ -182,12 +182,15 @@ class Atom:
         # charge: empty
         return cls(specificity=specificity, name=name, altloc=altloc, residue_name=residue_name, backbone=backbone, chain_id=chain_id, residue_number=residue_number, x=x, y=y, z=z, allowed_residues=allowed_residues, flexibility=flexibility)
 
-    def dump(self, file: IO[str]):
+    def dumps(self):
         if self.flexibility:
             pdb_line = f"ATOM  {self.specificity:>5} {self.name:^4}{self.altloc if self.altloc is not None else '':<1}{self.residue_name:<3}{self.chain_id:>2}{self.residue_number:>4}    {self.x:>8.3f}{self.y:>8.3f}{self.z:>8.3f} {self.allowed_residues:<5}{self.flexibility:>5.2f} "
         else:
             pdb_line = f"ATOM  {self.specificity:>5} {self.name:^4}{self.altloc if self.altloc is not None else '':<1}{self.residue_name:<3}{self.chain_id:>2}{self.residue_number:>4}    {self.x:>8.3f}{self.y:>8.3f}{self.z:>8.3f} {self.allowed_residues:<5}{'':<5} "
-        file.write(pdb_line)
+        return pdb_line
+
+    def dump(self, file: IO[str]):
+        file.write(self.dumps())
 
     def __sub__(self, other):
         if not isinstance(other, Atom):
@@ -281,48 +284,56 @@ class Template:
             **metadata, # type: ignore # unpack everything we parsed into metadata
         )
 
-    def dump(self, file: IO[str]):
-        file.write(f'REMARK TEMPLATE')
-        file.write(f'REMARK ID {self.id}')
-        file.write(f'REMARK PDB_ID {self.pdb_id}')
-        file.write(f'REMARK MCSA_ID {self.mcsa_id}')
-        file.write(f'REMARK UNIPROT_ID {self.uniprot_id}')
-        file.write(f'REMARK CLUSTER {self.cluster}')
-        file.write(f'REMARK ORGANISM_NAME {self.organism}')
-        file.write(f'REMARK ORGANISM_ID {self.organism_id}')
-        file.write(f'REMARK RESOLUTION {self.resolution}')
-        file.write(f'REMARK EXPERIMENTAL_METHOD {self.experimental_method}')
-        file.write(f'REMARK ENZYME {self.enzyme_discription}')
-        file.write(f'REMARK REPRESENTING {self.represented_sites} CATALYTIC SITES')
-        file.write(f'REMARK EXPERIMENTAL_METHOD {self.experimental_method}')
-        file.write(f'REMARK EC {",".join(self.ec) if self.ec is not None else ''}')
-        file.write(f'REMARK CATH {",".join(self.cath) if self.cath else ''}')
-        file.write(f'REMARK SIZE {self.size}')
-        file.write(f'REMARK TRUE_SIZE {self.true_size}')
-        file.write(f'REMARK MULTIMERIC {self.multimeric}')
-        file.write(f'REMARK RELATIVE_ORDER {self.relative_order}')
-
+    def dumps(self):
+        lines = [
+        f'REMARK TEMPLATE', 
+        f'REMARK ID {self.id}',
+        f'REMARK PDB_ID {self.pdb_id}',
+        f'REMARK MCSA_ID {self.mcsa_id}',
+        f'REMARK UNIPROT_ID {self.uniprot_id}',
+        f'REMARK CLUSTER {self.cluster}',
+        f'REMARK ORGANISM_NAME {self.organism}',
+        f'REMARK ORGANISM_ID {self.organism_id}',
+        f'REMARK RESOLUTION {self.resolution}',
+        f'REMARK EXPERIMENTAL_METHOD {self.experimental_method}',
+        f'REMARK ENZYME {self.enzyme_discription}',
+        f'REMARK REPRESENTING {self.represented_sites} CATALYTIC SITES',
+        f'REMARK EXPERIMENTAL_METHOD {self.experimental_method}',
+        f"REMARK EC {','.join(self.ec) if self.ec is not None else ''}",
+        f"REMARK CATH {','.join(self.cath) if self.cath else ''}",
+        f'REMARK SIZE {self.size}',
+        f'REMARK TRUE_SIZE {self.true_size}',
+        f'REMARK MULTIMERIC {self.multimeric}',
+        f'REMARK RELATIVE_ORDER {self.relative_order}'
+        ]
+        
         for residue in self.residues:
-            file.write(f'REMARK ORIENTATION_VECTOR OF RESIDUE {residue.residue_number}: {residue.orientation_vector.x:.3f} {residue.orientation_vector.y:.3f} {residue.orientation_vector.z:.3f}')
+            lines.append(f'REMARK ORIENTATION_VECTOR OF RESIDUE {residue.residue_number}: {residue.orientation_vector.x:.3f} {residue.orientation_vector.y:.3f} {residue.orientation_vector.z:.3f}')
 
         for residue in self.residues:
             for atom in residue.atoms:
-                atom.dump(file)
+                lines.append(atom.dumps())
+
+        lines.append('END')
         
-        file.write('END')
+        return '\n'.join(lines)
+
+    def dump(self, file: IO[str]):
+        file.write(self.dumps())
 
     def to_pyjess_template(self) -> pyjess.Template:
-        with tempfile.NamedTemporaryFile(mode='w+') as f: # TODO is this bad? default is mode w+b
-            self.dump(f) # writing to tempfile f
-            f.flush() # makes sure the file is written to the disk and not in IO-buffer
-            f.seek(0)
-            return pyjess.Template.loads(f.read())
+        return pyjess.Template.loads(self.dumps(), id=self.id)
+        # with tempfile.NamedTemporaryFile(mode='w+') as f: # TODO is this bad? default is mode w+b
+        #     self.dump(f) # writing to tempfile f
+        #     f.flush() # makes sure the file is written to the disk and not in IO-buffer
+        #     f.seek(0)
+        #     return pyjess.Template.loads(f.read(), id=self.id)
 
     @property
     def id(self) -> str: # pyjess templates need a name, so mine do too
         """`str`: The name of the template composed of M-CSA ID, true size, pdb_id, cluster seperated by underscores
         """
-        return f'{self.mcsa_id}_{self.size}_{self.pdb_id}_{self.cluster}'
+        return f'{self.mcsa_id}_{self.true_size}_{self.pdb_id}_{self.cluster}'
 
     @property
     def true_size(self) -> int: # Number of residues in the template as counted by triplets of atoms

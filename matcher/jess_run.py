@@ -10,7 +10,9 @@ import csv
 import numpy as np
 import itertools
 
-import pyjess # cython port of Jess to python package
+import io # tempoary - delete again TODO
+
+import pyjess # type: ignore # cython port of Jess to python package
 
 from .jess.filter_hits import filter_hits
 from .template import Template, Vec3, load_templates, check_template, group_templates_by_size
@@ -127,6 +129,11 @@ class Match:
                 try:
                     first_atom = next(atom for atom in atom_triplet if atom.name == vectup[0])
                 except StopIteration:
+                    atoms = cls.hit.atoms()
+                    for i in atoms:
+                        print(i)
+                    print(cls.hit.template.id)
+                    print(cls.template.id)
                     raise ValueError(f'Failed to find first atom for amino-acid {atom_triplet[0].residue_name!r}') from None
                 try:
                     second_atom = next(atom for atom in atom_triplet if atom.name == vectup[1])
@@ -159,52 +166,55 @@ class Match:
 
         return np.mean(angle_list)
 
-def _single_query_run(molecule_path: Path, pyjess_templates: Iterable[pyjess.Template], id_to_template: Dict[str, Template], rmsd: float = 2.0, distance: float = 3.0, max_dynamic_distance: float = 3.0, conservation_cutoff: float = 100, max_candidates: int = 10000):
+def _single_query_run(molecule_path: Path, pyjess_templates: Iterable[pyjess.Template], id_to_template: Dict[str, Template], rmsd: float = 2.0, distance: float = 3.0, max_dynamic_distance: float = 3.0, conservation_cutoff: float = 0, max_candidates: int = 10000):
     # TODO should this function return anything?
-    molecule = pyjess.Molecule.loads(molecule_path.open().read()) # This controls the B-factor column and removes anything smaller
+    molecule = pyjess.Molecule.loads(molecule_path.open().read()) # TODO currently the same query gets loaded 6 times for each template size. this is probably inefficient
+    # conservation_cutoff controls the B-factor column and removes anything smaller
     # killswitch is controlled by max_candidates. Internal default is currently 10000
     jess = pyjess.Jess(pyjess_templates) # Create a Jess instance and use it to query a molecule (a PDB structure) against the stored templates:
     query = jess.query(molecule, rmsd_threshold=rmsd, distance_cutoff=distance, max_dynamic_distance=max_dynamic_distance, max_candidates=max_candidates)
 
-    if query: # if any hits were found
-        # best hits is a list of pyjess.Hit objects
-        best_hits =  filter_hits(list(query)) # retain only the hit with the lowest e-value for each query-template pair
-
+    hits = list(query)
     matches: List[Match] = []
-    for hit in best_hits:
-        template = id_to_template[hit.template.id]
-        matches.append(Match(hit=hit, template=template))
+    if hits: # if any hits were found
+        # best hits is a list of pyjess.Hit objects
+        best_hits =  filter_hits(hits) # retain only the hit with the lowest e-value for each query-template pair
 
-    # TODO what kind of method is this? how to I add a required attribute to a class object afterwards?
-    def _check_completeness(matches):
-        # only after all templates of a certain size have been scanned could we compute the completeness tag
-        
-        # Group hit objects by the pair (hit.template.m-csa, first digit of hit.template.cluster)
-        def get_key(obj) -> Tuple[str, str]:
-            return obj.template.msca_id, obj.template.cluster.split('.')[0] # split on . and take the first digit which is the cluster number
+        if best_hits:
+            for hit in best_hits:
+                template = id_to_template[hit.template.id]
+                matches.append(Match(hit=hit, template=template))
 
-        grouped_hits = [list(g) for _, g in itertools.groupby(sorted(matches, key=get_key), get_key)]
-
-        for cluster_hits in grouped_hits:
-            # For each query check if all Templates assigned to the same cluster targeted that structure
-            #
-            # TODO report statistics on this: This percentage of queries had a complete active site as reported by the completeness tag
-            # Filter this by template clusters with >1 member of course or report seperately by the number of clustermembers
-            # or say like: This template cluster was always complete while this template cluster was only complete X times out of Y Queries matched to one member
-            #
-            # get the total number templates from the first hit in each cluster which is the third cluster digit
-            total_clustermembers = int(cluster_hits[0].template.cluster.split('.')[2])
-            # check if all the cluster members with all 2nd digit identiers up to and including total_clustermembers are present in the group,
-            indexed_possible_cluster_members = list(range(total_clustermembers))
-            possible_cluster_members = [x+1 for x in indexed_possible_cluster_members]
+        # TODO what kind of method is this? how to I add a required attribute to a class object afterwards?
+        def _check_completeness(matches):
+            # only after all templates of a certain size have been scanned could we compute the completeness tag
             
-            found_cluster_members = [int(hit.template.cluster.split('.')[1]) for hit in cluster_hits] # second number is the current cluster member number
+            # Group hit objects by the pair (hit.template.m-csa, first digit of hit.template.cluster)
+            def get_key(obj: Match) -> Tuple[int, str]:
+                return obj.template.mcsa_id, obj.template.cluster.split('_')[0] # split on _ and take the first digit which is the cluster number
 
-            if found_cluster_members == possible_cluster_members:
-                for hit in cluster_hits:
-                    hit.complete = True
-    
-    _check_completeness(matches)
+            grouped_hits = [list(g) for _, g in itertools.groupby(sorted(matches, key=get_key), get_key)]
+
+            for cluster_hits in grouped_hits:
+                # For each query check if all Templates assigned to the same cluster targeted that structure
+                #
+                # TODO report statistics on this: This percentage of queries had a complete active site as reported by the completeness tag
+                # Filter this by template clusters with >1 member of course or report seperately by the number of clustermembers
+                # or say like: This template cluster was always complete while this template cluster was only complete X times out of Y Queries matched to one member
+                #
+                # get the total number templates from the first hit in each cluster which is the third cluster digit
+                total_clustermembers = int(cluster_hits[0].template.cluster.split('_')[2])
+                # check if all the cluster members with all 2nd digit identiers up to and including total_clustermembers are present in the group,
+                indexed_possible_cluster_members = list(range(total_clustermembers))
+                possible_cluster_members = [x+1 for x in indexed_possible_cluster_members]
+                
+                found_cluster_members = [int(hit.template.cluster.split('_')[1]) for hit in cluster_hits] # second number is the current cluster member number
+
+                if found_cluster_members == possible_cluster_members:
+                    for hit in cluster_hits:
+                        hit.complete = True
+        
+        _check_completeness(matches)
 
     return matches
 
@@ -286,22 +296,16 @@ def matcher_run(query_path: Path, template_path: Path, jess_params: Dict[int, Di
             print('loading default template files')
         template_tuples = list(load_templates(warn=warn)) # default templates
 
-    passer = False
     # check each template and if it passes add it to the mapping dictionary and transform it to a pyjess.Template and add it to a list of pyjess.Template objects
     template_size_to_pyjess_template_id: Dict[int, List[pyjess.Template]] = {} # Dictionary of List of pyjess.Template objects grouped by Template.size as keys
     id_to_template: Dict[str, Template] = {} # mapping pyjess.Template ID to my Template objects
-    for template_tuple in template_tuples:
+    for i, template_tuple in enumerate(template_tuples):
         if check_template(template_tuple, warn=warn): # returns True if the Template passed all checks or if warn is set to False
             pyjess_template = template_tuple[0].to_pyjess_template()
             id_to_template[pyjess_template.id] = template_tuple[0]
             if template_tuple[0].size not in template_size_to_pyjess_template_id:
                 template_size_to_pyjess_template_id[template_tuple[0].size] = []
             template_size_to_pyjess_template_id[template_tuple[0].size].append(pyjess_template)
-            if not passer:
-                print('got here once!')
-                passer=True
-
-    print('am not getting here')
     
     template_sizes = list(template_size_to_pyjess_template_id.keys())
     template_sizes.sort(reverse=True) # geta list of template_sizes in decending order
@@ -388,7 +392,5 @@ if __name__ == "__main__":
     outdir = args.output_dir
     warn = args.warn
     verbose = args.verbose
-
-
 
     matcher_run(query_path=query_path, template_path=template_path, jess_params=jess_params, outdir=outdir, warn=warn, verbose=verbose, complete_search=complete_search)
