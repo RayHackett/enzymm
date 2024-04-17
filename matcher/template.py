@@ -469,10 +469,10 @@ class Template:
 # Populate the mapping of MCSA IDs to CATH numbers so that it can be accessed
 # by individual templates in the `Template.cath` property.
 # Source: M-CSA which provides cath annotations for either residue homologs or for m-csa entries
-with files(__package__).joinpath('data', 'MCSA_CATH_mapping.json').open() as f:
+with files(__package__).joinpath('data', 'MCSA_CATH_mapping.json').open() as f: #type: ignore
     Template._CATH_MAPPING = json.load(f)
 
-with files(__package__).joinpath('data', 'MCSA_EC_mapping.json').open() as f:
+with files(__package__).joinpath('data', 'MCSA_EC_mapping.json').open() as f: #type: ignore
     Template._EC_MAPPING = json.load(f)
 
 # global MCSA_interpro_dict
@@ -482,7 +482,7 @@ with files(__package__).joinpath('data', 'MCSA_EC_mapping.json').open() as f:
 # # Note that an M-CSA entry may have multiple reference sequences
 
 # Source: CATH, EC and InterPro from PDB-SIFTS through mapping to the pdbchain
-with files(__package__).joinpath('data', 'pdb_sifts.json').open() as f:
+with files(__package__).joinpath('data', 'pdb_sifts.json').open() as f: #type: ignore
     Template._PDB_SIFTS = json.load(f)
 
 # # add a list of cofactors associated with each EC number from Neeras List
@@ -552,7 +552,7 @@ def check_template(Template_tuple: Tuple[Template, Path], warn: bool = True) -> 
 if __name__ == "__main__":
     # TODO this is here for debugging purposes - delete later
     for template_res_num in [8, 7, 6, 5, 4, 3]:
-        templates = list(load_templates(Path(str(files(__package__).joinpath('jess_templates_20230210', f'{template_res_num}_residues'))), warn=False))
+        templates = list(load_templates(Path(str(files(__package__).joinpath('jess_templates_20230210', f'{template_res_num}_residues'))), warn=False)) #type: ignore
         print(f'current template size folder: {template_res_num}')
         print(len(templates))
         #for template in templates:

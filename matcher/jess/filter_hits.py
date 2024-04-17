@@ -43,7 +43,7 @@ def _best_match(hits: List[pyjess.Hit], all_instances=False) -> List[pyjess.Hit]
             continue # skips the rest of the loop
         # This is to discard self matches when cross-comparing templates
         if hit.molecule.id != None:
-            if hit.template.id.split('_')[2].lower() == hit.molecule.id.lower(): # TODO change this accoridng to above comments
+            if hit.template.id.split('_')[2].lower() == hit.molecule.id.lower():
                 continue # skips the rest of the loop
         unique_hits.append(hit)
 
@@ -52,7 +52,7 @@ def _best_match(hits: List[pyjess.Hit], all_instances=False) -> List[pyjess.Hit]
         return unique_hits # ! This is a list of hit objects
     else:
         if unique_hits:
-            return [_get_highest_scored_hit(unique_hits)] # ! This returns a single hit so we turn it into a list # TODO this is pretty bad handling honestly. I dont want a list in this case at all...
+            return [_get_highest_scored_hit(unique_hits)] # ! This returns a single hit so we turn it into a list
         else:
             return [] # return an empty list if all were self matches or had bad determinants
         

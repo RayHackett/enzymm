@@ -10,8 +10,6 @@ import csv
 import numpy as np
 import itertools
 
-import io # tempoary - delete again TODO
-
 import pyjess # type: ignore # cython port of Jess to python package
 
 from .jess.filter_hits import filter_hits
