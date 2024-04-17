@@ -166,9 +166,8 @@ class Match:
 
         return np.mean(angle_list)
 
-def _single_query_run(molecule_path: Path, pyjess_templates: Iterable[pyjess.Template], id_to_template: Dict[str, Template], rmsd: float = 2.0, distance: float = 3.0, max_dynamic_distance: float = 3.0, conservation_cutoff: float = 0, max_candidates: int = 10000):
+def _single_query_run(molecule: pyjess.Molecule, pyjess_templates: Iterable[pyjess.Template], id_to_template: Dict[str, Template], rmsd: float = 2.0, distance: float = 3.0, max_dynamic_distance: float = 3.0, conservation_cutoff: float = 0, max_candidates: int = 10000):
     # TODO should this function return anything?
-    molecule = pyjess.Molecule.loads(molecule_path.open().read()) # TODO currently the same query gets loaded 6 times for each template size. this is probably inefficient
     # conservation_cutoff controls the B-factor column and removes anything smaller
     # killswitch is controlled by max_candidates. Internal default is currently 10000
     jess = pyjess.Jess(pyjess_templates) # Create a Jess instance and use it to query a molecule (a PDB structure) against the stored templates:
@@ -283,7 +282,12 @@ def matcher_run(query_path: Path, template_path: Path, jess_params: Dict[int, Di
                     molecule_paths.add(Path(line.strip()))
         except:
             raise FileNotFoundError(f'File {query_path} did not exist or did not contain any paths to files with the expected .pdb or .ent extensions')
-        
+
+
+    ######## Loading all query molecules #############################
+    molecules: Set[pyjess.Molecule] = set()
+    for molecule_path in molecule_paths:
+        molecules.add(pyjess.Molecule.loads(molecule_path.open().read()))
 
     ######## Checking template path ##################################
 
@@ -310,8 +314,8 @@ def matcher_run(query_path: Path, template_path: Path, jess_params: Dict[int, Di
     template_sizes = list(template_size_to_pyjess_template_id.keys())
     template_sizes.sort(reverse=True) # geta list of template_sizes in decending order
 
-    remaining_molecule_paths = molecule_paths
-    processed_paths: Set[Path] = set()
+    remaining_molecules = molecules
+    processed_molecules: Set[pyjess.Molecule] = set()
     for template_size in template_sizes:
         ################# Running Jess ###################################
         # TODO set level of verbosity and then print if conditions apply
@@ -331,14 +335,14 @@ def matcher_run(query_path: Path, template_path: Path, jess_params: Dict[int, Di
         conservation_cutoff = jess_params[template_size]['conservation_cutoff']
 
         # iterate over all the query molecules passed
-        for molecule_path in remaining_molecule_paths:
-            matches = _single_query_run(molecule_path=molecule_path, pyjess_templates=pyjess_templates, id_to_template=id_to_template, rmsd=rmsd, distance=distance, max_dynamic_distance=max_dynamic_distance, conservation_cutoff=conservation_cutoff)
+        for molecule in remaining_molecules:
+            matches = _single_query_run(molecule=molecule, pyjess_templates=pyjess_templates, id_to_template=id_to_template, rmsd=rmsd, distance=distance, max_dynamic_distance=max_dynamic_distance, conservation_cutoff=conservation_cutoff)
             if matches:
                 write_matches_to_tsv(matches=matches, molecule_path=molecule_path, outdir=outdir)
-                processed_paths.add(molecule_path)
+                processed_molecules.add(molecule)
 
         if not complete_search: # if complete_search is false, then do not search with smaller templates if hits with larger ones have been found.
-            remaining_molecule_paths = molecule_paths.difference(processed_paths) 
+            remaining_molecules = remaining_molecules.difference(processed_molecules)
 
         # TODO what should i retrun? a path to the output file? a bool if any hits were found?
         # return

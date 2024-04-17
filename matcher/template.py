@@ -183,14 +183,16 @@ class Atom:
         return cls(specificity=specificity, name=name, altloc=altloc, residue_name=residue_name, backbone=backbone, chain_id=chain_id, residue_number=residue_number, x=x, y=y, z=z, allowed_residues=allowed_residues, flexibility=flexibility)
 
     def dumps(self):
-        if self.flexibility:
-            pdb_line = f"ATOM  {self.specificity:>5} {self.name:^4}{self.altloc if self.altloc is not None else '':<1}{self.residue_name:<3}{self.chain_id:>2}{self.residue_number:>4}    {self.x:>8.3f}{self.y:>8.3f}{self.z:>8.3f} {self.allowed_residues:<5}{self.flexibility:>5.2f} "
-        else:
-            pdb_line = f"ATOM  {self.specificity:>5} {self.name:^4}{self.altloc if self.altloc is not None else '':<1}{self.residue_name:<3}{self.chain_id:>2}{self.residue_number:>4}    {self.x:>8.3f}{self.y:>8.3f}{self.z:>8.3f} {self.allowed_residues:<5}{'':<5} "
-        return pdb_line
+        buffer = io.StringIO()
+        self.dump(buffer)
+        return buffer.getvalue() # returns entire content temporary file object as a string
 
     def dump(self, file: IO[str]):
-        file.write(self.dumps())
+        if self.flexibility:
+            pdb_line = f"ATOM  {self.specificity:>5} {self.name:^4}{self.altloc if self.altloc is not None else '':<1}{self.residue_name:<3}{self.chain_id:>2}{self.residue_number:>4}    {self.x:>8.3f}{self.y:>8.3f}{self.z:>8.3f} {self.allowed_residues:<5}{self.flexibility:>5.2f} \n"
+        else:
+            pdb_line = f"ATOM  {self.specificity:>5} {self.name:^4}{self.altloc if self.altloc is not None else '':<1}{self.residue_name:<3}{self.chain_id:>2}{self.residue_number:>4}    {self.x:>8.3f}{self.y:>8.3f}{self.z:>8.3f} {self.allowed_residues:<5}{'':<5} \n"
+        file.write(pdb_line)
 
     def __sub__(self, other):
         if not isinstance(other, Atom):
@@ -285,41 +287,40 @@ class Template:
         )
 
     def dumps(self):
-        lines = [
-        f'REMARK TEMPLATE', 
-        f'REMARK ID {self.id}',
-        f'REMARK PDB_ID {self.pdb_id}',
-        f'REMARK MCSA_ID {self.mcsa_id}',
-        f'REMARK UNIPROT_ID {self.uniprot_id}',
-        f'REMARK CLUSTER {self.cluster}',
-        f'REMARK ORGANISM_NAME {self.organism}',
-        f'REMARK ORGANISM_ID {self.organism_id}',
-        f'REMARK RESOLUTION {self.resolution}',
-        f'REMARK EXPERIMENTAL_METHOD {self.experimental_method}',
-        f'REMARK ENZYME {self.enzyme_discription}',
-        f'REMARK REPRESENTING {self.represented_sites} CATALYTIC SITES',
-        f'REMARK EXPERIMENTAL_METHOD {self.experimental_method}',
-        f"REMARK EC {','.join(self.ec) if self.ec is not None else ''}",
-        f"REMARK CATH {','.join(self.cath) if self.cath else ''}",
-        f'REMARK SIZE {self.size}',
-        f'REMARK TRUE_SIZE {self.true_size}',
-        f'REMARK MULTIMERIC {self.multimeric}',
-        f'REMARK RELATIVE_ORDER {self.relative_order}'
-        ]
-        
+        buffer = io.StringIO()
+        self.dump(buffer)
+        return buffer.getvalue() # returns entire content temporary file object as a string
+
+    def dump(self, file: IO[str]):
+        file.write(f'REMARK TEMPLATE\n')
+        file.write(f'REMARK ID {self.id}\n')
+        file.write(f'REMARK PDB_ID {self.pdb_id}\n')
+        file.write(f'REMARK MCSA_ID {self.mcsa_id}\n')
+        file.write(f'REMARK UNIPROT_ID {self.uniprot_id}\n')
+        file.write(f'REMARK CLUSTER {self.cluster}\n')
+        file.write(f'REMARK ORGANISM_NAME {self.organism}\n')
+        file.write(f'REMARK ORGANISM_ID {self.organism_id}\n')
+        file.write(f'REMARK RESOLUTION {self.resolution}\n')
+        file.write(f'REMARK EXPERIMENTAL_METHOD {self.experimental_method}\n')
+        file.write(f'REMARK ENZYME {self.enzyme_discription}\n')
+        file.write(f'REMARK REPRESENTING {self.represented_sites} CATALYTIC SITES\n')
+        file.write(f'REMARK EXPERIMENTAL_METHOD {self.experimental_method}')
+        file.write(f"REMARK EC {','.join(self.ec) if self.ec is not None else ''}\n")
+        file.write(f"REMARK CATH {','.join(self.cath) if self.cath else ''}\n")
+        file.write(f'REMARK SIZE {self.size}\n')
+        file.write(f'REMARK TRUE_SIZE {self.true_size}\n')
+        file.write(f'REMARK MULTIMERIC {self.multimeric}\n')
+        file.write(f'REMARK RELATIVE_ORDER {self.relative_order}\n')
+
         for residue in self.residues:
-            lines.append(f'REMARK ORIENTATION_VECTOR OF RESIDUE {residue.residue_number}: {residue.orientation_vector.x:.3f} {residue.orientation_vector.y:.3f} {residue.orientation_vector.z:.3f}')
+            file.write(f'REMARK ORIENTATION_VECTOR OF RESIDUE {residue.residue_number}: {residue.orientation_vector.x:.3f} {residue.orientation_vector.y:.3f} {residue.orientation_vector.z:.3f}\n')
 
         for residue in self.residues:
             for atom in residue.atoms:
-                lines.append(atom.dumps())
+                atom.dump(file)
 
-        lines.append('END')
-        
-        return '\n'.join(lines)
+        file.write('END\n')
 
-    def dump(self, file: IO[str]):
-        file.write(self.dumps())
 
     def to_pyjess_template(self) -> pyjess.Template:
         return pyjess.Template.loads(self.dumps(), id=self.id)
