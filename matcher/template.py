@@ -151,7 +151,6 @@ class Residue:
 @dataclass
 class Atom:
     '''Class for storing Atom information from a Template file'''
-    field_type: str
     specificity: int
     name: str
     residue_name: str
@@ -168,7 +167,7 @@ class Atom:
     @classmethod
     def loads(cls, line: str) -> Atom:
         ## this uses a modified PDB format
-        field_type = str(line[0:6].strip()) # first four characters are 'ATOM  ' or 'HETATOM' [0:6]
+        # first four characters are 'ATOM  ' [0:6]. 'HETATOM' are not allowed in Templates
         specificity = int(line[6:11]) # inplace of atom number
         name = str(line[12:16].strip()) # atom_name
         altloc = str(line[16].strip()) # no idea what this is used for in a template, optional
@@ -184,7 +183,7 @@ class Atom:
         # segment identifier: empty
         # element: empty
         # charge: empty
-        return cls(field_type=field_type, specificity=specificity, name=name, altloc=altloc, residue_name=residue_name, backbone=backbone, chain_id=chain_id, residue_number=residue_number, x=x, y=y, z=z, allowed_residues=allowed_residues, flexibility=flexibility)
+        return cls(specificity=specificity, name=name, altloc=altloc, residue_name=residue_name, backbone=backbone, chain_id=chain_id, residue_number=residue_number, x=x, y=y, z=z, allowed_residues=allowed_residues, flexibility=flexibility)
 
     def dumps(self):
         buffer = io.StringIO()
@@ -194,9 +193,9 @@ class Atom:
     def dump(self, file: IO[str]):
         on_char_elements = {'H', 'B', 'C', 'N', 'O', 'F', 'P', 'S', 'K', 'V', 'Y', 'I', 'W', 'U'}
         if self.name[0] in on_char_elements:
-            file.write(f"{self.field_type:6s}{self.specificity:>5}  {self.name:<3s}{self.altloc if self.altloc is not None else '':<1}{self.residue_name:<3}{self.chain_id:>2}{self.residue_number:>4}    {self.x:>8.3f}{self.y:>8.3f}{self.z:>8.3f} {self.allowed_residues:<5}{self.flexibility:>5.2f} \n")
+            file.write(f"ATOM  {self.specificity:>5}  {self.name:<3s}{self.altloc if self.altloc is not None else '':<1}{self.residue_name:<3}{self.chain_id:>2}{self.residue_number:>4}    {self.x:>8.3f}{self.y:>8.3f}{self.z:>8.3f} {self.allowed_residues:<5}{self.flexibility:>5.2f} \n")
         else:
-            file.write(f"{self.field_type:6s}{self.specificity:>5} {self.name:<4s}{self.altloc if self.altloc is not None else '':<1}{self.residue_name:<3}{self.chain_id:>2}{self.residue_number:>4}    {self.x:>8.3f}{self.y:>8.3f}{self.z:>8.3f} {self.allowed_residues:<5}{self.flexibility:>5.2f} \n")
+            file.write(f"ATOM  {self.specificity:>5} {self.name:<4s}{self.altloc if self.altloc is not None else '':<1}{self.residue_name:<3}{self.chain_id:>2}{self.residue_number:>4}    {self.x:>8.3f}{self.y:>8.3f}{self.z:>8.3f} {self.allowed_residues:<5}{self.flexibility:>5.2f} \n")
     
     def __sub__(self, other):
         if not isinstance(other, Atom):
@@ -260,7 +259,7 @@ class Template:
             elif tokens[0] == 'ATOM':
                 atom_lines.append(line)
             elif tokens[0] == 'HETATM':
-                atom_lines.append(line)
+                raise ValueError('Supplied Template with HETATM record. HETATMs cannot be searched by Jess')
             else:
                 continue
 
