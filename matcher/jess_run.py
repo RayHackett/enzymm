@@ -127,11 +127,11 @@ class Match:
                 try:
                     first_atom = next(atom for atom in atom_triplet if atom.name == vectup[0])
                 except StopIteration:
+                    # TODO remove this stuff
                     atoms = cls.hit.atoms()
                     for i in atoms:
                         print(i)
                     print(cls.hit.template.id)
-                    print(cls.template.id)
                     raise ValueError(f'Failed to find first atom for amino-acid {atom_triplet[0].residue_name!r}') from None
                 try:
                     second_atom = next(atom for atom in atom_triplet if atom.name == vectup[1])
@@ -165,7 +165,6 @@ class Match:
         return np.mean(angle_list)
 
 def _single_query_run(molecule: pyjess.Molecule, pyjess_templates: Iterable[pyjess.Template], id_to_template: Dict[str, Template], rmsd: float = 2.0, distance: float = 3.0, max_dynamic_distance: float = 3.0, conservation_cutoff: float = 0, max_candidates: int = 10000):
-    # TODO should this function return anything?
     # conservation_cutoff controls the B-factor column and removes anything smaller
     # killswitch is controlled by max_candidates. Internal default is currently 10000
     jess = pyjess.Jess(pyjess_templates) # Create a Jess instance and use it to query a molecule (a PDB structure) against the stored templates:
@@ -310,37 +309,71 @@ def matcher_run(query_path: Path, template_path: Path, jess_params: Dict[int, Di
             template_size_to_pyjess_template_id[template_tuple[0].size].append(pyjess_template)
     
     template_sizes = list(template_size_to_pyjess_template_id.keys())
-    template_sizes.sort(reverse=True) # geta list of template_sizes in decending order
+    template_sizes.sort(reverse=True) # get a list of template_sizes in decending order
+
+    if warn:
+        for i in template_sizes:
+            if i < 3:
+                print('Templates with a size smaller than 3 defined, sidechain residues were supplied. These will be excluded since these templates are too general')
 
     remaining_molecules = molecules
     processed_molecules: Set[pyjess.Molecule] = set()
     for template_size in template_sizes:
-        ################# Running Jess ###################################
-        # TODO set level of verbosity and then print if conditions apply
-        if verbose:
-            if template_path:
-                print()
-            else:
-                print('Using default templates from the M-CSA')
-            print(f'Now matching query structure(s) to template of size {template_size}')
-            print(f'jess parameters are: {jess_params[template_size]}')
-
         pyjess_templates = template_size_to_pyjess_template_id[template_size]
 
-        rmsd = jess_params[template_size]['rmsd']
-        distance = jess_params[template_size]['distance']
-        max_dynamic_distance = jess_params[template_size]['max_dynamic_distance']
-        conservation_cutoff = jess_params[template_size]['conservation_cutoff']
+        # TODO remove this
+        print(pyjess_templates[0].id)
+        length = 9
+        for l in range(length):
+            i = pyjess_templates[0].__getitem__(l)
+            print(i.atom_names)
+            print(i.chain_id)
+            print(i.distance_weight)
+            print(i.match_mode)
+            print(i.residue_names)
+            print(i.residue_number)
+            print('')
+        
+        if template_size < 3:
+            if warn:
+                print('The following templates are too small and will be skipped:')
+                for tmp in pyjess_templates:
+                    print(tmp.id)
+            continue # skip the rest of the for-loop
 
+        elif template_size > 8:
+            if warn:
+                print('Templates with more than 8 residues were passed. Jess parameters for templates of 8 residues will be used.')
+            parameter_size = 8
+
+        else:
+            parameter_size = template_size
+
+        ################# Running Jess ###################################
+        
+        if verbose:
+            print(f'Now matching query structure(s) to template of size {template_size}')
+            print(f'jess parameters are: {jess_params[parameter_size]}')
+
+        rmsd = jess_params[parameter_size]['rmsd']
+        distance = jess_params[parameter_size]['distance']
+        max_dynamic_distance = jess_params[parameter_size]['max_dynamic_distance']
+        conservation_cutoff = jess_params[parameter_size]['conservation_cutoff']
+
+        total_matches = 0 # counter for all matches found over all molecules passed
         # iterate over all the query molecules passed
         for molecule in remaining_molecules:
             matches = _single_query_run(molecule=molecule, pyjess_templates=pyjess_templates, id_to_template=id_to_template, rmsd=rmsd, distance=distance, max_dynamic_distance=max_dynamic_distance, conservation_cutoff=conservation_cutoff)
             if matches:
                 write_matches_to_tsv(matches=matches, molecule_path=molecule_path, outdir=outdir)
                 processed_molecules.add(molecule)
+                total_matches += len(matches)
 
         if not complete_search: # if complete_search is false, then do not search with smaller templates if hits with larger ones have been found.
             remaining_molecules = remaining_molecules.difference(processed_molecules)
+
+        if verbose:
+            print(f"found {total_matches} matches with templates of size {template_size}")
 
         # TODO what should i retrun? a path to the output file? a bool if any hits were found?
         # return
@@ -383,12 +416,12 @@ if __name__ == "__main__":
     else:
         ####### Default Jess parameters by Size ##################################
         jess_params = {
-            3: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4, 'conservation_cutoff': 0},
-            4: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4, 'conservation_cutoff': 0},
-            5: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4, 'conservation_cutoff': 0},
-            6: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4, 'conservation_cutoff': 0},
-            7: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4, 'conservation_cutoff': 0},
-            8: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4, 'conservation_cutoff': 0}}
+            3: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4, 'conservation_cutoff': 100},
+            4: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4, 'conservation_cutoff': 100},
+            5: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4, 'conservation_cutoff': 100},
+            6: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4, 'conservation_cutoff': 100},
+            7: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4, 'conservation_cutoff': 100},
+            8: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4, 'conservation_cutoff': 100}}
 
     complete_search = args.complete_search
     outdir = args.output_dir

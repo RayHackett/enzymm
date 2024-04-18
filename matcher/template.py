@@ -79,8 +79,11 @@ class Residue:
                             'GLU': ('CD','mid'),
                             'PTM': ('CA','CB'),
                             'ANY': ('C','O')}
-        
-        vectup = vector_atom_type_dict[atoms[0].residue_name]
+        try:
+            vectup = vector_atom_type_dict[atoms[0].residue_name]
+        except KeyError as exc:
+                raise KeyError(f'Residue orientation is not defined for the residue type {atoms[0].residue_name}') from exc
+
         # In residues with two identical atoms, the vector is calculated between the middle atom and the mid point between the identical pair
         if vectup[1] == 'mid':
             try:
@@ -148,6 +151,7 @@ class Residue:
 @dataclass
 class Atom:
     '''Class for storing Atom information from a Template file'''
+    field_type: str
     specificity: int
     name: str
     residue_name: str
@@ -164,13 +168,13 @@ class Atom:
     @classmethod
     def loads(cls, line: str) -> Atom:
         ## this uses a modified PDB format
-        # first four characters are 'ATOM' [0:4]
-        specificity = int(line[7:11]) # inplace of atom number
+        field_type = str(line[0:6].strip()) # first four characters are 'ATOM  ' or 'HETATOM' [0:6]
+        specificity = int(line[6:11]) # inplace of atom number
         name = str(line[12:16].strip()) # atom_name
         altloc = str(line[16].strip()) # no idea what this is used for in a template, optional
         residue_name = str(line[17:20].strip())
         backbone = line[17:20].strip() == 'ANY'
-        chain_id = str(line[20:22].strip()) # allows for 2 letter chain IDs
+        chain_id = str(line[20:22].strip()) # allows for 2 letter chain IDs ! this is nonstandard
         residue_number = int(line[22:26])
         x = float(line[30:38])
         y = float(line[38:46])
@@ -180,7 +184,7 @@ class Atom:
         # segment identifier: empty
         # element: empty
         # charge: empty
-        return cls(specificity=specificity, name=name, altloc=altloc, residue_name=residue_name, backbone=backbone, chain_id=chain_id, residue_number=residue_number, x=x, y=y, z=z, allowed_residues=allowed_residues, flexibility=flexibility)
+        return cls(field_type=field_type, specificity=specificity, name=name, altloc=altloc, residue_name=residue_name, backbone=backbone, chain_id=chain_id, residue_number=residue_number, x=x, y=y, z=z, allowed_residues=allowed_residues, flexibility=flexibility)
 
     def dumps(self):
         buffer = io.StringIO()
@@ -188,12 +192,12 @@ class Atom:
         return buffer.getvalue() # returns entire content temporary file object as a string
 
     def dump(self, file: IO[str]):
-        if self.flexibility:
-            pdb_line = f"ATOM  {self.specificity:>5} {self.name:^4}{self.altloc if self.altloc is not None else '':<1}{self.residue_name:<3}{self.chain_id:>2}{self.residue_number:>4}    {self.x:>8.3f}{self.y:>8.3f}{self.z:>8.3f} {self.allowed_residues:<5}{self.flexibility:>5.2f} \n"
+        on_char_elements = {'H', 'B', 'C', 'N', 'O', 'F', 'P', 'S', 'K', 'V', 'Y', 'I', 'W', 'U'}
+        if self.name[0] in on_char_elements:
+            file.write(f"{self.field_type:6s}{self.specificity:>5}  {self.name:<3s}{self.altloc if self.altloc is not None else '':<1}{self.residue_name:<3}{self.chain_id:>2}{self.residue_number:>4}    {self.x:>8.3f}{self.y:>8.3f}{self.z:>8.3f} {self.allowed_residues:<5}{self.flexibility:>5.2f} \n")
         else:
-            pdb_line = f"ATOM  {self.specificity:>5} {self.name:^4}{self.altloc if self.altloc is not None else '':<1}{self.residue_name:<3}{self.chain_id:>2}{self.residue_number:>4}    {self.x:>8.3f}{self.y:>8.3f}{self.z:>8.3f} {self.allowed_residues:<5}{'':<5} \n"
-        file.write(pdb_line)
-
+            file.write(f"{self.field_type:6s}{self.specificity:>5} {self.name:<4s}{self.altloc if self.altloc is not None else '':<1}{self.residue_name:<3}{self.chain_id:>2}{self.residue_number:>4}    {self.x:>8.3f}{self.y:>8.3f}{self.z:>8.3f} {self.allowed_residues:<5}{self.flexibility:>5.2f} \n")
+    
     def __sub__(self, other):
         if not isinstance(other, Atom):
             raise TypeError(f'Expected an instance of "Atom" but got {type(other)}')
@@ -254,6 +258,8 @@ class Template:
                 if parser is not None:
                     parser(tokens, metadata, warn=warn)
             elif tokens[0] == 'ATOM':
+                atom_lines.append(line)
+            elif tokens[0] == 'HETATM':
                 atom_lines.append(line)
             else:
                 continue
@@ -321,14 +327,9 @@ class Template:
 
         file.write('END\n')
 
-
     def to_pyjess_template(self) -> pyjess.Template:
         return pyjess.Template.loads(self.dumps(), id=self.id)
-        # with tempfile.NamedTemporaryFile(mode='w+') as f: # TODO is this bad? default is mode w+b
-        #     self.dump(f) # writing to tempfile f
-        #     f.flush() # makes sure the file is written to the disk and not in IO-buffer
-        #     f.seek(0)
-        #     return pyjess.Template.loads(f.read(), id=self.id)
+        # TODO create pyjess templates directlz through the python interface
 
     @property
     def id(self) -> str: # pyjess templates need a name, so mine do too
@@ -369,7 +370,7 @@ class Template:
     def multimeric(self) -> bool: # if the template is split across multiple protein chains
         """`bool`: Boolean if the template residues stem from multiple protein chains
         """
-        return all(res.chain_id == self.residues[0].chain_id for res in self.residues)
+        return not all(res.chain_id == self.residues[0].chain_id for res in self.residues)
 
     @cached_property
     def relative_order(self) -> List[int]: # list with length of deduplicated true_size
