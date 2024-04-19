@@ -52,9 +52,10 @@ class Residue:
     def __post_init__(self) -> None:
         if not self.atoms:
             raise ValueError("Cannot create a residue with no atoms")
+        self._vec, self._indices = self.calc_residue_orientation(self.atoms)
 
     @classmethod
-    def calc_residue_orientation(cls, atoms: Tuple[Atom, Atom, Atom]) -> Vec3:
+    def calc_residue_orientation(cls, atoms: Tuple[Atom, Atom, Atom]) -> Tuple[Vec3, Tuple[int, int]]:
         # dictionary in which the vectors from start to finish are defined for each aminoacid type
         # the orientation vector is calculated differently for different aminoacid types
         vector_atom_type_dict = {'GLY': ('C','O'),
@@ -84,27 +85,27 @@ class Residue:
         except KeyError as exc:
                 raise KeyError(f'Residue orientation is not defined for the residue type {atoms[0].residue_name}') from exc
 
-        # In residues with two identical atoms, the vector is calculated between the middle atom and the mid point between the identical pair
+        # In residues with two identical atoms, the vector is calculated from the middle atom to the mid point between the identical pair
         if vectup[1] == 'mid':
             try:
-                middle = next(Atom for Atom in atoms if Atom.name == vectup[0])
-                side1, side2 = [atom for atom in atoms if atom != middle]
+                middle_index, middle_atom = next((index, atom) for index, atom in enumerate(atoms) if atom.name == vectup[0])
+                side1, side2 = [atom for atom in atoms if atom != middle_atom]
                 midpoint = [(side1.x + side2.x) / 2, (side1.y + side2.y) / 2, (side1.z + side2.z) / 2]
-                return Vec3(middle.x - midpoint[0], middle.y - midpoint[1], middle.z - midpoint[2])
+                return Vec3(midpoint[0]- middle_atom.x, midpoint[1] - middle_atom.y, midpoint[2]- middle_atom.z), (middle_index, 9)
             except StopIteration:
                 raise ValueError(f"Failed to find middle atom for amino-acid {atoms[0].residue_name!r}") from None
 
         else: # from first atom to second atom
             try:
-                first_atom = next(Atom for Atom in atoms if Atom.name == vectup[0])
+                first_atom_index, first_atom = next((index, atom) for index, atom in enumerate(atoms) if atom.name == vectup[0])
             except StopIteration:
                 raise ValueError(f'Failed to find first atom for amino-acid {atoms[0].residue_name!r}') from None
             try:
-                second_atom = next(Atom for Atom in atoms if Atom.name == vectup[1])
+                second_atom_index, second_atom = next((index, atom) for index, atom in enumerate(atoms) if atom.name == vectup[1])
             except StopIteration:
                 raise ValueError(f'Failed to find second atom for amino-acid {atoms[0].residue_name!r}') from None
                 
-            return first_atom - second_atom
+            return second_atom - first_atom, (first_atom_index, second_atom_index) # vec goes from first to second atom
 
     @property
     def residue_name(self) -> str:
@@ -144,9 +145,15 @@ class Residue:
 
     @property
     def orientation_vector(self) -> Vec3:
-        """`int`: Calculate the residue orientation vector according to the residue type
+        """`Vec3`: Calculate the residue orientation vector according to the residue type
         """
-        return self.calc_residue_orientation(self.atoms)
+        return self._vec
+
+    @property
+    def orientation_vector_indices(self) -> Tuple[int, int]:
+        """`tuple`: Return the indices of the atoms between which the orientation vector was calculated according to the residue type
+        """
+        return self._indices
 
 @dataclass
 class Atom:
@@ -163,6 +170,32 @@ class Atom:
     allowed_residues: str
     altloc: Optional[str] = field(default=None)
     flexibility: Optional[float] = field(default=None)
+
+    """
+    // atom specificity or match_mode defined in TessAtom.c may take the following values:
+
+    case 0: An exact match on both atom name and residue name.
+	case 1: An exact match on residue name and any non-carbon side-chain atom.
+	case 2: Any non-carbon atom in the list of residues given...
+	case 3: Atom type specified is residue(s) given
+	case 4: Non-carbon main-chain in given residue(s)
+	case 5: Any main-chain atom in the given residue(s)
+	case 6: Any side-chain atom in the given residue(s)
+	case 7: Any atom (in the specified resdiue)
+
+	//Riziotis options
+	case 8: Any atom in the same position in the given residue(s)
+
+	// Gail's options follow (no residue specificity)
+	case 100: name match
+	case 101: non-carbon side-chain atom.
+	case 102: Any non-carbon atom...
+	case 103: Atom type specified (no residue considered)
+	case 104: Non-carbon main-chain
+	case 105: Any main-chain atom in the given residue(s)
+	case 106: Any side-chain atom in the given residue(s)
+	case 107: Any atom AT ALL!!
+    """
 
     @classmethod
     def loads(cls, line: str) -> Atom:
@@ -185,7 +218,7 @@ class Atom:
         # charge: empty
         return cls(specificity=specificity, name=name, altloc=altloc, residue_name=residue_name, backbone=backbone, chain_id=chain_id, residue_number=residue_number, x=x, y=y, z=z, allowed_residues=allowed_residues, flexibility=flexibility)
 
-    def dumps(self):
+    def dumps(self) -> str:
         buffer = io.StringIO()
         self.dump(buffer)
         return buffer.getvalue() # returns entire content temporary file object as a string
@@ -208,7 +241,9 @@ class Template:
     residues: List[Residue]
     pdb_id: str
     mcsa_id: int
-    cluster: str
+    cluster_id: int
+    cluster_member: int
+    cluster_size: int
     uniprot_id: Optional[str] = field(default=None)
     organism: Optional[str] = field(default=None)
     organism_id: Optional[int] = field(default=None)
@@ -291,7 +326,7 @@ class Template:
             **metadata, # type: ignore # unpack everything we parsed into metadata
         )
 
-    def dumps(self):
+    def dumps(self) -> str:
         buffer = io.StringIO()
         self.dump(buffer)
         return buffer.getvalue() # returns entire content temporary file object as a string
@@ -302,7 +337,7 @@ class Template:
         file.write(f'REMARK PDB_ID {self.pdb_id}\n')
         file.write(f'REMARK MCSA_ID {self.mcsa_id}\n')
         file.write(f'REMARK UNIPROT_ID {self.uniprot_id}\n')
-        file.write(f'REMARK CLUSTER {self.cluster}\n')
+        file.write(f'REMARK CLUSTER {self.cluster_id}_{self.cluster_member}_{self.cluster_size}\n')
         file.write(f'REMARK ORGANISM_NAME {self.organism}\n')
         file.write(f'REMARK ORGANISM_ID {self.organism_id}\n')
         file.write(f'REMARK RESOLUTION {self.resolution}\n')
@@ -318,7 +353,7 @@ class Template:
         file.write(f'REMARK RELATIVE_ORDER {self.relative_order}\n')
 
         for residue in self.residues:
-            file.write(f'REMARK ORIENTATION_VECTOR OF RESIDUE {residue.residue_number}: {residue.orientation_vector.x:.3f} {residue.orientation_vector.y:.3f} {residue.orientation_vector.z:.3f}\n')
+            file.write(f'REMARK ORIENTATION_VECTOR OF RESIDUE {residue.residue_number}: between atom {residue.orientation_vector_indices[0]} and {residue.orientation_vector_indices[1]} {residue.orientation_vector.x:.3f} {residue.orientation_vector.y:.3f} {residue.orientation_vector.z:.3f}\n')
 
         for residue in self.residues:
             for atom in residue.atoms:
@@ -334,7 +369,7 @@ class Template:
     def id(self) -> str: # pyjess templates need a name, so mine do too
         """`str`: The name of the template composed of M-CSA ID, true size, pdb_id, cluster seperated by underscores
         """
-        return f'{self.mcsa_id}_{self.true_size}_{self.pdb_id}_{self.cluster}'
+        return f'{self.mcsa_id}_{self.true_size}_{self.pdb_id}_{self.cluster_id}_{self.cluster_member}_{self.cluster_size}'
 
     @property
     def true_size(self) -> int: # Number of residues in the template as counted by triplets of atoms
@@ -412,9 +447,16 @@ class Template:
     @classmethod
     def _parse_cluster(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
         if not tokens[2]:
-            raise ValueError(f'Did not find a Cluster ID, found {tokens[2]}')
+            raise ValueError(f'Did not find a Cluster specification, found {tokens[2]}')
         else:
-            metadata['cluster'] = tokens[2]
+            try:
+                cluster = tokens[2].split('_')
+                metadata['cluster_id'] = int(cluster[0])
+                metadata['cluster_member'] = int(cluster[1])
+                metadata['cluster_size'] = int(cluster[2])
+            except (IndexError, ValueError) as exc:
+                raise ValueError(f'Did not find a Cluster specification, found {tokens[2]}')
+
 
     @classmethod
     def _parse_organism_name(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):

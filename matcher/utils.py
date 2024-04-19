@@ -2,9 +2,11 @@ import requests # type: ignore
 from requests.adapters import HTTPAdapter # type: ignore
 from urllib3.util.retry import Retry # type: ignore
 from pathlib import Path
+import typing
 from typing import Dict, Set, List, Tuple, Iterable, Iterator, TypeVar, Union, Any
 from itertools import islice
 import time
+import json
 
 def ranked_argsort(lst: List[int]) -> List[int]:
     """ Return a list of the same order in which the elements values correspond to their ranked values"""
@@ -39,20 +41,13 @@ def request_url(url: str, acceptable_stati: List[int], timeout: int =10, max_ret
     else:
         print('Failed to get url', url, ' with status code: ', r.status_code)
 
-K = TypeVar('K')  # Type variable for hashable dictionary keys
-V = TypeVar('V', Dict[K, 'V'], List['V'], Set['V'], Tuple['V', ...], str, int, float, bool)  # Add more types if needed
-def convert_sets_to_lists(obj: V) -> Union[Dict[K, V], List[V], Tuple[V, ...], str, int, float, bool]:  # Add more types if needed
-    """ This function turns sets and tuples to lists. It also operates recursively inside nested dictionaries or lists of lists to make them json serializable"""
-    if isinstance(obj, set):
-        return list(obj)
-    elif isinstance(obj, dict):
-        return {key: convert_sets_to_lists(value) for key, value in obj.items()}
-    elif isinstance(obj, list):
-        return [convert_sets_to_lists(item) for item in obj]
-    elif isinstance(obj, tuple):
-        return [convert_sets_to_lists(item) for item in obj]
-    else:
-        return obj
+# this makes any set serializable. This allows me to write to json
+# consider: https://stackoverflow.com/questions/50916422/python-typeerror-object-of-type-int64-is-not-json-serializable
+class SetEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, set): # add more object types with elif isinstance etc.
+            return list(obj)
+        return super().default(obj) # return parent class
 
 X = TypeVar('X', str, int, float, bool)  # Add more types if needed
 def json_extract(obj: Any, key: X) -> List[X]:

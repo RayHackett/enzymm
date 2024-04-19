@@ -5,7 +5,7 @@ import urllib.request
 import gzip
 import shutil
 
-from utils import request_url, convert_sets_to_lists
+from utils import request_url, SetEncoder #type: ignore
 
 def check_other_files():
     Path('./data').mkdir(parents=True, exist_ok=True)
@@ -105,13 +105,10 @@ def make_pdb_sifts_df():
                 sifts_dict[row.PDBCHAIN] = {'uniprot_id': None, 'cath': set(), 'ec': set(), 'interpro': set()}
             sifts_dict[row.PDBCHAIN]['interpro'].add(row.INTERPRO_ID)
 
-        # turn sets to lists to make it json serializable
-        sifts_dict = convert_sets_to_lists(sifts_dict)
-
         # merge the dataframes
         Path('./data').mkdir(parents=True, exist_ok=True)
         with open(Path('./data/pdb_sifts.json'), 'w') as f:
-            json.dump(sifts_dict, f, indent=4, sort_keys=True)
+            json.dump(sifts_dict, f, indent=4, sort_keys=True, cls=SetEncoder)
 
 def get_mcsa_ec():
     # m-csa entry map to EC number

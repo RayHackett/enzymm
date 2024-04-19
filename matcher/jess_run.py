@@ -1,7 +1,7 @@
 import argparse
 from pathlib import Path
 from importlib.resources import files
-from typing import List, Set, Tuple, Dict, Optional, Union, TextIO, Iterator, Iterable
+from typing import List, Set, Tuple, Dict, Optional, Union, TextIO, Iterator, Iterable, IO
 from functools import cached_property
 from dataclasses import dataclass, field
 import tempfile
@@ -9,6 +9,7 @@ import warnings
 import csv
 import numpy as np
 import itertools
+import io
 
 import pyjess # type: ignore # cython port of Jess to python package
 
@@ -28,8 +29,39 @@ class Match:
     completeness: bool = field(default=False) # initialize as false but change it later
     # maybe have the raw PDB output for use with pymol too
 
-    def dump(self) -> List[str]:
-        return [str(self.hit.molecule.id),
+    def dumps(self) -> str:
+        buffer = io.StringIO()
+        self.dump(buffer)
+        return buffer.getvalue() # returns entire content temporary file object as a string
+
+    def dump(self, file: IO[str], header: bool = False):
+        writer = csv.writer(file, dialect="excel-tab", delimiter='\t', lineterminator='\n')
+        if header:
+                writer.writerow([
+                    "query_id",
+                    "template_id",
+                    "template_size",
+                    "template_true_size",
+                    "template_mcsa_id",
+                    "template_uniprot_id",
+                    "template_pdb_id",
+                    "template_ec",
+                    "template_cath",
+                    "template_multimeric",
+                    "query_uniprot_id",
+                    "query_pdb_id",
+                    "query_ec",
+                    "query_cath",
+                    "query_multimeric",
+                    "rmsd",
+                    "log_evalue",
+                    "orientation",
+                    "preserved_order",
+                    "completeness",
+                    "matched_residues"])
+
+        writer.writerow([
+                str(self.hit.molecule.id),
                 str(self.template.id),
                 str(self.template.size),
                 str(self.template.true_size),
@@ -45,7 +77,7 @@ class Match:
                 str(self.orientation),
                 str(self.preserved_resid_order),
                 str(self.completeness),
-                (','.join('_'.join(t) for t in self.matched_residues))]
+                (','.join('_'.join(t) for t in self.matched_residues))])
 
     @cached_property
     def atom_triplets(self) -> List[List[pyjess.Atom]]:
@@ -85,60 +117,19 @@ class Match:
 
     @cached_property
     def match_vector_list(cls) -> List[Vec3]:
-        # dictionary in which the vectors from start to finish are defined for each aminoacid type
-        # the orientation vector is calculated differently for different aminoacid types
-        vector_atom_type_dict = {'GLY': ('C','O'),
-                            'ALA': ('CA','CB'),
-                            'VAL': ('CA','CB'),
-                            'LEU': ('CA','CB'),
-                            'ILE': ('CA','CB'),
-                            'MET': ('CG','SD'),
-                            'PHE': ('CZ','mid'),
-                            'TYR': ('CZ','OH'),
-                            'TRP': ('CZ2','NE1'),
-                            'CYS': ('CB','SG'),
-                            'PRO': ('C','O'),
-                            'SER': ('CB','OG'),
-                            'THR': ('CB','OG1'),
-                            'ASN': ('CG','OD1'),
-                            'GLN': ('CD','OE1'),
-                            'LYS': ('CE','NZ'),
-                            'ARG': ('CZ','mid'),
-                            'HIS': ('CG','ND1'),
-                            'ASP': ('CG','mid'),
-                            'GLU': ('CD','mid'),
-                            'PTM': ('CA','CB'),
-                            'ANY': ('C','O')}
-
         vector_list = []
-        for atom_triplet in cls.atom_triplets:
-            vectup = vector_atom_type_dict[atom_triplet[0].residue_name]
-            # In residues with two identical atoms, the vector is calculated between the middle atom and the mid point between the identical pair
-            if vectup[1] == 'mid':
-                try:
-                    middle = next(atom for atom in atom_triplet if atom.name == vectup[0])
-                    side1, side2 = [atom for atom in atom_triplet if atom != middle]
-                    midpoint = [(side1.x + side2.x) / 2, (side1.y + side2.y) / 2, (side1.z + side2.z) / 2]
-                    vector_list.append(Vec3(middle.x - midpoint[0], middle.y - midpoint[1], middle.z - midpoint[2]))
-                except StopIteration:
-                    raise ValueError(f"Failed to find middle atom for amino-acid {atom_triplet[0].residue_name!r}") from None
-                    
-            else: # from first atom to second atom
-                try:
-                    first_atom = next(atom for atom in atom_triplet if atom.name == vectup[0])
-                except StopIteration:
-                    # TODO remove this stuff
-                    atoms = cls.hit.atoms()
-                    for i in atoms:
-                        print(i)
-                    print(cls.hit.template.id)
-                    raise ValueError(f'Failed to find first atom for amino-acid {atom_triplet[0].residue_name!r}') from None
-                try:
-                    second_atom = next(atom for atom in atom_triplet if atom.name == vectup[1])
-                except StopIteration:
-                    raise ValueError(f'Failed to find second atom for amino-acid {atom_triplet[0].residue_name!r}') from None
-                    
-                vector_list.append(Vec3(first_atom.x - second_atom.x, first_atom.y - second_atom.y, first_atom.z - second_atom.z))
+        for residue_index, residue in enumerate(cls.template.residues):
+            first_atom_index, second_atom_index = residue.orientation_vector_indices
+            if second_atom_index == 9:
+                middle_atom = cls.atom_triplets[residue_index][first_atom_index]
+                side1, side2 = [atom for atom in cls.atom_triplets[residue_index] if atom != middle_atom]
+                midpoint = [(side1.x + side2.x) / 2, (side1.y + side2.y) / 2, (side1.z + side2.z) / 2]
+                vector_list.append(Vec3(midpoint[0]- middle_atom.x, midpoint[1] - middle_atom.y, midpoint[2]- middle_atom.z))
+            else:
+                # Calculate orientation vector going from first_atom to second_atom_index
+                first_atom = cls.atom_triplets[residue_index][first_atom_index]
+                second_atom = cls.atom_triplets[residue_index][second_atom_index]
+                vector_list.append(Vec3(second_atom.x - first_atom.x, second_atom.y - second_atom.y, second_atom.z - first_atom.z))
         return vector_list
 
     @cached_property
@@ -153,9 +144,14 @@ class Match:
         def angle_between(v1: Vec3, v2: Vec3): # from https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python
             """ Returns the angle in radians between vectors 'v1' and 'v2':
             """
-            v1_u = v1 / np.linalg.norm(v1.x, v1.y, v1.z) # unit vector
-            v2_u = v2 / np.linalg.norm(v2.x, v2.y, v2.z) # unit vector
-            return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+            try:
+                a1 = np.array([v1.x, v1.y, v1.z])
+                a2 = np.array([v2.x, v2.y, v2.z])
+                a1_u = a1 / np.linalg.norm(a1) # unit vector
+                a2_u = a2 / np.linalg.norm(a2) # unit vector
+                return np.arccos(np.clip(a1_u @ a2_u, -1.0, 1.0))
+            except Exception as exc:
+                raise ValueError(f'vectorx {v1.x}, vectory {v1.y}, vectorz {v1.z}') from exc
 
         # now calculate the angle between the vector of the template and the query per residue
         angle_list = []
@@ -164,9 +160,8 @@ class Match:
 
         return np.mean(angle_list)
 
-def _single_query_run(molecule: pyjess.Molecule, pyjess_templates: Iterable[pyjess.Template], id_to_template: Dict[str, Template], rmsd: float = 2.0, distance: float = 3.0, max_dynamic_distance: float = 3.0, conservation_cutoff: float = 0, max_candidates: int = 10000):
-    # conservation_cutoff controls the B-factor column and removes anything smaller
-    # killswitch is controlled by max_candidates. Internal default is currently 10000
+def _single_query_run(molecule: pyjess.Molecule, pyjess_templates: Iterable[pyjess.Template], id_to_template: Dict[str, Template], rmsd: float = 2.0, distance: float = 3.0, max_dynamic_distance: float = 3.0, max_candidates: int = 10000):
+    # killswitch is controlled by max_candidates. Internal default is currently 1000
     jess = pyjess.Jess(pyjess_templates) # Create a Jess instance and use it to query a molecule (a PDB structure) against the stored templates:
     query = jess.query(molecule, rmsd_threshold=rmsd, distance_cutoff=distance, max_dynamic_distance=max_dynamic_distance, max_candidates=max_candidates)
 
@@ -186,8 +181,8 @@ def _single_query_run(molecule: pyjess.Molecule, pyjess_templates: Iterable[pyje
             # only after all templates of a certain size have been scanned could we compute the completeness tag
             
             # Group hit objects by the pair (hit.template.m-csa, first digit of hit.template.cluster)
-            def get_key(obj: Match) -> Tuple[int, str]:
-                return obj.template.mcsa_id, obj.template.cluster.split('_')[0] # split on _ and take the first digit which is the cluster number
+            def get_key(obj: Match) -> Tuple[int, int]:
+                return obj.template.mcsa_id, obj.template.cluster_id # split on _ and take the first digit which is the cluster id
 
             grouped_hits = [list(g) for _, g in itertools.groupby(sorted(matches, key=get_key), get_key)]
 
@@ -198,13 +193,11 @@ def _single_query_run(molecule: pyjess.Molecule, pyjess_templates: Iterable[pyje
                 # Filter this by template clusters with >1 member of course or report seperately by the number of clustermembers
                 # or say like: This template cluster was always complete while this template cluster was only complete X times out of Y Queries matched to one member
                 #
-                # get the total number templates from the first hit in each cluster which is the third cluster digit
-                total_clustermembers = int(cluster_hits[0].template.cluster.split('_')[2])
-                # check if all the cluster members with all 2nd digit identiers up to and including total_clustermembers are present in the group,
-                indexed_possible_cluster_members = list(range(total_clustermembers))
+                # check if all the cluster members up to and including cluster_size are present in the group,
+                indexed_possible_cluster_members = list(range(cluster_hits[0].template.cluster_size))
                 possible_cluster_members = [x+1 for x in indexed_possible_cluster_members]
                 
-                found_cluster_members = [int(hit.template.cluster.split('_')[1]) for hit in cluster_hits] # second number is the current cluster member number
+                found_cluster_members = [hit.template.cluster_member for hit in cluster_hits] # second number is the current cluster member number
 
                 if found_cluster_members == possible_cluster_members:
                     for hit in cluster_hits:
@@ -219,34 +212,10 @@ def write_matches_to_tsv(matches: List[Match], molecule_path: Path, outdir: Path
     results_path.mkdir(parents=True, exist_ok=True)
     # TODO somehow we need to give unique filenames in case molecule_path.stem is not unique
     with open(Path(results_path, f'{molecule_path.stem}_matches.tsv'), 'w', newline='', encoding ="utf-8") as tsvfile:
-        writer = csv.writer(tsvfile, delimiter='\t', lineterminator='\n')
-        if not Path(results_path, f'{molecule_path.stem}_matches.tsv').exists():
-            writer.writerow([
-                            "query_id",
-                            "template_id",
-                            "template_size",
-                            "template_true_size",
-                            "template_mcsa_id",
-                            "template_uniprot_id",
-                            "template_pdb_id",
-                            "template_ec",
-                            "template_cath",
-                            "template_multimeric",
-                            "query_uniprot_id",
-                            "query_pdb_id",
-                            "query_ec",
-                            "query_cath",
-                            "query_multimeric",
-                            "rmsd",
-                            "log_evalue",
-                            "orientation",
-                            "preserved_order",
-                            "completeness",
-                            "matched_residues"])
-        for match in matches:
-            writer.writerow(match.dump()) # one line per match
+        for i, match in enumerate(matches):
+            match.dump(tsvfile, header=i==0) # one line per match, write header only for the first match too
 
-def matcher_run(query_path: Path, template_path: Path, jess_params: Dict[int, Dict[str, float]], outdir: Path, warn: bool = True, verbose: bool = False, complete_search: bool = True):
+def matcher_run(query_path: Path, template_path: Path, jess_params: Dict[int, Dict[str, float]], outdir: Path, conservation_cutoff: int = 0, warn: bool = True, verbose: bool = False, complete_search: bool = True):
 
     if verbose:
         print(f'Warnings are set to {warn}')
@@ -280,11 +249,18 @@ def matcher_run(query_path: Path, template_path: Path, jess_params: Dict[int, Di
         except:
             raise FileNotFoundError(f'File {query_path} did not exist or did not contain any paths to files with the expected .pdb or .ent extensions')
 
-
     ######## Loading all query molecules #############################
     molecules: Set[pyjess.Molecule] = set()
-    for molecule_path in molecule_paths:
-        molecules.add(pyjess.Molecule.loads(molecule_path.open().read()))
+    if conservation_cutoff:
+        if verbose:
+            print(f'Conservation Cutoff set to {conservation_cutoff}')
+        for molecule_path in molecule_paths:
+            # conserved is a method called on a molecule object that returns a filtered molecule
+            # atoms with a temperature-factor BELOW the conservation cutoff will be excluded
+            molecules.add(pyjess.Molecule.load(molecule_path).conserved(conservation_cutoff)) # load a molecule and filter it by conservation_cutoff
+    else:
+        for molecule_path in molecule_paths:
+            molecules.add(pyjess.Molecule.load(molecule_path)) # load a molecule
 
     ######## Checking template path ##################################
 
@@ -321,18 +297,18 @@ def matcher_run(query_path: Path, template_path: Path, jess_params: Dict[int, Di
     for template_size in template_sizes:
         pyjess_templates = template_size_to_pyjess_template_id[template_size]
 
-        # TODO remove this
-        print(pyjess_templates[0].id)
-        length = 9
-        for l in range(length):
-            i = pyjess_templates[0].__getitem__(l)
-            print(i.atom_names)
-            print(i.chain_id)
-            print(i.distance_weight)
-            print(i.match_mode)
-            print(i.residue_names)
-            print(i.residue_number)
-            print('')
+        # # TODO remove this
+        # print(pyjess_templates[0].id)
+        # length = 9
+        # for l in range(length):
+        #     i = pyjess_templates[0].__getitem__(l)
+        #     print(i.atom_names)
+        #     print(i.chain_id)
+        #     print(i.distance_weight)
+        #     print(i.match_mode)
+        #     print(i.residue_names)
+        #     print(i.residue_number)
+        #     print('')
         
         if template_size < 3:
             if warn:
@@ -358,12 +334,11 @@ def matcher_run(query_path: Path, template_path: Path, jess_params: Dict[int, Di
         rmsd = jess_params[parameter_size]['rmsd']
         distance = jess_params[parameter_size]['distance']
         max_dynamic_distance = jess_params[parameter_size]['max_dynamic_distance']
-        conservation_cutoff = jess_params[parameter_size]['conservation_cutoff']
 
         total_matches = 0 # counter for all matches found over all molecules passed
         # iterate over all the query molecules passed
         for molecule in remaining_molecules:
-            matches = _single_query_run(molecule=molecule, pyjess_templates=pyjess_templates, id_to_template=id_to_template, rmsd=rmsd, distance=distance, max_dynamic_distance=max_dynamic_distance, conservation_cutoff=conservation_cutoff)
+            matches = _single_query_run(molecule=molecule, pyjess_templates=pyjess_templates, id_to_template=id_to_template, rmsd=rmsd, distance=distance, max_dynamic_distance=max_dynamic_distance)
             if matches:
                 write_matches_to_tsv(matches=matches, molecule_path=molecule_path, outdir=outdir)
                 processed_molecules.add(molecule)
@@ -391,10 +366,12 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--complete_search', type=bool, default=True, help='If True, continue search with smaller templates even if larger templates have already found hits.')
     parser.add_argument('-v', '--verbose', default=False, action="store_true", help='If process information and time progress should be printed to the command line')
     parser.add_argument('-w', '--warn', default=False, action="store_true", help='If warings about bad template processing or suspicous and missing annotations should be raised')
+    parser.add_argument('--conservation_cutoff', default=None, help='Atoms with a value in the B-factor column below this cutoff will be excluded form matching to the templates')
     args = parser.parse_args()
     
     query_path = args.input
     template_path = args.template_dir
+    conservation_cutoff =  args.conservation_cutoff # Reads B-factor column in .pdb files: atoms below this cutoff will be disregarded. Could be pLDDT for example
 
     if args.jess:
         jess_params_list = [i for i in args.jess]
@@ -403,29 +380,29 @@ if __name__ == "__main__":
         rmsd = jess_params_list[0] # in Angstrom, typcically set to 2
         distance = jess_params_list[1] # in Angstrom between 1.0 and 1.5 - lower is more strict. This changes with template size
         max_dynamic_distance = jess_params_list[2] # if equal to distance dynamic is off: this option is currenlty dysfunctional
-        conservation_cutoff = jess_params_list[3] # Reads B-factor column in .pdb files: atoms below this cutoff will be disregarded. Could be pLDDT for example
+        
 
         jess_params = {
-            3: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance, 'conservation_cutoff': conservation_cutoff},
-            4: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance, 'conservation_cutoff': conservation_cutoff},
-            5: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance, 'conservation_cutoff': conservation_cutoff},
-            6: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance, 'conservation_cutoff': conservation_cutoff},
-            7: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance, 'conservation_cutoff': conservation_cutoff},
-            8: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance, 'conservation_cutoff': conservation_cutoff}}
+            3: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance},
+            4: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance},
+            5: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance},
+            6: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance},
+            7: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance},
+            8: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance}}
 
     else:
         ####### Default Jess parameters by Size ##################################
         jess_params = {
-            3: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4, 'conservation_cutoff': 100},
-            4: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4, 'conservation_cutoff': 100},
-            5: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4, 'conservation_cutoff': 100},
-            6: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4, 'conservation_cutoff': 100},
-            7: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4, 'conservation_cutoff': 100},
-            8: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4, 'conservation_cutoff': 100}}
+            3: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4},
+            4: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4},
+            5: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4},
+            6: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4},
+            7: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4},
+            8: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4}}
 
     complete_search = args.complete_search
     outdir = args.output_dir
     warn = args.warn
     verbose = args.verbose
 
-    matcher_run(query_path=query_path, template_path=template_path, jess_params=jess_params, outdir=outdir, warn=warn, verbose=verbose, complete_search=complete_search)
+    matcher_run(query_path=query_path, template_path=template_path, jess_params=jess_params, outdir=outdir, conservation_cutoff=conservation_cutoff, warn=warn, verbose=verbose, complete_search=complete_search)
