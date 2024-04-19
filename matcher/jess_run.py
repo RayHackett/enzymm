@@ -26,7 +26,7 @@ class Match:
     """"Class for storing annotated Jess hits. Wrapper around pyjess.Hit and the original Template object"""
     hit: pyjess.Hit
     template: Template
-    completeness: bool = field(default=False) # initialize as false but change it later
+    complete: bool = field(default=False) # initialize as false but change it later
     # maybe have the raw PDB output for use with pymol too
 
     def dumps(self) -> str:
@@ -48,10 +48,6 @@ class Match:
                     "template_ec",
                     "template_cath",
                     "template_multimeric",
-                    "query_uniprot_id",
-                    "query_pdb_id",
-                    "query_ec",
-                    "query_cath",
                     "query_multimeric",
                     "rmsd",
                     "log_evalue",
@@ -76,7 +72,7 @@ class Match:
                 str(self.hit.log_evalue),
                 str(self.orientation),
                 str(self.preserved_resid_order),
-                str(self.completeness),
+                str(self.complete),
                 (','.join('_'.join(t) for t in self.matched_residues))])
 
     @cached_property
@@ -92,19 +88,18 @@ class Match:
             atom_triplets.append(atom_triplet)
         return atom_triplets
 
-    @cached_property
+    @property
     def matched_residues(self) -> Set[Tuple[str, str, str]]:
         return { (atom_triplet[0].residue_name, atom_triplet[0].chain_id, str(atom_triplet[0].residue_number)) for atom_triplet in self.atom_triplets }
 
-    @cached_property
+    @property
     def multimeric(self) -> bool:
         """`bool`: Boolean if the atoms in the hit stem from multiple protein chains
         """
         # note that these are pyjess atom objects!
-        return all(atom.chain_id == self.hit.atoms()[0].chain_id for atom in self.hit.atoms())
-        # TODO pyjess atoms need to be iterable
+        return not all(atom.chain_id == self.hit.atoms()[0].chain_id for atom in self.hit.atoms())
 
-    @cached_property
+    @property
     def preserved_resid_order(self) -> bool:
         """`bool`: Boolean if the residues in the template and in the matched query structure have the same relative order.
         This is a good filtering parameter but excludes hits on examples of convergent evolution or circular permutations
@@ -113,7 +108,10 @@ class Match:
             return False
         else:
             # Now extract relative atom order in hit
-            return ranked_argsort([atom.residue_number for atom in self.hit.atoms()]) == Template.relative_order
+            # TODO fix this and look at what is going on
+            print(self.template.relative_order)
+            print(ranked_argsort([atom_triplet[0].residue_number for atom_triplet in self.atom_triplets]))
+            return ranked_argsort([atom_triplet[0].residue_number for atom_triplet in self.atom_triplets]) == self.template.relative_order
 
     @cached_property
     def match_vector_list(cls) -> List[Vec3]:
@@ -136,7 +134,7 @@ class Match:
     def template_vector_list(self) -> List[Vec3]:
         return [res.orientation_vector for res in self.template.residues]
     
-    @cached_property
+    @property
     def orientation(self) -> float: # average angle
         if len(self.template_vector_list) != len(self.match_vector_list):
             raise ValueError('Vector lists for Template and matching Query structure had different lengths.')
@@ -176,17 +174,16 @@ def _single_query_run(molecule: pyjess.Molecule, pyjess_templates: Iterable[pyje
                 template = id_to_template[hit.template.id]
                 matches.append(Match(hit=hit, template=template))
 
-        # TODO what kind of method is this? how to I add a required attribute to a class object afterwards?
-        def _check_completeness(matches):
+        def _check_completeness(matches: List[Match]):
             # only after all templates of a certain size have been scanned could we compute the completeness tag
             
             # Group hit objects by the pair (hit.template.m-csa, first digit of hit.template.cluster)
             def get_key(obj: Match) -> Tuple[int, int]:
                 return obj.template.mcsa_id, obj.template.cluster_id # split on _ and take the first digit which is the cluster id
 
-            grouped_hits = [list(g) for _, g in itertools.groupby(sorted(matches, key=get_key), get_key)]
+            grouped_matches = [list(g) for _, g in itertools.groupby(sorted(matches, key=get_key), get_key)]
 
-            for cluster_hits in grouped_hits:
+            for cluster_matches in grouped_matches:
                 # For each query check if all Templates assigned to the same cluster targeted that structure
                 #
                 # TODO report statistics on this: This percentage of queries had a complete active site as reported by the completeness tag
@@ -194,24 +191,24 @@ def _single_query_run(molecule: pyjess.Molecule, pyjess_templates: Iterable[pyje
                 # or say like: This template cluster was always complete while this template cluster was only complete X times out of Y Queries matched to one member
                 #
                 # check if all the cluster members up to and including cluster_size are present in the group,
-                indexed_possible_cluster_members = list(range(cluster_hits[0].template.cluster_size))
+                indexed_possible_cluster_members = list(range(cluster_matches[0].template.cluster_size))
                 possible_cluster_members = [x+1 for x in indexed_possible_cluster_members]
                 
-                found_cluster_members = [hit.template.cluster_member for hit in cluster_hits] # second number is the current cluster member number
+                found_cluster_members = [match.template.cluster_member for match in cluster_matches] # second number is the current cluster member number
 
                 if found_cluster_members == possible_cluster_members:
-                    for hit in cluster_hits:
-                        hit.complete = True
+                    for match in cluster_matches:
+                        match.complete = True
         
         _check_completeness(matches)
 
     return matches
 
-def write_matches_to_tsv(matches: List[Match], molecule_path: Path, outdir: Path):
+def write_matches_to_tsv(matches: List[Match], filename: str, outdir: Path):
     results_path = Path(outdir, "results/")
     results_path.mkdir(parents=True, exist_ok=True)
-    # TODO somehow we need to give unique filenames in case molecule_path.stem is not unique
-    with open(Path(results_path, f'{molecule_path.stem}_matches.tsv'), 'w', newline='', encoding ="utf-8") as tsvfile:
+    # TODO somehow we need to give unique filenames in case molecule.id is not unique
+    with open(Path(results_path, f'{filename}_matches.tsv'), 'w', newline='', encoding ="utf-8") as tsvfile:
         for i, match in enumerate(matches):
             match.dump(tsvfile, header=i==0) # one line per match, write header only for the first match too
 
@@ -219,6 +216,7 @@ def matcher_run(query_path: Path, template_path: Path, jess_params: Dict[int, Di
 
     if verbose:
         print(f'Warnings are set to {warn}')
+        print(f'Complete search is set to {complete_search}')
 
     ####### Checking outdir ##########################################
     try:
@@ -293,22 +291,9 @@ def matcher_run(query_path: Path, template_path: Path, jess_params: Dict[int, Di
                 print('Templates with a size smaller than 3 defined, sidechain residues were supplied. These will be excluded since these templates are too general')
 
     remaining_molecules = molecules
-    processed_molecules: Set[pyjess.Molecule] = set()
+    processed_molecules: Dict[pyjess.Molecule, List[Match]] = dict()
     for template_size in template_sizes:
         pyjess_templates = template_size_to_pyjess_template_id[template_size]
-
-        # # TODO remove this
-        # print(pyjess_templates[0].id)
-        # length = 9
-        # for l in range(length):
-        #     i = pyjess_templates[0].__getitem__(l)
-        #     print(i.atom_names)
-        #     print(i.chain_id)
-        #     print(i.distance_weight)
-        #     print(i.match_mode)
-        #     print(i.residue_names)
-        #     print(i.residue_number)
-        #     print('')
         
         if template_size < 3:
             if warn:
@@ -340,18 +325,22 @@ def matcher_run(query_path: Path, template_path: Path, jess_params: Dict[int, Di
         for molecule in remaining_molecules:
             matches = _single_query_run(molecule=molecule, pyjess_templates=pyjess_templates, id_to_template=id_to_template, rmsd=rmsd, distance=distance, max_dynamic_distance=max_dynamic_distance)
             if matches:
-                write_matches_to_tsv(matches=matches, molecule_path=molecule_path, outdir=outdir)
-                processed_molecules.add(molecule)
+                if molecule not in processed_molecules:
+                    processed_molecules[molecule] = []
+                processed_molecules[molecule].extend(matches)
                 total_matches += len(matches)
 
         if not complete_search: # if complete_search is false, then do not search with smaller templates if hits with larger ones have been found.
-            remaining_molecules = remaining_molecules.difference(processed_molecules)
+            remaining_molecules = remaining_molecules.difference(set(processed_molecules.keys()))
 
         if verbose:
             print(f"found {total_matches} matches with templates of size {template_size}")
 
-        # TODO what should i retrun? a path to the output file? a bool if any hits were found?
-        # return
+    for molecule, matches in processed_molecules.items():
+        write_matches_to_tsv(matches=matches, filename=molecule.id, outdir=outdir)
+
+    # TODO what should i retrun? a path to the output file? a bool if any hits were found?
+    # return
         
 if __name__ == "__main__":
     
