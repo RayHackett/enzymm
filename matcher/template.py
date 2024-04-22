@@ -224,8 +224,8 @@ class Atom:
         return buffer.getvalue() # returns entire content temporary file object as a string
 
     def dump(self, file: IO[str]):
-        on_char_elements = {'H', 'B', 'C', 'N', 'O', 'F', 'P', 'S', 'K', 'V', 'Y', 'I', 'W', 'U'}
-        if self.name[0] in on_char_elements:
+        one_char_elements = {'H', 'B', 'C', 'N', 'O', 'F', 'P', 'S', 'K', 'V', 'Y', 'I', 'W', 'U'}
+        if self.name[0] in one_char_elements:
             file.write(f"ATOM  {self.specificity:>5}  {self.name:<3s}{self.altloc if self.altloc is not None else '':<1}{self.residue_name:<3}{self.chain_id:>2}{self.residue_number:>4}    {self.x:>8.3f}{self.y:>8.3f}{self.z:>8.3f} {self.allowed_residues:<5}{self.flexibility:>5.2f} \n")
         else:
             file.write(f"ATOM  {self.specificity:>5} {self.name:<4s}{self.altloc if self.altloc is not None else '':<1}{self.residue_name:<3}{self.chain_id:>2}{self.residue_number:>4}    {self.x:>8.3f}{self.y:>8.3f}{self.z:>8.3f} {self.allowed_residues:<5}{self.flexibility:>5.2f} \n")
@@ -306,7 +306,7 @@ class Template:
                 raise ValueError('Multiple residues found in atom lines')
             residues.append(Residue(atoms))
 
-        # also include EC annotations from the M-CSA mapping
+        # also include EC annotations from the M-CSA mapping. Consider that this is not necessarily direct annotation of the template but may be extended to the template trough homolgy
         metadata['ec'].add(cls._EC_MAPPING[str(metadata['mcsa_id'])])  # type: ignore
 
         # Since Templates may contain residues from multiple chains
@@ -319,7 +319,10 @@ class Template:
             # also include EC annotations from PDB-SIFTS
             subdict = cls._PDB_SIFTS.get(pdbchain)
             if subdict is not None: # TODO this is an ugly workaround: Technically this is a bug either with missing annotations in SIFTS or due to wierd chain name conventions in .cif files
-                metadata['ec'].update(subdict.get('ec').copy())  # type: ignore
+                sifts_ecs = subdict.get('ec').copy() # type: ignore
+                for ec in sifts_ecs:
+                    if ec != '?':
+                        metadata['ec'].add(ec) # type: ignore
 
         return Template(
             residues = residues,

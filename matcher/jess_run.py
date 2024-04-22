@@ -34,6 +34,18 @@ class Match:
         self.dump(buffer)
         return buffer.getvalue() # returns entire content temporary file object as a string
 
+    def dump2pdb(self, file: IO[str]):
+        file.write(f'REMARK TEMPLATE_ID {self.template.id}\n')
+        file.write(f'REMARK MOLECULE_ID {self.hit.molecule.id}\n')
+
+        one_char_elements = {'H', 'B', 'C', 'N', 'O', 'F', 'P', 'S', 'K', 'V', 'Y', 'I', 'W', 'U'}
+        for atom in self.hit.atoms(transform=False): # keep the atoms in the query reference frame!
+            if atom.element in one_char_elements:
+                file.write(f"ATOM  {atom.serial:>5}  {atom.name:<3s}{atom.altloc if atom.altloc is not None else '':<1}{atom.residue_name:<3}{atom.chain_id:>2}{atom.residue_number:>4}{atom.insertion_code:1s}   {atom.x:>8.3f}{atom.y:>8.3f}{atom.z:>8.3f}{atom.occupancy:>6.2f}{atom.temperature_factor:>6.2f}      {atom.segment:<4s}{atom.element:>2s} \n")
+            else:
+                file.write(f"ATOM  {atom.serial:>5} {atom.name:<4s}{atom.altloc if atom.altloc is not None else '':<1}{atom.residue_name:<3}{atom.chain_id:>2}{atom.residue_number:>4}{atom.insertion_code:1s}   {atom.x:>8.3f}{atom.y:>8.3f}{atom.z:>8.3f}{atom.occupancy:>6.2f}{atom.temperature_factor:>6.2f}      {atom.segment:<4s}{atom.element:>2s} \n")
+        file.write('END\n\n')
+
     def dump(self, file: IO[str], header: bool = False):
         writer = csv.writer(file, dialect="excel-tab", delimiter='\t', lineterminator='\n')
         if header:
@@ -89,8 +101,8 @@ class Match:
         return atom_triplets
 
     @property
-    def matched_residues(self) -> Set[Tuple[str, str, str]]:
-        return { (atom_triplet[0].residue_name, atom_triplet[0].chain_id, str(atom_triplet[0].residue_number)) for atom_triplet in self.atom_triplets }
+    def matched_residues(self) -> List[Tuple[str, str, str]]:
+        return [ (atom_triplet[0].residue_name, atom_triplet[0].chain_id, str(atom_triplet[0].residue_number)) for atom_triplet in self.atom_triplets ]
 
     @property
     def multimeric(self) -> bool:
@@ -108,9 +120,6 @@ class Match:
             return False
         else:
             # Now extract relative atom order in hit
-            # TODO fix this and look at what is going on
-            print(self.template.relative_order)
-            print(ranked_argsort([atom_triplet[0].residue_number for atom_triplet in self.atom_triplets]))
             return ranked_argsort([atom_triplet[0].residue_number for atom_triplet in self.atom_triplets]) == self.template.relative_order
 
     @cached_property
@@ -160,10 +169,16 @@ class Match:
 
 def _single_query_run(molecule: pyjess.Molecule, pyjess_templates: Iterable[pyjess.Template], id_to_template: Dict[str, Template], rmsd: float = 2.0, distance: float = 3.0, max_dynamic_distance: float = 3.0, max_candidates: int = 10000):
     # killswitch is controlled by max_candidates. Internal default is currently 1000
+    # killswitch serves to limit the iterations in cases where the template would be too general, and the program would run in an almost endless loop
     jess = pyjess.Jess(pyjess_templates) # Create a Jess instance and use it to query a molecule (a PDB structure) against the stored templates:
     query = jess.query(molecule, rmsd_threshold=rmsd, distance_cutoff=distance, max_dynamic_distance=max_dynamic_distance, max_candidates=max_candidates)
 
     hits = list(query)
+    # A template is not encoded as coordinates, rather as a set of constraints. For example, it would not contain the exact positions of THR and ASN atoms, but instructions like "Cα of ASN should be X angstrom away from the Cα of THR plus the allowed distance."
+    # Multiple solutions = Mathces to a template, satisfying all constraints may therefore exist
+    # Jess produces matches to templates by looking for any combination of atoms, residue_types, elements etc. and ANY positions which satisfy the constraints in the template
+    # thus the solutions that Jess finds are NOT identical to the template at all - rather they are all possible solutions to the set constraints. Solutions may completely differ from the template geometry or atom composition if allowed by the set constraints.
+    # by filtering for e-value we hope to return the solution to the constraints which most closely resembles the original template.
     matches: List[Match] = []
     if hits: # if any hits were found
         # best hits is a list of pyjess.Hit objects
@@ -175,7 +190,7 @@ def _single_query_run(molecule: pyjess.Molecule, pyjess_templates: Iterable[pyje
                 matches.append(Match(hit=hit, template=template))
 
         def _check_completeness(matches: List[Match]):
-            # only after all templates of a certain size have been scanned could we compute the completeness tag
+            # only after all templates of a certain size have been scanned could we compute the complete tag
             
             # Group hit objects by the pair (hit.template.m-csa, first digit of hit.template.cluster)
             def get_key(obj: Match) -> Tuple[int, int]:
@@ -186,7 +201,7 @@ def _single_query_run(molecule: pyjess.Molecule, pyjess_templates: Iterable[pyje
             for cluster_matches in grouped_matches:
                 # For each query check if all Templates assigned to the same cluster targeted that structure
                 #
-                # TODO report statistics on this: This percentage of queries had a complete active site as reported by the completeness tag
+                # TODO report statistics on this: This percentage of queries had a complete active site as reported by the complete tag
                 # Filter this by template clusters with >1 member of course or report seperately by the number of clustermembers
                 # or say like: This template cluster was always complete while this template cluster was only complete X times out of Y Queries matched to one member
                 #
@@ -212,11 +227,19 @@ def write_matches_to_tsv(matches: List[Match], filename: str, outdir: Path):
         for i, match in enumerate(matches):
             match.dump(tsvfile, header=i==0) # one line per match, write header only for the first match too
 
-def matcher_run(query_path: Path, template_path: Path, jess_params: Dict[int, Dict[str, float]], outdir: Path, conservation_cutoff: int = 0, warn: bool = True, verbose: bool = False, complete_search: bool = True):
+def write_hits2_pdb(matches: List[Match], filename: str, outdir: Path):
+    results_path = Path(outdir, "results/")
+    results_path.mkdir(parents=True, exist_ok=True)
+    # TODO somehow we need to give unique filenames in case molecule.id is not unique
+    with open(Path(results_path, f'{filename}_matches.pdb'), 'w', encoding ="utf-8") as pdbfile:
+        for i, match in enumerate(matches):
+            match.dump2pdb(pdbfile)
+
+def matcher_run(query_path: Path, template_path: Path, jess_params: Dict[int, Dict[str, float]], outdir: Path, conservation_cutoff: int = 0, warn: bool = True, verbose: bool = False, skip_smaller_hits: bool = False):
 
     if verbose:
         print(f'Warnings are set to {warn}')
-        print(f'Complete search is set to {complete_search}')
+        print(f'Skip_smaller_hits search is set to {skip_smaller_hits}')
 
     ####### Checking outdir ##########################################
     try:
@@ -330,7 +353,7 @@ def matcher_run(query_path: Path, template_path: Path, jess_params: Dict[int, Di
                 processed_molecules[molecule].extend(matches)
                 total_matches += len(matches)
 
-        if not complete_search: # if complete_search is false, then do not search with smaller templates if hits with larger ones have been found.
+        if skip_smaller_hits: # if skip_smaller_hits is true, then do not search with smaller templates if hits with larger ones have been found.
             remaining_molecules = remaining_molecules.difference(set(processed_molecules.keys()))
 
         if verbose:
@@ -338,6 +361,7 @@ def matcher_run(query_path: Path, template_path: Path, jess_params: Dict[int, Di
 
     for molecule, matches in processed_molecules.items():
         write_matches_to_tsv(matches=matches, filename=molecule.id, outdir=outdir)
+        write_hits2_pdb(matches=matches, filename=molecule.id, outdir=outdir)
 
     # TODO what should i retrun? a path to the output file? a bool if any hits were found?
     # return
@@ -352,7 +376,7 @@ if __name__ == "__main__":
     # optional arguments
     parser.add_argument('-j', '--jess', nargs = 4, default=None, type=float, help='Fixed Jess parameters for all templates. Jess space seperated parameters rmsd, distance, max_dynamic_distance, score_cutoff')
     parser.add_argument('-t', '--template_dir', type=Path, default=None, help='Path to directory containing jess templates. This directory will be recursively searched.')
-    parser.add_argument('-c', '--complete_search', type=bool, default=True, help='If True, continue search with smaller templates even if larger templates have already found hits.')
+    parser.add_argument('-s', '--skip_smaller_hits', default=False, action="store_true", help='If True, do not search with smaller templates if larger templates have already found hits.')
     parser.add_argument('-v', '--verbose', default=False, action="store_true", help='If process information and time progress should be printed to the command line')
     parser.add_argument('-w', '--warn', default=False, action="store_true", help='If warings about bad template processing or suspicous and missing annotations should be raised')
     parser.add_argument('--conservation_cutoff', default=None, help='Atoms with a value in the B-factor column below this cutoff will be excluded form matching to the templates')
@@ -382,16 +406,16 @@ if __name__ == "__main__":
     else:
         ####### Default Jess parameters by Size ##################################
         jess_params = {
-            3: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4},
-            4: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4},
-            5: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4},
-            6: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4},
-            7: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4},
-            8: {'rmsd': 2, 'distance': 4, 'max_dynamic_distance': 4}}
+            3: {'rmsd': 2, 'distance': 1, 'max_dynamic_distance': 1},
+            4: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
+            5: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
+            6: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
+            7: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
+            8: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5}}
 
-    complete_search = args.complete_search
+    skip_smaller_hits = args.skip_smaller_hits
     outdir = args.output_dir
     warn = args.warn
     verbose = args.verbose
 
-    matcher_run(query_path=query_path, template_path=template_path, jess_params=jess_params, outdir=outdir, conservation_cutoff=conservation_cutoff, warn=warn, verbose=verbose, complete_search=complete_search)
+    matcher_run(query_path=query_path, template_path=template_path, jess_params=jess_params, outdir=outdir, conservation_cutoff=conservation_cutoff, warn=warn, verbose=verbose, skip_smaller_hits=skip_smaller_hits)
