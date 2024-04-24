@@ -11,6 +11,7 @@ from functools import cached_property
 from dataclasses import dataclass, field
 import io
 import tempfile
+import math
 
 import pyjess # type: ignore
 
@@ -43,6 +44,24 @@ class Vec3:
     x: float
     y: float
     z: float
+
+    @cached_property # TODO should this be cached?
+    def norm(self) -> float:
+        return math.sqrt(self.x**2 + self.y**2 + self.z**2)
+
+    def normalize(self) -> Vec3:
+        return Vec3(self.x/self.norm, self.y/self.norm, self.z/self.norm)
+
+    def __matmul__(self, other: Vec3) -> float:
+        """
+        Overloads the @ operator to perform dot product between two vectors
+        """
+        return self.x * other.x + self.y * other.y + self.z * other.z
+
+    def angle_to(self, other: Vec3): # from https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python
+        """ Returns the angle in radians between vectors 'v1' and 'v2':
+        """
+        return math.acos(self.normalize() @ other.normalize())
 
 @dataclass
 class Residue:
@@ -436,16 +455,15 @@ class Template:
         match = re.search(r'[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2}', tokens[2])
         if match:
             metadata['uniprot_id'] = match.group()
-        else:
-            if warn:
-                warnings.warn(f'Did not find a valid UniProt ID, found {tokens[2]}')
+        elif warn:
+            warnings.warn(f'Did not find a valid UniProt ID, found {tokens[2]}')
 
     @classmethod
     def _parse_mcsa_id(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
         try:
             metadata['mcsa_id'] = int(tokens[2])
         except ValueError as exc:
-                raise ValueError(f'Did not find a M-CSA ID, found {tokens[2]}') from exc
+            raise ValueError(f'Did not find a M-CSA ID, found {tokens[2]}') from exc
 
     @classmethod
     def _parse_cluster(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
