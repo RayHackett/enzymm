@@ -157,7 +157,7 @@ class Match:
 
         return sum(angle_list)/len(angle_list)
 
-def _single_query_run(molecule: pyjess.Molecule, pyjess_templates: Iterable[pyjess.Template], id_to_template: Dict[str, Template], rmsd: float = 2.0, distance: float = 3.0, max_dynamic_distance: float = 3.0, max_candidates: int = 10000):
+def _single_query_run(molecule: pyjess.Molecule, pyjess_templates: Iterable[pyjess.Template], id_to_template: Dict[str, Template], rmsd: float = 2.0, distance: float = 3.0, max_dynamic_distance: float = 3.0, max_candidates: int = 10000) -> List[Match]:
     # killswitch is controlled by max_candidates. Internal default is currently 1000
     # killswitch serves to limit the iterations in cases where the template would be too general, and the program would run in an almost endless loop
     jess = pyjess.Jess(pyjess_templates) # Create a Jess instance and use it to query a molecule (a PDB structure) against the stored templates:
@@ -364,7 +364,7 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--skip-smaller-hits', default=False, action="store_true", help='If True, do not search with smaller templates if larger templates have already found hits.')
     parser.add_argument('-v', '--verbose', default=False, action="store_true", help='If process information and time progress should be printed to the command line')
     parser.add_argument('-w', '--warn', default=False, action="store_true", help='If warings about bad template processing or suspicous and missing annotations should be raised')
-    parser.add_argument('--conservation-cutoff', default=None, help='Atoms with a value in the B-factor column below this cutoff will be excluded form matching to the templates')
+    parser.add_argument('-c', '--conservation-cutoff', default=0, help='Atoms with a value in the B-factor column below this cutoff will be excluded form matching to the templates')
     args = parser.parse_args()
     
     if not args.files:
@@ -396,7 +396,7 @@ if __name__ == "__main__":
             6: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
             7: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
             8: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5}}
-            
+
     try:
         matcher_run(molecule_paths=args.files, template_path=args.template_dir, jess_params=jess_params, out_tsv=args.output, pdb_path=args.pdbs, conservation_cutoff=args.conservation_cutoff, warn=args.warn, verbose=args.verbose, skip_smaller_hits=args.skip_smaller_hits)
 
