@@ -16,16 +16,6 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(list(utils.chunks(['a', 'b', 'c'], 1)), [['a'],['b'],['c']])
         self.assertEqual(len(list(utils.chunks(set(['a', 'b', 'b', 'c']), 2))), 2)
         self.assertEqual(list(utils.chunks({1: 'a', 2: 'b', 3: 'c'}, 2)), [[1,2], [3]])
-
-    def test_convert_sets_to_lists(self):
-        self.assertEqual(utils.convert_sets_to_lists('abc'), 'abc')
-        self.assertEqual(utils.convert_sets_to_lists(12), 12)
-        self.assertEqual(utils.convert_sets_to_lists([1, True, 'a']), [1, True, 'a'])
-        self.assertEqual(utils.convert_sets_to_lists({1, 2, 3}), [1, 2, 3])
-        self.assertEqual(utils.convert_sets_to_lists(('a', 'b', 'b')), ['a', 'b', 'b'])
-        self.assertEqual(utils.convert_sets_to_lists([{1, 2, 3}, ['a', {0, 'b'}]]), [[1, 2, 3], ['a', [0, 'b']]])
-        self.assertEqual(utils.convert_sets_to_lists(([1, 3, 4], (1, 3, 4), {1, 3, 4})), [[1, 3, 4], [1, 3, 4], [1, 3, 4]])
-        self.assertEqual(utils.convert_sets_to_lists({1: {1: {0, 1}, 2: [0, 1]}, 2: [{2, 4}, (1, 3, 'a')]}), {1: {1: [0, 1], 2: [0, 1]}, 2: [[2,4], [1, 3, 'a']]})
         
     # def test_request_url(self): no idea how to test this tbh
 

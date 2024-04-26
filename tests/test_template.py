@@ -45,6 +45,20 @@ class TestVec3(unittest.TestCase):
         self.assertEqual(self.vec2.y, 2.8)
         self.assertEqual(self.vec2.z, 0.837)
 
+    def test_norm(self):
+        self.assertAlmostEqual(self.vec1.norm(), math.sqrt(14))
+        self.assertAlmostEqual(self.vec3.norm(), math.sqrt(0))
+
+    def test_normalize(self):
+        self.assertAlmostEqual(template.Atom.normalize(self.vec1.x), 1/math.sqrt(14))
+        self.assertAlmostEqual(template.Atom.normalize(self.vec1.y), 2/math.sqrt(14))
+        self.assertAlmostEqual(template.Atom.normalize(self.vec1.z), 3/math.sqrt(14))
+        self.assertAlmostEqual(template.Atom.normalize(self.vec3.x), 0/math.sqrt(0))
+
+    def test_matmul(self):
+        self.assertEqual(self.vec1 @ self.vec3, self.vec3)
+        self.assertEqual((self.ver1 @ self.vec2).x, -0.275)
+
 class TestAtom(unittest.TestCase):
 
     @classmethod
