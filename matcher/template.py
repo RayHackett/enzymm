@@ -50,6 +50,7 @@ class Vec3:
         return math.sqrt(self.x**2 + self.y**2 + self.z**2)
 
     def normalize(self) -> Vec3:
+        # TODO how should i deal with division by zero error
         return Vec3(self.x/self.norm, self.y/self.norm, self.z/self.norm)
 
     def __matmul__(self, other: Vec3) -> float:

@@ -2,6 +2,7 @@ import unittest
 
 from matcher import template
 from pathlib import Path
+import math
 import io
 
 matcher = Path(__package__).parent / 'matcher/'
@@ -18,7 +19,7 @@ class TestIntegration(unittest.TestCase):
 
     def test_load_templates(self):
         with self.assertRaises(FileNotFoundError):
-            templates = list(template.load_templates("/some/bogus/folder"))
+            templates = list(template.load_templates(Path("/some/bogus/folder")))
 
         ## End to End test # TODO
         # self.assertEqual(len(list(template.load_templates())), 7611) # check if all the expected templates were found
@@ -26,7 +27,7 @@ class TestIntegration(unittest.TestCase):
     def test_get_template_paths(self):
         data_path = Path(matcher / 'data/')
         # check if all the required annotation files are there - This will run the entire script
-        self.assertEqual(template.get_template_paths(data_path, '.json'), [Path(data_path, 'pdb_sifts.json'), Path(data_path, 'MCSA_CATH_mapping.json'), Path(data_path, 'MCSA_EC_mapping.json')])
+        self.assertEqual(template.get_template_paths(data_path, '.json'), [Path(data_path, 'pdb_sifts.json'), Path(data_path, 'MCSA_EC_mapping.json'), Path(data_path, 'MCSA_CATH_mapping.json')])
 
 
 class TestVec3(unittest.TestCase):
@@ -46,18 +47,23 @@ class TestVec3(unittest.TestCase):
         self.assertEqual(self.vec2.z, 0.837)
 
     def test_norm(self):
-        self.assertAlmostEqual(self.vec1.norm(), math.sqrt(14))
-        self.assertAlmostEqual(self.vec3.norm(), math.sqrt(0))
+        self.assertEqual(self.vec1.norm, math.sqrt(14))
+        self.assertEqual(self.vec3.norm, math.sqrt(0))
 
     def test_normalize(self):
-        self.assertAlmostEqual(template.Atom.normalize(self.vec1.x), 1/math.sqrt(14))
-        self.assertAlmostEqual(template.Atom.normalize(self.vec1.y), 2/math.sqrt(14))
-        self.assertAlmostEqual(template.Atom.normalize(self.vec1.z), 3/math.sqrt(14))
-        self.assertAlmostEqual(template.Atom.normalize(self.vec3.x), 0/math.sqrt(0))
+        self.assertEqual(self.vec1.normalize().x, 1/math.sqrt(14))
+        self.assertEqual(self.vec1.normalize().y, 2/math.sqrt(14))
+        self.assertEqual(self.vec1.normalize().z, 3/math.sqrt(14))
+        with self.assertRaises(ZeroDivisionError):
+            self.vec3.normalize()
 
     def test_matmul(self):
-        self.assertEqual(self.vec1 @ self.vec3, self.vec3)
-        self.assertEqual((self.ver1 @ self.vec2).x, -0.275)
+        self.assertEqual(self.vec1 @ self.vec3, 0)
+        self.assertAlmostEqual((self.vec1 @ self.vec2), 7.836)
+        self.assertAlmostEqual((self.vec1.normalize() @ self.vec2.normalize()), 0.713465)
+
+    def test_angle_to(self):
+        self.assertAlmostEqual(self.vec1.angle_to(self.vec2), math.acos(0.713465))
 
 class TestAtom(unittest.TestCase):
 
@@ -74,6 +80,7 @@ class TestAtom(unittest.TestCase):
         self.assertEqual(atom3.x, 21.258)
         self.assertEqual(atom3.y, 32.515)
         self.assertEqual(atom3.z, 21.340)
+        self.assertEqual(atom3.specificity, 3)
         self.assertEqual(atom3.name, 'OE2')
         self.assertEqual(atom3.altloc, 'Z')
         self.assertEqual(atom3.residue_name, 'GLU')
@@ -104,7 +111,9 @@ class TestTemplate(unittest.TestCase):
         template1 = template.Template.loads(self.template_text)
         self.assertEqual(template1.pdb_id, '1b74')
         self.assertEqual(template1.mcsa_id, 1)
-        self.assertEqual(template1.cluster, '1_1_1')
+        self.assertEqual(template1.cluster_id, 1)
+        self.assertEqual(template1.cluster_member, 1)
+        self.assertEqual(template1.cluster_size, 1)
         self.assertEqual(template1.uniprot_id, 'P56868')
         self.assertEqual(template1.organism, 'Aquifex pyrophilus')
         self.assertEqual(template1.organism_id, 2714)
@@ -115,8 +124,8 @@ class TestTemplate(unittest.TestCase):
         self.assertEqual(template1.enzyme_discription, 'GLUTAMATE RACEMASE (E.C.5.1.1.3)')
         self.assertEqual(template1.size, 6)
         self.assertEqual(template1.true_size, 6)
-        self.assertEqual(template1.multimeric, False) # think about this. test this on a manually constructed template
-        self.assertEqual(template1.relative_order, [4, 6, 3, 5, 2, 1])
+        self.assertEqual(template1.multimeric, True)
+        self.assertEqual(template1.relative_order, [0])
         self.assertEqual(template1.cath, {'3.40.50.1860'}) # could be more info added through sifts
         self.assertEqual(len(template1.residues), 6)
 
@@ -143,6 +152,6 @@ class TestResidue(unittest.TestCase):
         self.assertEqual(self.residue1.backbone, False)
         self.assertEqual(self.residue1.residue_number, 1)
         self.assertEqual(self.residue1.chain_id, 'A')
-        self.assertEqual(self.residue1.orientation_vector, template.Vec3(0,0,100)) # Glu orientation is from C to midpoint between Os
-        self.assertEqual(self.residue2.orientation_vector, template.Vec3(-100,0,0)) # Val orientation is from from CA to CB
+        self.assertEqual(self.residue1.orientation_vector, template.Vec3(0,0,-100)) # Glu orientation is from C to midpoint between Os
+        self.assertEqual(self.residue2.orientation_vector, template.Vec3(100,0,0)) # Val orientation is from from CA to CB
 
