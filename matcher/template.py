@@ -571,23 +571,18 @@ def load_templates(template_dir: Path = Path(str(files(__package__).joinpath('je
             except ValueError as exc:
                 raise ValueError(f"Failed to parse {template_path}!") # from exc
 
-def group_templates_by_size(templates: List[Template]) -> Dict[int, List[Template]]:
-    grouped_templates: Dict[int, List[Template]] = {}
-    for template in templates:
-        if template.size not in grouped_templates:
-            grouped_templates[template.size] = []
-        grouped_templates[template.size].append(template)
-    return grouped_templates
-
 def check_template(Template_tuple: Tuple[Template, Path], warn: bool = True) -> bool:
     if warn:
+        checker = True
         Template, filepath = Template_tuple
 
         # Raise warnings if some properties could not be annotated!
         if not Template.ec:
+            checker = False
             warnings.warn(f'Could not find EC number annotations for the template file {filepath}')
 
         if not Template.cath:
+            checker = False
             warnings.warn(f'Could not find CATH annotations for the following template file {filepath}')
 
         # check overlap between sifts mapping and CATH, EC annotations
@@ -607,9 +602,10 @@ def check_template(Template_tuple: Tuple[Template, Path], warn: bool = True) -> 
                 #         warnings.warn(f'Did not find an intersection of CATH domains as annotated by the M-CSA ID {Template.mcsa_id} with {Template.cath} versus PDF-SIFTS {Template._PDB_SIFTS[pdbchain]['cath']} for Template {filepath} from pdb {Template.pdb_id}')
                 sifts_uniprot = subdict['uniprot_id']
                 if Template.uniprot_id != sifts_uniprot:
+                    checker = False
                     warnings.warn(f'Different UniProt Accessions {Template.uniprot_id} and {sifts_uniprot} found in Template {filepath} from pdbid {Template.pdb_id}')
 
-        return True # change this to false if you want to exclude templates based on any of their properties!
+        return checker
     else:
         return True
 

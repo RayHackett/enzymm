@@ -4,16 +4,9 @@ from matcher import template
 from pathlib import Path
 import math
 import io
+import warnings
 
 matcher = Path(__package__).parent / 'matcher/'
-
-# how to test warnings -> turn them to errors and test those
-'''
-with assertRaises(UserWarning):
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore") # change to error and then check for assertRaises some error
-        run_whatever_test_code()
-'''
 
 class TestIntegration(unittest.TestCase):
 
@@ -99,16 +92,25 @@ class TestAtom(unittest.TestCase):
         self.assertAlmostEqual(tmp.y, 0, places=3)
         self.assertAlmostEqual(tmp.z, 0, places=3)
 
+    def test_dumps(self):
+        atom1 = template.Atom.loads(self.atomstring1)
+        atom2 = template.Atom.loads(self.atomstring2)
+        self.assertEqual(atom1.dumps(), 'ATOM      3  CD ZGLU A 156      20.734  32.611  20.206 E     1.86 \n')
+        self.assertEqual(atom2.dumps(), 'ATOM      3  OE1ZGLU A 156      21.042  31.877  19.239 E     1.86 \n')
+
 
 class TestTemplate(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
         with open(Path(matcher, 'jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb'), 'r') as f:
-            cls.template_text = f.read()
+            cls.template_text1 = f.read()
+        with open(Path(matcher, 'jess_templates_20230210/4_residues/results/csa3d_0011/csa3d_0011.cluster_1_1_3.1qum_D145-D109-D37-D72-D69-D229-D182-D231-D261-D216-D179.template.pdb'), 'r') as f:
+            cls.template_text2 = f.read()
     
     def test_loads(self):
-        template1 = template.Template.loads(self.template_text)
+        template1 = template.Template.loads(self.template_text1, warn=False)
+        template2 = template.Template.loads(self.template_text2, warn=False)
         self.assertEqual(template1.pdb_id, '1b74')
         self.assertEqual(template1.mcsa_id, 1)
         self.assertEqual(template1.cluster_id, 1)
@@ -129,15 +131,37 @@ class TestTemplate(unittest.TestCase):
         self.assertEqual(template1.cath, {'3.40.50.1860'}) # could be more info added through sifts
         self.assertEqual(len(template1.residues), 6)
 
-        # add test for non-multimeric template
+        self.assertEqual(template2.pdb_id, '1qum')
+        self.assertEqual(template2.mcsa_id, 11)
+        self.assertEqual(template2.cluster_id, 1)
+        self.assertEqual(template2.cluster_member, 1)
+        self.assertEqual(template2.cluster_size, 3)
+        self.assertEqual(template2.uniprot_id, None)
+        self.assertEqual(template2.organism, 'Escherichia coli')
+        self.assertEqual(template2.organism_id, 562)
+        self.assertEqual(template2.resolution, 1.55)
+        self.assertEqual(template2.experimental_method, 'X-ray diffraction')
+        self.assertEqual(template2.ec, {'3.1.21.2'}) # could be more info added through sifts
+        self.assertEqual(template2.represented_sites, 1)
+        self.assertEqual(template2.enzyme_discription, 'ENDONUCLEASE IV (E.C.3.1.21.2)/DNA')
+        self.assertEqual(template2.size, 4)
+        self.assertEqual(template2.true_size, 4)
+        self.assertEqual(template2.multimeric, False)
+        self.assertEqual(template2.relative_order, [2,1,4,3])
+        self.assertEqual(template2.cath, {'3.20.20.150'}) # could be more info added through sifts
+        self.assertEqual(len(template2.residues), 4)
+
+    def test_warnings(self):
+        with self.assertWarns(Warning):
+            template2 = template.Template.loads(self.template_text2, warn=True)
 
 class TestResidue(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        atom1 = template.Atom(x=100, y=100, z=100, name='CD', altloc='Z', residue_name='GLU', allowed_residues='E', specificity=3, backbone=False, residue_number=1, chain_id='A', flexibility=0)
-        atom2 = template.Atom(x=150, y=100, z=0, name='bla', altloc='Z', residue_name='GLU', allowed_residues='E', specificity=3, backbone=False, residue_number=1, chain_id='A', flexibility=0)
-        atom3 = template.Atom(x=50, y=100, z=0, name='bla', altloc='Z', residue_name='GLU', allowed_residues='E', specificity=3, backbone=False, residue_number=1, chain_id='A', flexibility=0)
+        atom1 = template.Atom(x=100, y=100, z=100, name='CD', altloc='Z', residue_name='GLU', allowed_residues='DE', specificity=3, backbone=False, residue_number=1, chain_id='A', flexibility=0)
+        atom2 = template.Atom(x=150, y=100, z=0, name='bla', altloc='Z', residue_name='GLU', allowed_residues='DE', specificity=3, backbone=False, residue_number=1, chain_id='A', flexibility=0)
+        atom3 = template.Atom(x=50, y=100, z=0, name='bla', altloc='Z', residue_name='GLU', allowed_residues='DE', specificity=3, backbone=False, residue_number=1, chain_id='A', flexibility=0)
         atom4 = template.Atom(x=0, y=0, z=0, name='CA', altloc='Z', residue_name='VAL', allowed_residues='AV', specificity=3, backbone=False, residue_number=2, chain_id='A', flexibility=0)
         atom5 = template.Atom(x=100, y=0, z=0, name='CB', altloc='Z', residue_name='VAL', allowed_residues='AV', specificity=3, backbone=False, residue_number=2, chain_id='A', flexibility=0)
         atom6 = template.Atom(x=0, y=100, z=0, name='bla', altloc='Z', residue_name='VAL', allowed_residues='AV', specificity=3, backbone=False, residue_number=2, chain_id='A', flexibility=0)
@@ -147,11 +171,24 @@ class TestResidue(unittest.TestCase):
 
     def test_attributes(self):
         self.assertEqual(self.residue1.residue_name, 'GLU')
-        self.assertEqual(self.residue1.allowed_residues, 'E')
+        self.assertEqual(self.residue1.allowed_residues, 'DE')
         self.assertEqual(self.residue1.specificity, 3)
         self.assertEqual(self.residue1.backbone, False)
         self.assertEqual(self.residue1.residue_number, 1)
         self.assertEqual(self.residue1.chain_id, 'A')
         self.assertEqual(self.residue1.orientation_vector, template.Vec3(0,0,-100)) # Glu orientation is from C to midpoint between Os
+        self.assertEqual(self.residue1.orientation_vector_indices, (0,9)) # from O to midpoint
         self.assertEqual(self.residue2.orientation_vector, template.Vec3(100,0,0)) # Val orientation is from from CA to CB
+        self.assertEqual(self.residue2.orientation_vector_indices, (0,1)) # from O to midpoint
 
+class TestTemplate_Checking(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        with open(Path(matcher, 'jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb'), 'r') as f:
+            cls.template_text1 = f.read()
+    def test_check_template(self):
+        template1 = template.Template.loads(self.template_text1, warn=False)
+        template1_path = Path(matcher, 'jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb')
+        self.assertEqual(template.check_template(Template_tuple=(template1, template1_path), warn=False), True)
+        self.assertEqual(template.check_template(Template_tuple=(template1, template1_path), warn=True), True)

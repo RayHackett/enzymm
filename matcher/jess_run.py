@@ -16,7 +16,7 @@ import sys
 import pyjess # type: ignore # cython port of Jess to python package
 
 from .jess.filter_hits import filter_hits
-from .template import Template, Vec3, load_templates, check_template, group_templates_by_size
+from .template import Template, Vec3, load_templates, check_template
 from .utils import chunks, ranked_argsort
 
 __all__ = [
