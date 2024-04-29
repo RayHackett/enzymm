@@ -1,0 +1,2 @@
+query_id	template_id	template_size	template_true_size	template_mcsa_id	template_uniprot_id	template_pdb_id	template_ec	template_cath	template_multimeric	query_multimeric	rmsd	log_evalue	orientation	preserved_order	completeness	matched_residues
+1AMY	285_5_1uh3_1_1_1	5	5	285	Q60053	1uh3	3.2.1.13,3.2.1.10,3.2.1.135	3.20.20.80	False	False	0.32093143180639955	-3.084244780540347	0.18811427657680269	True	True	GLU_A_204,ASP_A_87,ASP_A_179,HIS_A_288,ASP_A_289

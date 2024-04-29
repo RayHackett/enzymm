@@ -271,7 +271,7 @@ class Template:
     experimental_method: Optional[str] = field(default=None)
     enzyme_discription: Optional[str] = field(default=None)
     represented_sites: Optional[int] = field(default=None)
-    ec: Optional[Set[str]] = field(default=None)
+    ec: Optional[List[str]] = field(default=None)
 
     _CATH_MAPPING: ClassVar[Dict[str, List[str]]]
     _EC_MAPPING: ClassVar[Dict[str, List[str]]]
@@ -288,7 +288,7 @@ class Template:
         atom_lines = []
         residues = []
         metadata: dict[str, object] = {
-            "ec": set(),
+            "ec": list(),
         }
 
         _PARSERS = {
@@ -327,7 +327,8 @@ class Template:
             residues.append(Residue(atoms))
 
         # also include EC annotations from the M-CSA mapping. Consider that this is not necessarily direct annotation of the template but may be extended to the template trough homolgy
-        metadata['ec'].add(cls._EC_MAPPING[str(metadata['mcsa_id'])])  # type: ignore
+        if cls._EC_MAPPING[str(metadata['mcsa_id'])] not in metadata['ec']:  # type: ignore
+            metadata['ec'].append(cls._EC_MAPPING[str(metadata['mcsa_id'])])  # type: ignore
 
         # Since Templates may contain residues from multiple chains
         pdbchains = set()
@@ -341,8 +342,8 @@ class Template:
             if subdict is not None: # TODO this is an ugly workaround: Technically this is a bug either with missing annotations in SIFTS or due to wierd chain name conventions in .cif files
                 sifts_ecs = subdict.get('ec').copy() # type: ignore
                 for ec in sifts_ecs:
-                    if ec != '?':
-                        metadata['ec'].add(ec) # type: ignore
+                    if ec != '?' and ec not in metadata['ec']: # type: ignore
+                        metadata['ec'].append(ec) # type: ignore
 
         return Template(
             residues = residues,
@@ -440,9 +441,9 @@ class Template:
             return ranked_argsort([res.residue_number for res in self.residues])
     
     @property
-    def cath(self) -> Set[str]:
-        """`set` of `str`: Set of CATH Ids associated with that Template"""
-        return set(self._CATH_MAPPING[str(self.mcsa_id)].copy())
+    def cath(self) -> List[str]:
+        """`list` of `str`: Set of CATH Ids associated with that Template"""
+        return self._CATH_MAPPING[str(self.mcsa_id)].copy()
 
     @classmethod
     def _parse_pdb_id(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
@@ -507,11 +508,15 @@ class Template:
     @classmethod
     def _parse_ec(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
         matches = [match.group() for match in re.finditer(r'\d{1,2}(\.(\-|\d{1,2})){3}', tokens[2])]
-        non_cat_matches = [match.group() for match in re.finditer(r'\d{1,2}(\.(\-|\d{1,2}|n\d{1,2})){3}', tokens[2])] 
+        non_cat_matches = [match.group() for match in re.finditer(r'\d{1,2}(\.(\-|\d{1,2}|n\d{1,2})){3}', tokens[2])]
         if matches:
-            metadata['ec'].update(matches)  # type: ignore
+            for ec in matches:
+                if ec not in metadata['ec']: # type: ignore
+                    metadata['ec'].append(ec)  # type: ignore
         elif non_cat_matches:
-            metadata['ec'].update(non_cat_matches)  # type: ignore
+            for ec in non_cat_matches:
+                if ec not in metadata['ec']: # type: ignore
+                    metadata['ec'].append(ec)  # type: ignore
             if warn:
                 warnings.warn(f'Rare EC number {non_cat_matches} presumed to be noncatalytic detected!')
         else:

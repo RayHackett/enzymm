@@ -31,9 +31,9 @@ class Match:
     complete: bool = field(default=False) # initialize as false but change it later
     # maybe have the raw PDB output for use with pymol too
 
-    def dumps(self) -> str:
+    def dumps(self, header:bool = False) -> str:
         buffer = io.StringIO()
-        self.dump(buffer)
+        self.dump(buffer, header=header)
         return buffer.getvalue() # returns entire content temporary file object as a string
 
     def dump2pdb(self, file: IO[str]):

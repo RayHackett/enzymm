@@ -121,14 +121,14 @@ class TestTemplate(unittest.TestCase):
         self.assertEqual(template1.organism_id, 2714)
         self.assertEqual(template1.resolution, 2.3)
         self.assertEqual(template1.experimental_method, 'X-ray diffraction')
-        self.assertEqual(template1.ec, {'5.1.1.3'}) # could be more info added through sifts
+        self.assertEqual(template1.ec, ['5.1.1.3']) # could be more info added through sifts
         self.assertEqual(template1.represented_sites, 2)
         self.assertEqual(template1.enzyme_discription, 'GLUTAMATE RACEMASE (E.C.5.1.1.3)')
         self.assertEqual(template1.size, 6)
         self.assertEqual(template1.true_size, 6)
         self.assertEqual(template1.multimeric, True)
         self.assertEqual(template1.relative_order, [0])
-        self.assertEqual(template1.cath, {'3.40.50.1860'}) # could be more info added through sifts
+        self.assertEqual(template1.cath, ['3.40.50.1860']) # could be more info added through sifts
         self.assertEqual(len(template1.residues), 6)
 
         self.assertEqual(template2.pdb_id, '1qum')
@@ -141,19 +141,21 @@ class TestTemplate(unittest.TestCase):
         self.assertEqual(template2.organism_id, 562)
         self.assertEqual(template2.resolution, 1.55)
         self.assertEqual(template2.experimental_method, 'X-ray diffraction')
-        self.assertEqual(template2.ec, {'3.1.21.2'}) # could be more info added through sifts
+        self.assertEqual(template2.ec, ['3.1.21.2']) # could be more info added through sifts
         self.assertEqual(template2.represented_sites, 1)
         self.assertEqual(template2.enzyme_discription, 'ENDONUCLEASE IV (E.C.3.1.21.2)/DNA')
         self.assertEqual(template2.size, 4)
         self.assertEqual(template2.true_size, 4)
         self.assertEqual(template2.multimeric, False)
         self.assertEqual(template2.relative_order, [2,1,4,3])
-        self.assertEqual(template2.cath, {'3.20.20.150'}) # could be more info added through sifts
+        self.assertEqual(template2.cath, ['3.20.20.150']) # could be more info added through sifts
         self.assertEqual(len(template2.residues), 4)
 
     def test_warnings(self):
         with self.assertWarns(Warning):
             template2 = template.Template.loads(self.template_text2, warn=True)
+
+    # TODO test _to_pyjess_template method!
 
 class TestResidue(unittest.TestCase):
 
