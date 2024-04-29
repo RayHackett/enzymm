@@ -95,7 +95,7 @@ class TestMatcher(unittest.TestCase):
 
     def test_match_dump2pdb(self):
         buffer = io.StringIO()
-        self.match1.dump2pdb(buffer)
+        self.match1.dump2pdb(buffer, transform=False, include_query=False) # TODO include checks for either options too
         with files(test_data).joinpath("1AMY_matches.pdb").open() as f:
             self.assertEqual(buffer.getvalue(), f.read())
 
