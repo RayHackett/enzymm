@@ -161,7 +161,7 @@ def _single_query_run(molecule: pyjess.Molecule, pyjess_templates: Iterable[pyje
     # killswitch is controlled by max_candidates. Internal default is currently 1000
     # killswitch serves to limit the iterations in cases where the template would be too general, and the program would run in an almost endless loop
     jess = pyjess.Jess(pyjess_templates) # Create a Jess instance and use it to query a molecule (a PDB structure) against the stored templates:
-    query = jess.query(molecule, rmsd_threshold=rmsd, distance_cutoff=distance, max_dynamic_distance=max_dynamic_distance, max_candidates=max_candidates)
+    query = jess.query(molecule=molecule, rmsd_threshold=rmsd, distance_cutoff=distance, max_dynamic_distance=max_dynamic_distance, max_candidates=max_candidates)
     hits = list(query)
     # A template is not encoded as coordinates, rather as a set of constraints. For example, it would not contain the exact positions of THR and ASN atoms, but instructions like "Cα of ASN should be X angstrom away from the Cα of THR plus the allowed distance."
     # Multiple solutions = Mathces to a template, satisfying all constraints may therefore exist
@@ -255,14 +255,12 @@ def matcher_run(molecule_paths: List[Path], template_path: Path, jess_params: Di
         template_tuples = list(load_templates(warn=warn)) # default templates
 
     # check each template and if it passes add it to the mapping dictionary and transform it to a pyjess.Template and add it to a list of pyjess.Template objects
-    template_size_to_pyjess_template_id: Dict[int, List[pyjess.Template]] = {} # Dictionary of List of pyjess.Template objects grouped by Template.size as keys
+    template_size_to_pyjess_template_id: Dict[int, List[pyjess.Template]] = collections.defaultdict(list) # Dictionary of List of pyjess.Template objects grouped by Template.size as keys
     id_to_template: Dict[str, Template] = {} # mapping pyjess.Template ID to my Template objects
     for i, template_tuple in enumerate(template_tuples):
         if check_template(template_tuple, warn=warn): # returns True if the Template passed all checks or if warn is set to False
             pyjess_template = template_tuple[0].to_pyjess_template()
             id_to_template[pyjess_template.id] = template_tuple[0]
-            if template_tuple[0].size not in template_size_to_pyjess_template_id:
-                template_size_to_pyjess_template_id[template_tuple[0].size] = []
             template_size_to_pyjess_template_id[template_tuple[0].size].append(pyjess_template)
     
     template_sizes = list(template_size_to_pyjess_template_id.keys())
