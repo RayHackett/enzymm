@@ -36,17 +36,28 @@ class Match:
         self.dump(buffer, header=header)
         return buffer.getvalue() # returns entire content temporary file object as a string
 
-    def dump2pdb(self, file: IO[str]):
+    def dump2pdb(self, file: IO[str], include_query:bool = False, transform:bool = False):
+
+        def write_atom_line(atom: pyjess.Atom) -> str:
+            one_char_elements = {'H', 'B', 'C', 'N', 'O', 'F', 'P', 'S', 'K', 'V', 'Y', 'I', 'W', 'U'}
+            if atom.element in one_char_elements:
+                return f"ATOM  {atom.serial:>5}  {atom.name:<3s}{atom.altloc if atom.altloc is not None else '':<1}{atom.residue_name:<3}{atom.chain_id:>2}{atom.residue_number:>4}{atom.insertion_code:1s}   {atom.x:>8.3f}{atom.y:>8.3f}{atom.z:>8.3f}{atom.occupancy:>6.2f}{atom.temperature_factor:>6.2f}      {atom.segment:<4s}{atom.element:>2s} \n"
+            else:
+                return f"ATOM  {atom.serial:>5} {atom.name:<4s}{atom.altloc if atom.altloc is not None else '':<1}{atom.residue_name:<3}{atom.chain_id:>2}{atom.residue_number:>4}{atom.insertion_code:1s}   {atom.x:>8.3f}{atom.y:>8.3f}{atom.z:>8.3f}{atom.occupancy:>6.2f}{atom.temperature_factor:>6.2f}      {atom.segment:<4s}{atom.element:>2s} \n"
+
+        if include_query: # write the original query molecule too
+            file.write(f'REMARK MOLECULE_ID {self.hit.molecule.id}\n')
+            for atom in self.hit.molecule:
+                file.write(write_atom_line(atom))
+            file.write('END\n\n')
+        
         file.write(f'REMARK TEMPLATE_ID {self.template.id}\n')
         file.write(f'REMARK MOLECULE_ID {self.hit.molecule.id}\n')
 
-        one_char_elements = {'H', 'B', 'C', 'N', 'O', 'F', 'P', 'S', 'K', 'V', 'Y', 'I', 'W', 'U'}
-        for atom in self.hit.atoms(transform=False): # keep the atoms in the query reference frame!
-            if atom.element in one_char_elements:
-                file.write(f"ATOM  {atom.serial:>5}  {atom.name:<3s}{atom.altloc if atom.altloc is not None else '':<1}{atom.residue_name:<3}{atom.chain_id:>2}{atom.residue_number:>4}{atom.insertion_code:1s}   {atom.x:>8.3f}{atom.y:>8.3f}{atom.z:>8.3f}{atom.occupancy:>6.2f}{atom.temperature_factor:>6.2f}      {atom.segment:<4s}{atom.element:>2s} \n")
-            else:
-                file.write(f"ATOM  {atom.serial:>5} {atom.name:<4s}{atom.altloc if atom.altloc is not None else '':<1}{atom.residue_name:<3}{atom.chain_id:>2}{atom.residue_number:>4}{atom.insertion_code:1s}   {atom.x:>8.3f}{atom.y:>8.3f}{atom.z:>8.3f}{atom.occupancy:>6.2f}{atom.temperature_factor:>6.2f}      {atom.segment:<4s}{atom.element:>2s} \n")
+        for atom in self.hit.atoms(transform=transform): # keep the atoms in the query reference frame!
+            file.write(write_atom_line(atom))
         file.write('END\n\n')
+
 
     def dump(self, file: IO[str], header: bool = False):
         writer = csv.writer(file, dialect="excel-tab", delimiter='\t', lineterminator='\n')
@@ -208,7 +219,7 @@ def _single_query_run(molecule: pyjess.Molecule, pyjess_templates: Iterable[pyje
 
     return matches
 
-def matcher_run(molecule_paths: List[Path], template_path: Path, jess_params: Dict[int, Dict[str, float]], out_tsv: Path, pdb_path: Path, conservation_cutoff: int = 0, warn: bool = True, verbose: bool = False, skip_smaller_hits: bool = False):
+def matcher_run(molecule_paths: List[Path], template_path: Path, jess_params: Dict[int, Dict[str, float]], out_tsv: Path, pdb_path: Path, conservation_cutoff: int = 0, warn: bool = True, verbose: bool = False, skip_smaller_hits: bool = False, include_query_molecule: bool = False, transform:bool = False):
 
     def verbose_print(*args):
         if verbose:
@@ -318,13 +329,16 @@ def matcher_run(molecule_paths: List[Path], template_path: Path, jess_params: Di
                 i = index+jndex
                 match.dump(tsvfile, header=i==0) # one line per match, write header only for the first match
 
-
     def write_hits2_pdb(matches: List[Match], filename: str, outdir: Path):
         outdir.mkdir(parents=True, exist_ok=True)
         # TODO somehow we need to give unique filenames in case molecule.id is not unique
         with open(Path(outdir, f'{filename}_matches.pdb'), 'w', encoding ="utf-8") as pdbfile:
-            for i, match in enumerate(matches):
-                match.dump2pdb(pdbfile)
+            if include_query_molecule: # write the molecule structure to the top of the pdb output too
+                for i, match in enumerate(matches):
+                    match.dump2pdb(pdbfile, include_query=i==0, transform=transform)
+            else:
+                for i, match in enumerate(matches):
+                    match.dump2pdb(pdbfile, transform=transform)
 
     if pdb_path:
         for molecule, matches in processed_molecules.items():
@@ -350,7 +364,7 @@ if __name__ == "__main__":
     # positional arguments
     # parser.add_argument('input', type=Path, help='File path of a single query pdb file OR File path of a file listing multiple query pdb files seperated by linebreaks')
     parser.add_argument('-o', "--output", required=True, type=Path, help='Output tsv file to which results should get written')
-    parser.add_argument('--pdbs', type=Path, help='Output Directory to which results should get written', default=None)
+    parser.add_argument('--pdbs', type=Path, help='Output directory to which results should get written', default=None)
 
     # inputs: either a list of paths, or directly a path (or any combination)
     parser.add_argument('-i', '--input', type=Path, help='File path to a PDB file to use as query', action="append", dest="files", default=[])
@@ -362,6 +376,8 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--skip-smaller-hits', default=False, action="store_true", help='If True, do not search with smaller templates if larger templates have already found hits.')
     parser.add_argument('-v', '--verbose', default=False, action="store_true", help='If process information and time progress should be printed to the command line')
     parser.add_argument('-w', '--warn', default=False, action="store_true", help='If warings about bad template processing or suspicous and missing annotations should be raised')
+    parser.add_argument('-q', '--include_query', default=False, action="store_true", help='Include the query structure together with the hits in the pdb output')
+    parser.add_argument('--transform', default=False, action="store_true", help='Transform the coordinate system of the hits to that of the template in the pdb output')
     parser.add_argument('-c', '--conservation-cutoff', default=0, help='Atoms with a value in the B-factor column below this cutoff will be excluded form matching to the templates')
     args = parser.parse_args()
     
@@ -396,7 +412,7 @@ if __name__ == "__main__":
             8: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5}}
 
     try:
-        matcher_run(molecule_paths=args.files, template_path=args.template_dir, jess_params=jess_params, out_tsv=args.output, pdb_path=args.pdbs, conservation_cutoff=args.conservation_cutoff, warn=args.warn, verbose=args.verbose, skip_smaller_hits=args.skip_smaller_hits)
+        matcher_run(molecule_paths=args.files, template_path=args.template_dir, jess_params=jess_params, out_tsv=args.output, pdb_path=args.pdbs, conservation_cutoff=args.conservation_cutoff, warn=args.warn, verbose=args.verbose, skip_smaller_hits=args.skip_smaller_hits, include_query_molecule=args.include_query, transform=args.transform)
 
     except IsADirectoryError as exc:
         print("File is a directory:", exc.filename, file=sys.stderr)
