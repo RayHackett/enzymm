@@ -28,7 +28,7 @@ class Match:
     """"Class for storing annotated Jess hits. Wrapper around pyjess.Hit and the original Template object"""
     hit: pyjess.Hit
     template: Template
-    complete: bool = field(default=False) # initialize as false but change it later
+    complete: bool = field(default=False) # initialize as false but change it later - TODO this means we cannot freeze this dataclass :(
     # maybe have the raw PDB output for use with pymol too
 
     def dumps(self, header:bool = False) -> str:

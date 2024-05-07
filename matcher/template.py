@@ -38,7 +38,7 @@ def get_template_paths(directory_path: Path, extension: str ='.pdb') -> List[Pat
     else:
         raise FileNotFoundError(f'No template files with the {extension} extension found in the {directory_path.resolve()} directory')
 
-@dataclass
+@dataclass(frozen=True)
 class Vec3:
     '''Class for storing 3D vectors in XYZ'''
     x: float
@@ -64,7 +64,7 @@ class Vec3:
         """
         return math.acos(self.normalize() @ other.normalize())
 
-@dataclass
+@dataclass(frozen=True)
 class Residue:
     """Class for storing Residues (defined as 3 atoms) belonging to a Template and associated residue level information"""
     atoms: Tuple[Atom, Atom, Atom]
@@ -72,7 +72,8 @@ class Residue:
     def __post_init__(self) -> None:
         if not self.atoms:
             raise ValueError("Cannot create a residue with no atoms")
-        self._vec, self._indices = self.calc_residue_orientation(self.atoms)
+        object.__setattr__(self, "_orientation", self.calc_residue_orientation(self.atoms))
+        # self._vec, self._indices = self.calc_residue_orientation(self.atoms)
 
     @classmethod
     def calc_residue_orientation(cls, atoms: Tuple[Atom, Atom, Atom]) -> Tuple[Vec3, Tuple[int, int]]:
@@ -167,15 +168,15 @@ class Residue:
     def orientation_vector(self) -> Vec3:
         """`Vec3`: Calculate the residue orientation vector according to the residue type
         """
-        return self._vec
+        return self._orientation[0] # type: ignore
 
     @property
     def orientation_vector_indices(self) -> Tuple[int, int]:
         """`tuple`: Return the indices of the atoms between which the orientation vector was calculated according to the residue type
         """
-        return self._indices
+        return self._orientation[1] # type: ignore
 
-@dataclass
+@dataclass(frozen=True)
 class Atom:
     '''Class for storing Atom information from a Template file'''
     specificity: int
@@ -255,7 +256,7 @@ class Atom:
             raise TypeError(f'Expected an instance of "Atom" but got {type(other)}')
         return Vec3(self.x - other.x, self.y - other.y, self.z - other.z)
 
-@dataclass
+@dataclass(frozen=True)
 class Template:
     """Class for storing Templates and associated information"""
     residues: List[Residue]
