@@ -64,7 +64,7 @@ class Vec3:
         """
         return math.acos(self.normalize() @ other.normalize())
 
-@dataclass(frozen=True)
+@dataclass(frozen=False) # I have no idea how to freeze this and make it work with the classmethod
 class Residue:
     """Class for storing Residues (defined as 3 atoms) belonging to a Template and associated residue level information"""
     atoms: Tuple[Atom, Atom, Atom]
@@ -72,8 +72,7 @@ class Residue:
     def __post_init__(self) -> None:
         if not self.atoms:
             raise ValueError("Cannot create a residue with no atoms")
-        object.__setattr__(self, "_orientation", self.calc_residue_orientation(self.atoms))
-        # self._vec, self._indices = self.calc_residue_orientation(self.atoms)
+        self._vec, self._indices = self.calc_residue_orientation(self.atoms)
 
     @classmethod
     def calc_residue_orientation(cls, atoms: Tuple[Atom, Atom, Atom]) -> Tuple[Vec3, Tuple[int, int]]:
@@ -168,13 +167,13 @@ class Residue:
     def orientation_vector(self) -> Vec3:
         """`Vec3`: Calculate the residue orientation vector according to the residue type
         """
-        return self._orientation[0] # type: ignore
+        return self._vec
 
     @property
     def orientation_vector_indices(self) -> Tuple[int, int]:
         """`tuple`: Return the indices of the atoms between which the orientation vector was calculated according to the residue type
         """
-        return self._orientation[1] # type: ignore
+        return self._indices
 
 @dataclass(frozen=True)
 class Atom:
