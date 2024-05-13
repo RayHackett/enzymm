@@ -56,6 +56,8 @@ class TestMatcher(unittest.TestCase):
         self.assertEqual(self.match1.template.cath, self.template1.cath)
         self.assertEqual(self.match1.template.multimeric, self.template1.multimeric)
         self.assertEqual(self.match1.multimeric, False)
+        self.assertEqual(self.match1.query_atom_count, 3339)
+        self.assertEqual(self.match1.query_residue_count, 558)
         self.assertAlmostEqual(self.match1.hit.rmsd, 0.32093143)
         self.assertAlmostEqual(self.match1.hit.log_evalue, -3.08424478)
         self.assertAlmostEqual(self.match1.orientation, 0.18811427657)

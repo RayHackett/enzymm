@@ -74,6 +74,8 @@ class Match:
                     "template_cath",
                     "template_multimeric",
                     "query_multimeric",
+                    "query_atom_count",
+                    "query_residue_count",
                     "rmsd",
                     "log_evalue",
                     "orientation",
@@ -93,6 +95,8 @@ class Match:
                 ",".join(self.template.cath if self.template.cath else ''),
                 str(self.template.multimeric),
                 str(self.multimeric),
+                str(self.query_atom_count),
+                str(self.query_residue_count),
                 str(self.hit.rmsd),
                 str(self.hit.log_evalue),
                 str(self.orientation),
@@ -167,6 +171,17 @@ class Match:
             angle_list.append(self.template_vector_list[i].angle_to(self.match_vector_list[i]))
 
         return sum(angle_list)/len(angle_list)
+
+    @property
+    def query_atom_count(self) -> int:
+        return len(self.hit.molecule)
+
+    @property
+    def query_residue_count(self) -> int:
+        all_residue_numbers = set()
+        for atom in self.hit.molecule:
+            all_residue_numbers.add(atom.residue_number)
+        return len(all_residue_numbers)
 
 def _single_query_run(molecule: pyjess.Molecule, pyjess_templates: Iterable[pyjess.Template], id_to_template: Dict[str, Template], rmsd: float = 2.0, distance: float = 3.0, max_dynamic_distance: float = 3.0, max_candidates: int = 10000) -> List[Match]:
     # killswitch is controlled by max_candidates. Internal default is currently 1000
