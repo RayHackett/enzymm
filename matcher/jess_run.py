@@ -234,7 +234,7 @@ def _single_query_run(molecule: pyjess.Molecule, pyjess_templates: Iterable[pyje
 
     return matches
 
-def matcher_run(molecule_paths: List[Path], template_path: Path, jess_params: Dict[int, Dict[str, float]], out_tsv: Path, pdb_path: Path, conservation_cutoff: int = 0, warn: bool = True, verbose: bool = False, skip_smaller_hits: bool = False, include_query_molecule: bool = False, transform:bool = False):
+def matcher_run(molecule_paths: List[Path], template_path: Path, jess_params: Dict[int, Dict[str, float]], out_tsv: Path, pdb_path: Path, conservation_cutoff: int = 0, warn: bool = True, verbose: bool = False, skip_smaller_hits: bool = False, match_small_templates: bool = False, include_query_molecule: bool = False, transform:bool = False):
 
     def verbose_print(*args):
         if verbose:
@@ -293,24 +293,31 @@ def matcher_run(molecule_paths: List[Path], template_path: Path, jess_params: Di
     template_sizes.sort(reverse=True) # get a list of template_sizes in decending order
 
     if warn:
-        for i in template_sizes:
-            if i < 3:
-                print('Templates with a size smaller than 3 defined, sidechain residues were supplied. These will be excluded since these templates are too general')
+        smaller_sizes = [i for i in template_sizes if i < 3]
+        if smaller_sizes:
+            print('Templates with a size smaller than 3 defined sidechain residues were supplied.')
+            print('The following templates are too small:')
+            for template_size in smaller_sizes:
+                for tmp in template_size_to_pyjess_template_id[template_size]:
+                    print(tmp.id)
+            if match_small_templates:
+                print('For small templates Jess parameters for templates of 3 residues will be used.')
+            else:
+                print('These will be excluded since these templates are too general')
+                
+        if any(i > 8 for i in template_sizes):
+            print('Templates with more than 8 residues were passed. Jess parameters for templates of 8 residues will be used.')
 
     processed_molecules: Dict[pyjess.Molecule, List[Match]] = collections.defaultdict(list)
     for template_size in template_sizes:
         pyjess_templates = template_size_to_pyjess_template_id[template_size]
         
         if template_size < 3:
-            if warn:
-                print('The following templates are too small and will be skipped:')
-                for tmp in pyjess_templates:
-                    print(tmp.id)
-            continue # skip the rest of the for-loop
+            if not match_small_templates:
+                continue # skip the rest of the for-loop
+            parameter_size = 3
 
         elif template_size > 8:
-            if warn:
-                print('Templates with more than 8 residues were passed. Jess parameters for templates of 8 residues will be used.')
             parameter_size = 8
 
         else:
@@ -389,6 +396,7 @@ if __name__ == "__main__":
     parser.add_argument('-j', '--jess', nargs = 3, default=None, type=float, help='Fixed Jess parameters for all templates. Jess space seperated parameters rmsd, distance, max_dynamic_distance')
     parser.add_argument('-t', '--template-dir', type=Path, default=None, help='Path to directory containing jess templates. This directory will be recursively searched.')
     parser.add_argument('-s', '--skip-smaller-hits', default=False, action="store_true", help='If True, do not search with smaller templates if larger templates have already found hits.')
+    parser.add_argument('--match_small_templates', default=False, action="store_true", help='If true, templates with less then 3 defined sidechain residues will still be matched.')
     parser.add_argument('-v', '--verbose', default=False, action="store_true", help='If process information and time progress should be printed to the command line')
     parser.add_argument('-w', '--warn', default=False, action="store_true", help='If warings about bad template processing or suspicous and missing annotations should be raised')
     parser.add_argument('-q', '--include_query', default=False, action="store_true", help='Include the query structure together with the hits in the pdb output')
@@ -427,7 +435,7 @@ if __name__ == "__main__":
             8: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5}}
 
     try:
-        matcher_run(molecule_paths=args.files, template_path=args.template_dir, jess_params=jess_params, out_tsv=args.output, pdb_path=args.pdbs, conservation_cutoff=args.conservation_cutoff, warn=args.warn, verbose=args.verbose, skip_smaller_hits=args.skip_smaller_hits, include_query_molecule=args.include_query, transform=args.transform)
+        matcher_run(molecule_paths=args.files, template_path=args.template_dir, jess_params=jess_params, out_tsv=args.output, pdb_path=args.pdbs, conservation_cutoff=args.conservation_cutoff, warn=args.warn, verbose=args.verbose, skip_smaller_hits=args.skip_smaller_hits, match_small_templates=args.match_small_templates, include_query_molecule=args.include_query, transform=args.transform)
 
     except IsADirectoryError as exc:
         print("File is a directory:", exc.filename, file=sys.stderr)
