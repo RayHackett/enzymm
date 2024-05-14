@@ -95,7 +95,8 @@ def make_pdb_sifts_df():
         for row in pdb_enzyme_uniprot_df.itertuples():
             if row.PDBCHAIN not in sifts_dict:
                 sifts_dict[row.PDBCHAIN] = {'uniprot_id': row.ACCESSION, 'cath': set(), 'ec': set(), 'interpro': set()}
-            sifts_dict[row.PDBCHAIN]['ec'].add(row.EC_NUMBER)
+            if row.EC_NUMBER != "?":
+                sifts_dict[row.PDBCHAIN]['ec'].add(row.EC_NUMBER)
         for row in pdb_cath_uniprot_df.itertuples():
             if row.PDBCHAIN not in sifts_dict:
                 sifts_dict[row.PDBCHAIN] = {'uniprot_id': row.SP_PRIMARY, 'cath': set(), 'ec': set(), 'interpro': set()}

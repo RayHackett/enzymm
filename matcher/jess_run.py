@@ -65,6 +65,9 @@ class Match:
                 writer.writerow([
                     "query_id",
                     "template_id",
+                    "template_cluster_id",
+                    "template_cluster_member",
+                    "template_cluster_size",
                     "template_size",
                     "template_true_size",
                     "template_mcsa_id",
@@ -86,6 +89,9 @@ class Match:
         writer.writerow([
                 str(self.hit.molecule.id),
                 str(self.template.id),
+                str(self.template.cluster_id),
+                str(self.template.cluster_member),
+                str(self.template.cluster_size),
                 str(self.template.size),
                 str(self.template.true_size),
                 str(self.template.mcsa_id),
