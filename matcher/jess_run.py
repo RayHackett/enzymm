@@ -54,7 +54,12 @@ class Match:
         file.write(f'REMARK TEMPLATE_ID {self.template.id}\n')
         file.write(f'REMARK MOLECULE_ID {self.hit.molecule.id}\n')
 
-        for atom in self.hit.atoms(transform=transform): # keep the atoms in the query reference frame!
+        if transform:
+            file.write(f'REMARK TEMPLATE COORDINATE FRAME\n')
+        else:
+            file.write(f'REMARK QUERY COORDINATE FRAME\n')
+
+        for atom in self.hit.atoms(transform=transform): # if transform == True then the atom coordinates are transformed to the template reference frame
             file.write(write_atom_line(atom))
         file.write('END\n\n')
 
@@ -115,7 +120,7 @@ class Match:
         # list with matched residues
         # # Hit.atoms is a list of matched atoms with all info on residue numbers and residue chain ids and atom types, this should conserve order if Hit.atoms is a list!!!
         atom_triplets : List[List[pyjess.Atom]] = []
-        for atom_triplet in chunks(self.hit.atoms(), 3): # yield chunks of 3 atoms each
+        for atom_triplet in chunks(self.hit.atoms(transform=True), 3): # yield chunks of 3 atoms each, transform true because for angle calculation atoms need to be in template reference frame
             # check if all three atoms belong to the same residue by adding a tuple of their residue defining properties to a set
             unique_residues = { (atom.residue_name, atom.chain_id, atom.residue_number) for atom in atom_triplet }
             if len(unique_residues) != 1:
@@ -147,19 +152,21 @@ class Match:
 
     @cached_property
     def match_vector_list(cls) -> List[Vec3]:
+        # !!! atom coordinates must be in template coordinate system!
         vector_list = []
         for residue_index, residue in enumerate(cls.template.residues):
             first_atom_index, second_atom_index = residue.orientation_vector_indices
-            if second_atom_index == 9:
+            if second_atom_index == 9: # Calculate orientation vector going from middle_atom to mitpoint between side1 and side2
                 middle_atom = cls.atom_triplets[residue_index][first_atom_index]
                 side1, side2 = [atom for atom in cls.atom_triplets[residue_index] if atom != middle_atom]
                 midpoint = [(side1.x + side2.x) / 2, (side1.y + side2.y) / 2, (side1.z + side2.z) / 2]
                 vector_list.append(Vec3(midpoint[0]- middle_atom.x, midpoint[1] - middle_atom.y, midpoint[2]- middle_atom.z))
             else:
+
                 # Calculate orientation vector going from first_atom to second_atom_index
                 first_atom = cls.atom_triplets[residue_index][first_atom_index]
                 second_atom = cls.atom_triplets[residue_index][second_atom_index]
-                vector_list.append(Vec3(second_atom.x - first_atom.x, second_atom.y - second_atom.y, second_atom.z - first_atom.z))
+                vector_list.append(Vec3(second_atom.x - first_atom.x, second_atom.y - first_atom.y, second_atom.z - first_atom.z))
         return vector_list
 
     @cached_property
@@ -175,7 +182,6 @@ class Match:
         angle_list = []
         for i in range(len(self.template_vector_list)):
             angle_list.append(self.template_vector_list[i].angle_to(self.match_vector_list[i]))
-
         return sum(angle_list)/len(angle_list)
 
     @property
@@ -388,7 +394,9 @@ if __name__ == "__main__":
                     dest = getattr(namespace, self.dest)
                     dest.append(Path(line.strip()))
     
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
     # positional arguments
     # parser.add_argument('input', type=Path, help='File path of a single query pdb file OR File path of a file listing multiple query pdb files seperated by linebreaks')
     parser.add_argument('-o', "--output", required=True, type=Path, help='Output tsv file to which results should get written')

@@ -14,6 +14,8 @@ matcher = Path(__package__).parent / 'matcher/'
 
 class TestMatcher(unittest.TestCase):
 
+    maxDiff = None
+
     @classmethod
     def setUpClass(cls):
         with open(Path(matcher, 'jess_templates_20230210/5_residues/results/csa3d_0285/csa3d_0285.cluster_1_1_1.1uh3_A396-A262-A356-A471-A472.template.pdb'), 'r') as f:
@@ -60,9 +62,9 @@ class TestMatcher(unittest.TestCase):
         self.assertEqual(self.match1.query_residue_count, 558)
         self.assertAlmostEqual(self.match1.hit.rmsd, 0.32093143)
         self.assertAlmostEqual(self.match1.hit.log_evalue, -3.08424478)
-        self.assertAlmostEqual(self.match1.orientation, 0.18811427657)
+        self.assertAlmostEqual(self.match1.orientation, 0.15327054322)
         self.assertEqual(self.match1.template_vector_list, [res.orientation_vector for res in self.template1.residues])
-        self.assertEqual(self.match1.match_vector_list, [template.Vec3(x=0.2290067979141952, y=-0.3853409610281773, z=0.377114677867322), template.Vec3(x=0.4249816660862038, y=-0.21966898402981627, z=-0.3540863184957992), template.Vec3(x=0.45459385444007694, y=-0.34869961601989985, z=0.10687378206512577), template.Vec3(x=-0.8733960645698886, y=0.0, z=-0.9840695023070225), template.Vec3(x=-0.510183600042339, y=-0.1958417994791759, z=0.18963368325429997)])
+        self.assertEqual(self.match1.match_vector_list, [template.Vec3(x=0.2290067979141952, y=-0.3853409610281773, z=0.377114677867322), template.Vec3(x=0.4249816660862038, y=-0.21966898402981627, z=-0.3540863184957992), template.Vec3(x=0.45459385444007694, y=-0.34869961601989985, z=0.10687378206512577), template.Vec3(x=-0.8733960645698886, y=0.2563504028143271, z=-0.9840695023070225), template.Vec3(x=-0.510183600042339, y=-0.1958417994791759, z=0.18963368325429997)])
         self.assertEqual(self.match1.preserved_resid_order, True)
         self.assertEqual(self.match1.complete, True)
         self.assertEqual(self.match1.matched_residues, [('GLU', 'A', '204'),('ASP', 'A', '87'),('ASP', 'A', '179'),('HIS', 'A', '288'),('ASP', 'A', '289')])
@@ -79,7 +81,7 @@ class TestMatcher(unittest.TestCase):
         self.assertEqual(self.match2.multimeric, False)
         self.assertAlmostEqual(self.match2.hit.rmsd, 1.7353479120)
         self.assertAlmostEqual(self.match2.hit.log_evalue, 1.8517964201)
-        self.assertAlmostEqual(self.match2.orientation, 1.7475836210)
+        self.assertAlmostEqual(self.match2.orientation, 1.6503123465442575)
         self.assertEqual(self.match2.template_vector_list, [res.orientation_vector for res in self.template2.residues])
         self.assertEqual(self.match2.preserved_resid_order, False)
         self.assertEqual(self.match2.complete, False)
@@ -92,13 +94,19 @@ class TestMatcher(unittest.TestCase):
             self.assertEqual(buffer.getvalue(), f.read())
 
     def test_match_dumps(self):
-        dumps_string = 'query_id	template_id	template_size	template_true_size	template_mcsa_id	template_uniprot_id	template_pdb_id	template_ec	template_cath	template_multimeric	query_multimeric	rmsd	log_evalue	orientation	preserved_order	completeness	matched_residues\n1AMY	285_5_1uh3_1_1_1	5	5	285	Q60053	1uh3	3.2.1.13,3.2.1.10,3.2.1.135	3.20.20.80	False	False	0.32093143180639955	-3.084244780540347	0.18811427657680269	True	True	GLU_A_204,ASP_A_87,ASP_A_179,HIS_A_288,ASP_A_289\n'
+        dumps_string = 'query_id	template_id	template_cluster_id	template_cluster_member	template_cluster_size	template_size	template_true_size	template_mcsa_id	template_uniprot_id	template_pdb_id	template_ec	template_cath	template_multimeric	query_multimeric	query_atom_count	query_residue_count	rmsd	log_evalue	orientation	preserved_order	completeness	matched_residues\n1AMY	285_5_1uh3_1_1_1	1	1	1	5	5	285	Q60053	1uh3	3.2.1.13,3.2.1.10,3.2.1.135	3.20.20.80	False	False	3339	558	0.32093143180639955	-3.084244780540347	0.1532705432273403	True	True	GLU_A_204,ASP_A_87,ASP_A_179,HIS_A_288,ASP_A_289\n'
         self.assertEqual(self.match1.dumps(header=True), dumps_string)
 
     def test_match_dump2pdb(self):
         buffer = io.StringIO()
         self.match1.dump2pdb(buffer, transform=False, include_query=False) # TODO include checks for either options too
-        with files(test_data).joinpath("1AMY_matches.pdb").open() as f:
+        with files(test_data).joinpath("1AMY_matches_query.pdb").open() as f:
+            self.assertEqual(buffer.getvalue(), f.read())
+
+    def test_match_dump2pdb_transformed(self):
+        buffer = io.StringIO()
+        self.match1.dump2pdb(buffer, transform=True, include_query=False)
+        with files(test_data).joinpath("1AMY_matches_template.pdb").open() as f:
             self.assertEqual(buffer.getvalue(), f.read())
 
 # TODO test single_query_run and completeness check. This will be refactored anyway I assume
