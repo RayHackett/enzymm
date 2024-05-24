@@ -16,7 +16,6 @@ import os
 
 import pyjess # type: ignore # cython port of Jess to python package
 
-from .jess.filter_hits import filter_hits
 from .template import AnnotatedTemplate, Vec3, load_templates, check_template
 from .utils import chunks, ranked_argsort
 
@@ -207,22 +206,20 @@ def single_query_run(molecule: pyjess.Molecule, templates: List[AnnotatedTemplat
     # killswitch is controlled by max_candidates. Internal default is currently 1000
     # killswitch serves to limit the iterations in cases where the template would be too general, and the program would run in an almost endless loop
     jess = pyjess.Jess(templates) # Create a Jess instance and use it to query a molecule (a PDB structure) against the stored templates:
-    query = jess.query(molecule=molecule, rmsd_threshold=rmsd, distance_cutoff=distance, max_dynamic_distance=max_dynamic_distance, max_candidates=max_candidates)
+    query = jess.query(molecule=molecule, rmsd_threshold=rmsd, distance_cutoff=distance, max_dynamic_distance=max_dynamic_distance, max_candidates=max_candidates, best_match=True)
     hits = list(query)
     # A template is not encoded as coordinates, rather as a set of constraints. For example, it would not contain the exact positions of THR and ASN atoms, but instructions like "Cα of ASN should be X angstrom away from the Cα of THR plus the allowed distance."
     # Multiple solutions = Mathces to a template, satisfying all constraints may therefore exist
     # Jess produces matches to templates by looking for any combination of atoms, residue_types, elements etc. and ANY positions which satisfy the constraints in the template
     # thus the solutions that Jess finds are NOT identical to the template at all - rather they are all possible solutions to the set constraints. Solutions may completely differ from the template geometry or atom composition if allowed by the set constraints.
-    # by filtering for e-value we hope to return the solution to the constraints which most closely resembles the original template.
-    matches: List[Match] = []
-    if hits: # if any hits were found
-        # best hits is a list of pyjess.Hit objects
-        best_hits = filter_hits(hits) # retain only the hit with the lowest e-value for each query-template pair
+    # by setting best_match=True we turn on filtering by rmsd to return only the best match for every molecule template pair. Currently I dont expose best_match to the user and assume it as default. This should be the only use case (I think)
+    # Thus we hope to return the one solution to the constraints which most closely resembles the original template - this is not guaranteed of course
 
-        if best_hits:
-            for hit in best_hits:
-                template = id_to_template[hit.template.id]
-                matches.append(Match(hit=hit, template=template))
+    matches: List[Match] = []
+    if hits: # if any hits were found, hits is a list of pyjess.Hit objects
+        for hit in hits:
+            template = id_to_template[hit.template.id]
+            matches.append(Match(hit=hit, template=template))
 
         def _check_completeness(matches: List[Match]):
             # only after all templates of a certain size have been scanned could we compute the complete tag
@@ -448,7 +445,7 @@ if __name__ == "__main__":
         molecules: List[pyjess.Molecule] = []
 
         for molecule_path in args.files:
-            molecule = pyjess.Molecule.load(str(molecule_path))
+            molecule = pyjess.Molecule.load(str(molecule_path)) # by default it will stop at ENDMDL
 
             if args.conservation_cutoff: # if martin changes the cutoff function to stop it from making a copy if conservation cutoff is 0 or false or something I can drop this
                 molecule = molecule.conserved(args.conservation_cutoff)

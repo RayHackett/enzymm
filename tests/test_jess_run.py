@@ -7,8 +7,6 @@ import io
 
 from matcher import template, jess_run
 import pyjess # type: ignore
-from matcher.jess import filter_hits # type: ignore
-
 
 matcher = Path(__package__).parent / 'matcher/'
 
@@ -28,8 +26,7 @@ class TestMatcher(unittest.TestCase):
             molecule = pyjess.Molecule.load(f)
 
         query = jess_1.query(molecule, 2, 1.5, 1.5, max_candidates=10000)
-        hits = list(query)
-        best_hits = filter_hits.filter_hits(hits)
+        best_hits = list(query)
         
         cls.match1 = jess_run.Match(hit=best_hits[0], template=cls.template1)
         cls.match1.complete = True  # this is false because we did not run the completeness check here. we manually set it to true
@@ -41,8 +38,7 @@ class TestMatcher(unittest.TestCase):
             jess_2 = pyjess.Jess([pyjess_template2])
 
         query = jess_2.query(molecule, 2, 1, 1, max_candidates=10000)
-        hits = list(query)
-        best_hits = filter_hits.filter_hits(hits)
+        best_hits = list(query)
         
         cls.match2 = jess_run.Match(hit=best_hits[0], template=cls.template2)
 

@@ -41,11 +41,6 @@ def _best_match(hits: List[pyjess.Hit], all_instances=False) -> List[pyjess.Hit]
         # implement check for D-value == 1, otherwise continue
         if not math.isclose(hit.determinant, 1, rel_tol=1e-05):
             continue # skips the rest of the loop
-        # This is to discard self matches when cross-comparing templates
-        # This bit is a bit messy because it actually uses the id of both objects so it could break if the user isnt careful
-        # if hit.molecule.id != None:
-        #     if hit.template.id.lower() == hit.molecule.id.lower():
-        #         continue # skips the rest of the loop
         unique_hits.append(hit)
 
     if all_instances:  
