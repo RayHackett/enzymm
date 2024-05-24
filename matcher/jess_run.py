@@ -57,9 +57,9 @@ class Match:
             for atom in self.hit.molecule:
                 file.write(write_atom_line(atom))
             file.write('END\n\n')
-        
-        file.write(f'REMARK TEMPLATE_ID {self.template.id}\n')
-        file.write(f'REMARK MOLECULE_ID {self.hit.molecule.id}\n')
+
+        file.write(f'REMARK TEMPLATE_PDB_ID {str(self.template.pdb_id)}\n')
+        file.write(f'REMARK MOLECULE_ID {str(self.hit.molecule.id)}\n')
 
         if transform:
             file.write(f'REMARK TEMPLATE COORDINATE FRAME\n')
@@ -75,7 +75,7 @@ class Match:
         if header:
                 writer.writerow([
                     "query_id",
-                    "template_id",
+                    "template_pdb_id",
                     "template_cluster_id",
                     "template_cluster_member",
                     "template_cluster_size",
@@ -83,7 +83,6 @@ class Match:
                     "template_dimension",
                     "template_mcsa_id",
                     "template_uniprot_id",
-                    "template_pdb_id",
                     "template_ec",
                     "template_cath",
                     "template_multimeric",
@@ -99,7 +98,7 @@ class Match:
 
         writer.writerow([
                 str(self.hit.molecule.id),
-                str(self.template.id),
+                str(self.template.pdb_id if self.template.pdb_id else ''),
                 str(self.template.cluster.id if self.template.cluster else ''),
                 str(self.template.cluster.member if self.template.cluster else ''),
                 str(self.template.cluster.size if self.template.cluster else ''),
@@ -107,7 +106,6 @@ class Match:
                 str(self.template.dimension),
                 str(self.template.mcsa_id if self.template.mcsa_id else ''),
                 str(self.template.uniprot_id if self.template.uniprot_id else ''),
-                str(self.template.pdb_id if self.template.pdb_id else ''),
                 ",".join(self.template.ec if self.template.ec is not None else ''),
                 ",".join(self.template.cath if self.template.cath else ''),
                 str(self.template.multimeric),
@@ -200,11 +198,15 @@ class Match:
             all_residue_numbers.add(atom.residue_number)
         return len(all_residue_numbers)
 
-def single_query_run(self, molecule: pyjess.Molecule, pyjess_templates: Iterable[pyjess.Template], id_to_template: Dict[str, AnnotatedTemplate], rmsd: float = 2.0, distance: float = 3.0, max_dynamic_distance: float = 3.0, max_candidates: int = 10000) -> List[Match]:
-    # TODO this should take a List of AnnotatedTemplate objects and pass the pyjess template part to pyjess. But is this inefficient if it has to construct its own id_to_template dict since this is called loopy
+def single_query_run(molecule: pyjess.Molecule, templates: List[AnnotatedTemplate], rmsd: float = 2.0, distance: float = 3.0, max_dynamic_distance: float = 3.0, max_candidates: int = 10000) -> List[Match]:
+
+    id_to_template: Dict[str, AnnotatedTemplate] = {} # mapping pyjess.Template.id to AnnotatedTemplate objects
+    for template in templates:
+        id_to_template[template.id] = template
+
     # killswitch is controlled by max_candidates. Internal default is currently 1000
     # killswitch serves to limit the iterations in cases where the template would be too general, and the program would run in an almost endless loop
-    jess = pyjess.Jess(pyjess_templates) # Create a Jess instance and use it to query a molecule (a PDB structure) against the stored templates:
+    jess = pyjess.Jess(templates) # Create a Jess instance and use it to query a molecule (a PDB structure) against the stored templates:
     query = jess.query(molecule=molecule, rmsd_threshold=rmsd, distance_cutoff=distance, max_dynamic_distance=max_dynamic_distance, max_candidates=max_candidates)
     hits = list(query)
     # A template is not encoded as coordinates, rather as a set of constraints. For example, it would not contain the exact positions of THR and ASN atoms, but instructions like "Cα of ASN should be X angstrom away from the Cα of THR plus the allowed distance."
@@ -297,15 +299,13 @@ class Matcher:
             self.verbose_print('loading default template files')
             template_tuples = list(load_templates(warn=self.warn)) # default templates
 
-        # check each template and if it passes add it to the mapping dictionary and transform it to a pyjess.Template and add it to a list of pyjess.Template objects
-        self.template_effective_size_to_pyjess_template_id: Dict[int, List[pyjess.Template]] = collections.defaultdict(list) # Dictionary of List of pyjess.Template objects grouped by Template.effective_size as keys
-        self.id_to_template: Dict[str, AnnotatedTemplate] = {} # mapping pyjess.Template ID to my Template objects
+        # check each template and if it passes add it to the dictionary of templates
+        self.templates_by_effective_size: Dict[int, List[AnnotatedTemplate]] = collections.defaultdict(list) # Dictionary of List of AnnoatedTemplate objects grouped by Template.effective_size as keys
         for i, template_tuple in enumerate(template_tuples):
             if check_template(template_tuple, warn=self.warn): # returns True if the Template passed all checks or if warn is set to False
-                self.id_to_template[template_tuple[0].pyjess_template.id] = template_tuple[0]
-                self.template_effective_size_to_pyjess_template_id[template_tuple[0].effective_size].append(template_tuple[0].pyjess_template)
+                self.templates_by_effective_size[template_tuple[0].effective_size].append(template_tuple[0])
         
-        self.template_effective_sizes = list(self.template_effective_size_to_pyjess_template_id.keys())
+        self.template_effective_sizes = list(self.templates_by_effective_size.keys())
         self.template_effective_sizes.sort(reverse=True) # get a list of template_sizes in decending order
 
         if self.warn:
@@ -314,8 +314,8 @@ class Matcher:
                 print('Templates with an effective size smaller than 3 defined sidechain residues were supplied.')
                 print('The following templates are too small:')
                 for template_size in smaller_sizes:
-                    for tmp in self.template_effective_size_to_pyjess_template_id[template_size]:
-                        print(tmp.id)
+                    for tmp in self.templates_by_effective_size[template_size]:
+                        print(tmp.id) # GAAAA TODO how do i appropriately map back to tell the user which templates suck!
                 if self.match_small_templates:
                     print('For small templates Jess parameters for templates of 3 residues will be used.')
                 else:
@@ -334,7 +334,7 @@ class Matcher:
         with ThreadPool(self.cpus) as pool:
 
             for template_size in self.template_effective_sizes:
-                pyjess_templates = self.template_effective_size_to_pyjess_template_id[template_size]
+                templates = self.templates_by_effective_size[template_size]
                 
                 if template_size < 3:
                     if not self.match_small_templates:
@@ -356,7 +356,7 @@ class Matcher:
                 distance = self.jess_params[parameter_size]['distance']
                 max_dynamic_distance = self.jess_params[parameter_size]['max_dynamic_distance']
                 
-                _single_query_run = functools.partial(single_query_run, pyjess_templates=pyjess_templates, id_to_template=self.id_to_template, rmsd=rmsd, distance=distance, max_dynamic_distance=max_dynamic_distance)
+                _single_query_run = functools.partial(single_query_run, templates=templates, rmsd=rmsd, distance=distance, max_dynamic_distance=max_dynamic_distance)
 
                 total_matches = 0 # counter for all matches found over all molecules passed 
                 if self.skip_smaller_hits:
@@ -409,7 +409,7 @@ if __name__ == "__main__":
     parser.add_argument('-q', '--include-query', default=False, action="store_true", help='Include the query structure together with the hits in the pdb output')
     parser.add_argument('--transform', default=False, action="store_true", help='Transform the coordinate system of the hits to that of the template in the pdb output')
     parser.add_argument('-c', '--conservation-cutoff', default=0, help='Atoms with a value in the B-factor column below this cutoff will be excluded form matching to the templates')
-    parser.add_argument('--jobs', help='The number of threads to run in parallel. Pass 1 to run everything in the main thread, 0 to automatically select a suitable number, or any postive number')
+    parser.add_argument('--jobs', default=0, help='The number of threads to run in parallel. Pass 1 to run everything in the main thread, 0 to automatically select a suitable number, or any postive number')
     args = parser.parse_args()
     
     if not args.files:

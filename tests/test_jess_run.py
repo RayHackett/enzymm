@@ -49,11 +49,11 @@ class TestMatcher(unittest.TestCase):
     def test_match(self):
         self.assertEqual(self.match1.hit.molecule.id, '1AMY')
         self.assertEqual(self.match1.template.id, self.template1.id)
+        self.assertEqual(self.match1.template.pdb_id, self.template1.pdb_id)
         self.assertEqual(self.match1.template.effective_size, self.template1.effective_size)
         self.assertEqual(self.match1.template.dimension, self.template1.dimension)
         self.assertEqual(self.match1.template.mcsa_id, self.template1.mcsa_id)
         self.assertEqual(self.match1.template.uniprot_id, self.template1.uniprot_id)
-        self.assertEqual(self.match1.template.pdb_id, self.template1.pdb_id)
         self.assertEqual(self.match1.template.ec, self.template1.ec)
         self.assertEqual(self.match1.template.cath, self.template1.cath)
         self.assertEqual(self.match1.template.multimeric, self.template1.multimeric)
@@ -70,11 +70,11 @@ class TestMatcher(unittest.TestCase):
         self.assertEqual(self.match1.matched_residues, [('GLU', 'A', '204'),('ASP', 'A', '87'),('ASP', 'A', '179'),('HIS', 'A', '288'),('ASP', 'A', '289')])
 
         self.assertEqual(self.match2.template.id, self.template2.id)
+        self.assertEqual(self.match2.template.pdb_id, self.template2.pdb_id)
         self.assertEqual(self.match2.template.effective_size, self.template2.effective_size)
         self.assertEqual(self.match2.template.dimension, self.template2.dimension)
         self.assertEqual(self.match2.template.mcsa_id, self.template2.mcsa_id)
         self.assertEqual(self.match2.template.uniprot_id, self.template2.uniprot_id)
-        self.assertEqual(self.match2.template.pdb_id, self.template2.pdb_id)
         self.assertEqual(self.match2.template.ec, self.template2.ec)
         self.assertEqual(self.match2.template.cath, self.template2.cath)
         self.assertEqual(self.match2.template.multimeric, self.template2.multimeric)
@@ -94,7 +94,7 @@ class TestMatcher(unittest.TestCase):
             self.assertEqual(buffer.getvalue(), f.read())
 
     def test_match_dumps(self):
-        dumps_string = 'query_id	template_id	template_cluster_id	template_cluster_member	template_cluster_size	template_effective_size	template_dimension	template_mcsa_id	template_uniprot_id	template_pdb_id	template_ec	template_cath	template_multimeric	query_multimeric	query_atom_count	query_residue_count	rmsd	log_evalue	orientation	preserved_order	completeness	matched_residues\n1AMY	285_5_1uh3_1_1_1	1	1	1	5	5	285	Q60053	1uh3	3.2.1.13,3.2.1.10,3.2.1.135	3.20.20.80	False	False	3339	558	0.32093143180639955	-3.084244780540347	0.1532705432273403	True	True	GLU_A_204,ASP_A_87,ASP_A_179,HIS_A_288,ASP_A_289\n'
+        dumps_string = 'query_id	template_pdb_id	template_cluster_id	template_cluster_member	template_cluster_size	template_effective_size	template_dimension	template_mcsa_id	template_uniprot_id	template_ec	template_cath	template_multimeric	query_multimeric	query_atom_count	query_residue_count	rmsd	log_evalue	orientation	preserved_order	completeness	matched_residues\n1AMY	1uh3	1	1	1	5	5	285	Q60053	3.2.1.10,3.2.1.135	2.60.40.10,2.60.40.1180,3.20.20.80	False	False	3339	558	0.32093143180639955	-3.084244780540347	0.1532705432273403	True	True	GLU_A_204,ASP_A_87,ASP_A_179,HIS_A_288,ASP_A_289\n'
         self.assertEqual(self.match1.dumps(header=True), dumps_string)
 
     def test_match_dump2pdb(self):

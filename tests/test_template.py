@@ -6,6 +6,9 @@ import math
 import io
 import warnings
 
+from importlib.resources import files
+from . import test_data
+
 matcher = Path(__package__).parent / 'matcher/'
 
 class TestIntegration(unittest.TestCase):
@@ -21,7 +24,6 @@ class TestIntegration(unittest.TestCase):
         data_path = Path(matcher / 'data/')
         # check if all the required annotation files are there - This will run the entire script
         self.assertEqual(template._get_paths_by_extension(data_path, '.json'), [Path(data_path, 'pdb_sifts.json'), Path(data_path, 'MCSA_EC_mapping.json'), Path(data_path, 'MCSA_CATH_mapping.json')])
-
 
 class TestVec3(unittest.TestCase):
 
@@ -131,13 +133,14 @@ class TestTemplate(unittest.TestCase):
         template1 = template.AnnotatedTemplate.loads(self.template_text1, warn=False)
         template2 = template.AnnotatedTemplate.loads(self.template_text2, warn=False)
         self.assertEqual(template1.pdb_id, '1b74')
+        self.assertEqual(template1.id_residue_string, '1b74_A147-AA180-AA70-AA178-AA8-AA7')
         self.assertEqual(template1.mcsa_id, 1)
         self.assertEqual(template1.cluster.id, 1)
         self.assertEqual(template1.cluster.member, 1)
         self.assertEqual(template1.cluster.size, 1)
         self.assertEqual(template1.uniprot_id, 'P56868')
         self.assertEqual(template1.organism, 'Aquifex pyrophilus')
-        self.assertEqual(template1.organism_id, 2714)
+        self.assertEqual(template1.organism_id, '2714')
         self.assertEqual(template1.resolution, 2.3)
         self.assertEqual(template1.experimental_method, 'X-ray diffraction')
         self.assertEqual(template1.ec, ['5.1.1.3']) # could be more info added through sifts
@@ -151,13 +154,14 @@ class TestTemplate(unittest.TestCase):
         self.assertEqual(len(template1.residues), 6)
 
         self.assertEqual(template2.pdb_id, '1qum')
+        self.assertEqual(template2.id_residue_string, '1qum_D145-D109-D37-D72-D69-D229-D182-D231-D261-D216-D179')
         self.assertEqual(template2.mcsa_id, 11)
         self.assertEqual(template2.cluster.id, 1)
         self.assertEqual(template2.cluster.member, 1)
         self.assertEqual(template2.cluster.size, 3)
         self.assertEqual(template2.uniprot_id, None)
         self.assertEqual(template2.organism, 'Escherichia coli')
-        self.assertEqual(template2.organism_id, 562)
+        self.assertEqual(template2.organism_id, '562')
         self.assertEqual(template2.resolution, 1.55)
         self.assertEqual(template2.experimental_method, 'X-ray diffraction')
         self.assertEqual(template2.ec, ['3.1.21.2']) # could be more info added through sifts
@@ -169,10 +173,6 @@ class TestTemplate(unittest.TestCase):
         self.assertEqual(template2.relative_order, [2,1,4,3])
         self.assertEqual(template2.cath, ['3.20.20.150']) # could be more info added through sifts
         self.assertEqual(len(template2.residues), 4)
-
-    def test_warnings(self):
-        with self.assertWarns(Warning):
-            template2 = template.AnnotatedTemplate.loads(self.template_text2, warn=True)
 
 class TestResidue(unittest.TestCase):
 

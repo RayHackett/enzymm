@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 import io
 import tempfile
 import math
+import uuid
 
 import pyjess # type: ignore
 
@@ -208,15 +209,16 @@ class Cluster:
         if self.member > self.size:
             raise ValueError("Cluster member cannot be greater than cluster size")
 
-@dataclass(frozen=True)
+# @dataclass(frozen=True)
 class AnnotatedTemplate(pyjess.Template):
     """Class for storing Templates and associated information. Inherits from pyjess.Template"""
 
+    residues: Iterable[Residue] = ()
+
     _CATH_MAPPING: ClassVar[Dict[str, List[str]]]
-    _EC_MAPPING: ClassVar[Dict[str, List[str]]]
+    _EC_MAPPING: ClassVar[Dict[str, str]]
     _PDB_SIFTS: ClassVar[Dict[str, Dict[str, List[str]]]]
 
-    id: Optional[str]
     pdb_id: Optional[str] = field(default=None)
     mcsa_id: Optional[int] = field(default=None)
     cluster: Optional[Cluster] = field(default=None)
@@ -228,29 +230,40 @@ class AnnotatedTemplate(pyjess.Template):
     enzyme_discription: Optional[str] = field(default=None)
     represented_sites: Optional[int] = field(default=None)
     ec: List[str] = field(default_factory=list)
+    cath: List[str] = field(default_factory=list)
     
     def __init__(self,
-            id: str,
             atoms: Iterable[pyjess.TemplateAtom] = (),
-            residues: Iterable[Residue] = (),
+            id: Optional[str] = None,
             *,
             pdb_id: Optional[str] = None,
+            id_residue_string: Optional[str] = None,
             mcsa_id: Optional[int] = None,
             cluster: Optional[Cluster] = None,
             uniprot_id: Optional[str] = None,
             organism: Optional[str] = None,
-            organism_id: Optional[int] = None,
+            organism_id: Optional[str] = None, # TODO this is to avoid a bug when I get a list of organism_id's like 5,6
             resolution: Optional[float] = None,
             experimental_method: Optional[str] = None,
             enzyme_discription: Optional[str] = None,
             represented_sites: Optional[int] = None,
             ec: Iterable[str] = (),
+            cath: Iterable[str] = ()
         ):
             super().__init__(atoms, id=id)
+
+            residues = []
+            for atom_triplet in chunks(atoms, 3): # yield chunks of 3 atom lines each
+                # check if all three atoms belong to the same residue by adding a tuple of their residue defining properties to a set
+                unique_residues = { (atom.residue_names[0], atom.chain_id, atom.residue_number) for atom in atom_triplet }
+                if len(unique_residues) != 1:
+                    raise ValueError('Multiple residues found in atom lines')
+                residues.append(Residue(atom_triplet))
+
             super().__setattr__("residues", tuple(residues))
-            
             super().__setattr__("pdb_id", pdb_id)
             super().__setattr__("mcsa_id", mcsa_id)
+            super().__setattr__("id_residue_string", id_residue_string)
             super().__setattr__("cluster", cluster)
             super().__setattr__("uniprot_id", uniprot_id)
             super().__setattr__("organism", organism)
@@ -259,19 +272,9 @@ class AnnotatedTemplate(pyjess.Template):
             super().__setattr__("experimental_method", experimental_method)
             super().__setattr__("enzyme_discription", enzyme_discription)
             super().__setattr__("represented_sites", represented_sites)
-            super().__setattr__("ec", ec or [])
 
-            # object.__setattr__(self, "pdb_id", pdb_id)
-            # object.__setattr__(self, "mcsa_id", mcsa_id)
-            # object.__setattr__(self, "cluster", cluster)
-            # object.__setattr__(self, "uniprot_id", uniprot_id)
-            # object.__setattr__(self, "organism", organism)
-            # object.__setattr__(self, "organism_id", organism_id)
-            # object.__setattr__(self, "resolution", resolution)
-            # object.__setattr__(self, "experimental_method", experimental_method)
-            # object.__setattr__(self, "enzyme_discription", enzyme_discription)
-            # object.__setattr__(self, "represented_sites", represented_sites)
-            # object.__setattr__(self, "ec", ec or [])
+            super().__setattr__("ec", sorted({*ec, *self._add_ec_annotations()}))
+            super().__setattr__("cath", sorted({*cath, *self._add_cath_annotations()}))
 
     @classmethod # reading from text
     def loads(cls, text: str, warn: bool = True) -> AnnotatedTemplate:
@@ -282,12 +285,13 @@ class AnnotatedTemplate(pyjess.Template):
         """Overloaded load to parse a pyjess.Template and its associated info into a AnnotatedTemplate object from TextIO
         """
         atoms = []
-        residues = []
         metadata: dict[str, object] = {
             "ec": list(),
+            "cath": list()
         }
 
         _PARSERS = {
+            'ID' : cls._parse_id_residue_string,
             'PDB_ID': cls._parse_pdb_id,
             'UNIPROT_ID': cls._parse_uniprot_id,
             'MCSA_ID': cls._parse_mcsa_id,
@@ -297,6 +301,7 @@ class AnnotatedTemplate(pyjess.Template):
             'RESOLUTION': cls._parse_resolution,
             'EXPERIMENTAL_METHOD': cls._parse_experimental_method,
             'EC': cls._parse_ec,
+            'CATH': cls._parse_cath,
             'ENZYME': cls._parse_enzyme_discription,
             'REPRESENTING': cls._parse_represented_sites
         }
@@ -304,8 +309,15 @@ class AnnotatedTemplate(pyjess.Template):
         for line in filter(str.strip, file):
             tokens = line.split()
             if tokens[0] == 'REMARK':
+                if warn and len(tokens) == 1:
+                    warnings.warn(f'Expected some annotation information after the REMARK flag. Line Skipped.')
+                    continue
                 parser = _PARSERS.get(tokens[1])
                 if parser is not None:
+                    if len(tokens) < 3:
+                        raise IndexError(f'Expected some annotation after the REMARK {tokens[1]} flag')
+                    elif tokens[2].upper() in ['NONE', '?', 'NAN', 'NA']:
+                        continue
                     parser(tokens, metadata, warn=warn)
             elif tokens[0] == 'ATOM':
                 atoms.append(pyjess.TemplateAtom.loads(line))
@@ -314,36 +326,9 @@ class AnnotatedTemplate(pyjess.Template):
             else:
                 continue
 
-        for atom_triplet in chunks(atoms, 3): # yield chunks of 3 atom lines each
-            # check if all three atoms belong to the same residue by adding a tuple of their residue defining properties to a set
-            unique_residues = { (atom.residue_names[0], atom.chain_id, atom.residue_number) for atom in atom_triplet }
-            if len(unique_residues) != 1:
-                raise ValueError('Multiple residues found in atom lines')
-            residues.append(Residue(atom_triplet)) # type: ignore
-
-        # also include EC annotations from the M-CSA mapping. Consider that this is not necessarily direct annotation of the template but may be extended to the template trough homolgy
-        if cls._EC_MAPPING[str(metadata['mcsa_id'])] not in metadata['ec']:  # type: ignore
-            metadata['ec'].append(cls._EC_MAPPING[str(metadata['mcsa_id'])])  # type: ignore
-
-        # Since AnnotatedTemplates may contain residues from multiple chains
-        pdbchains = set()
-        for res in residues:
-            pdbchains.add("{}{}".format(metadata['pdb_id'], res.chain_id))
-
-        # Iterating of all pdbchains which were part of the AnnotatedTemplate
-        for pdbchain in pdbchains:
-            # also include EC annotations from PDB-SIFTS
-            subdict = cls._PDB_SIFTS.get(pdbchain)
-            if subdict is not None: # TODO this is an ugly workaround: Technically this is a bug either with missing annotations in SIFTS or due to wierd chain name conventions in .cif files
-                sifts_ecs = subdict.get('ec').copy() # type: ignore
-                for ec in sifts_ecs:
-                    if ec != '?' and ec not in metadata['ec']: # type: ignore
-                        metadata['ec'].append(ec) # type: ignore
-
         return AnnotatedTemplate(
             atoms = atoms,
-            residues = residues,
-            id = f"{metadata['mcsa_id']}_{len(residues)}_{metadata['pdb_id']}_{metadata['cluster'].id}_{metadata['cluster'].member}_{metadata['cluster'].size}", # type: ignore # TODO what to do if I dont have a cluster
+            id = str(uuid.uuid4()),  # type: ignore
             **metadata, # type: ignore # unpack everything parsed into metadata
         )
 
@@ -354,7 +339,7 @@ class AnnotatedTemplate(pyjess.Template):
 
     def dump(self, file: IO[str]):
         file.write(f'REMARK TEMPLATE\n')
-        file.write(f'REMARK ID {self.id}\n')
+        if self.id_residue_string : file.write(f'REMARK ID {self.id_residue_string}\n')
         if self.pdb_id : file.write(f"REMARK PDB_ID {self.pdb_id}\n")
         if self.mcsa_id : file.write(f"REMARK MCSA_ID {self.mcsa_id}\n")
         if self.uniprot_id : file.write(f"REMARK UNIPROT_ID {self.uniprot_id}\n")
@@ -409,7 +394,7 @@ class AnnotatedTemplate(pyjess.Template):
     def multimeric(self) -> bool: # if the template is split across multiple protein chains
         """`bool`: Boolean if the template residues stem from multiple protein chains
         """
-        return not all(res.chain_id == self.residues[0].chain_id for res in self.residues)
+        return not all(res.chain_id == list(self.residues)[0].chain_id for res in self.residues)
 
     @cached_property
     def relative_order(self) -> List[int]: # list with length of deduplicated template dimension
@@ -421,27 +406,67 @@ class AnnotatedTemplate(pyjess.Template):
             # Now extract relative template order
             return ranked_argsort([res.residue_number for res in self.residues])
     
-    @property
-    def cath(self) -> List[str]:
-        """`list` of `str`: Set of CATH Ids associated with that template"""
-        return self._CATH_MAPPING[str(self.mcsa_id)].copy() # TODO URG this is ugly... shouldnt we pull via pdb_id....
+    def _add_cath_annotations(self) -> List[str]:
+        """`list` of `str`: Pull CATH Ids associated with that template from SIFTS and from the M-CSA"""
+        cath_list = []
+        if self.mcsa_id:
+            cath_list.extend(self._CATH_MAPPING[str(self.mcsa_id)]) # this is a bit inaccurate possibly ... shouldnt we pull via pdb_id....
+        if self.pdb_id:
+            pdbchains = set()
+            for res in self.residues:
+                pdbchains.add("{}{}".format(self.pdb_id, res.chain_id))
 
-    # TODO test with a template without remarks, test with template with remarks but none of the parser keywords, test with both but no value like so ''
+            # Iterating of all pdbchains which were part of the AnnotatedTemplate
+            for pdbchain in pdbchains:
+                # also include CATH annotations from PDB-SIFTS
+                subdict = self._PDB_SIFTS.get(pdbchain)
+                if subdict is not None: # TODO this is an ugly workaround: Technically this is a bug either with missing annotations in SIFTS or due to wierd chain name conventions in .cif files
+                    sifts_caths = subdict.get('cath').copy() # type: ignore
+                    for cath in sifts_caths:
+                        if cath != '?': # type: ignore
+                            cath_list.append(cath) # type: ignore
+
+        return cath_list
+
+    def _add_ec_annotations(self) -> List[str]:
+        """`list` of `str`: Pull EC Annotations associated with that template from SIFTS and from the M-CSA"""
+        ec_list = []
+        if self.mcsa_id is not None:
+            ec_list.append(self._EC_MAPPING[str(self.mcsa_id)]) # this is a bit inaccurate possibly ... shouldnt we pull via pdb_id....
+        if self.pdb_id is not None:
+            pdbchains = set()
+            for res in self.residues:
+                pdbchains.add("{}{}".format(self.pdb_id, res.chain_id))
+
+            # Iterating of all pdbchains which were part of the AnnotatedTemplate
+            for pdbchain in pdbchains:
+                # also include EC annotations from PDB-SIFTS
+                subdict = self._PDB_SIFTS.get(pdbchain)
+                if subdict is not None: # TODO this is an ugly workaround: Technically this is a bug either with missing annotations in SIFTS or due to wierd chain name conventions in .cif files
+                    sifts_ecs = subdict.get('ec').copy() # type: ignore
+                    for ec in sifts_ecs:
+                        if ec != '?': # type: ignore
+                            ec_list.append(ec) # type: ignore
+
+        return ec_list
 
     @classmethod
     def _parse_pdb_id(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
-        try:
-            metadata['pdb_id'] = tokens[2].lower()
-        except ValueError as exc:
-            raise ValueError(f'Did not find a PDB ID, found {tokens[2]}') from exc
+        if warn and len(tokens[2]) != 4:
+            warnings.warn(f'Found {tokens[2]} which has more than the expected 4 characters of a PDB_ID.')
+        metadata['pdb_id'] = tokens[2].lower()
+
+    @classmethod
+    def _parse_id_residue_string(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
+        metadata['id_residue_string'] = tokens[2]
 
     @classmethod
     def _parse_uniprot_id(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
         match = re.search(r'[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2}', tokens[2])
         if match:
             metadata['uniprot_id'] = match.group()
-        elif warn:
-            warnings.warn(f'Did not find a valid UniProt ID, found {tokens[2]}')
+        else:
+            raise ValueError(f'Did not find a valid UniProt ID, found {tokens[2]}')
 
     @classmethod
     def _parse_mcsa_id(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
@@ -452,47 +477,35 @@ class AnnotatedTemplate(pyjess.Template):
 
     @classmethod
     def _parse_cluster(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
-        if not tokens[2]:
-            raise ValueError(f'Did not find a Cluster specification, found {tokens[2]}')
-        else:
-            try:
-                cluster = Cluster(*list(map(int, tokens[2].split('_'))))
-                metadata['cluster'] = cluster
-            except (IndexError, ValueError) as exc:
-                raise ValueError(f'Did not find a Cluster specification, found {tokens[2]}')
+        try:
+            cluster = Cluster(*list(map(int, tokens[2].split('_'))))
+            metadata['cluster'] = cluster
+        except (IndexError, ValueError) as exc:
+            raise ValueError(f'Did not find a Cluster specification in the form <id>_<member>_<size>, found {tokens[2]}')
 
     @classmethod
     def _parse_organism_name(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
-        if not tokens[2]:
-            raise ValueError(f'Did not find an organism')
         metadata['organism'] = ' '.join(tokens[2:])
 
     @classmethod
     def _parse_organism_id(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
-        try:
-            metadata['organism_id'] = int(tokens[2])
-        except ValueError:
-            if warn:
-                warnings.warn(f'Ill-formatted organism ID: {tokens[2]}')
+        metadata['organism_id'] = tokens[2]
 
     @classmethod
     def _parse_resolution(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
         try:
             metadata['resolution'] = float(tokens[2])
-        except ValueError:
-            if warn:
-                warnings.warn(f'Ill-formatted pdb resolution: {tokens[2]}')
+        except ValueError as exc:
+            raise ValueError(f'Ill-formatted pdb resolution: {tokens[2]}')
 
     @classmethod
     def _parse_experimental_method(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
-        if not tokens[2]:
-            raise ValueError(f'Did not find an experimental method')
         metadata['experimental_method'] = ' '.join(tokens[2:])
 
     @classmethod
     def _parse_ec(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
-        matches = [match.group() for match in re.finditer(r'\d{1,2}(\.(\-|\d{1,2})){3}', tokens[2])]
-        non_cat_matches = [match.group() for match in re.finditer(r'\d{1,2}(\.(\-|\d{1,2}|n\d{1,2})){3}', tokens[2])]
+        matches = [match.group() for match in re.finditer(r'\d{1,2}(\.(\-|\d{1,})){3}', tokens[2])]
+        non_cat_matches = [match.group() for match in re.finditer(r'\d{1,2}(\.(\-|\d{1,}|n\d{1,})){3}', tokens[2])]
         if matches:
             for ec in matches:
                 if ec not in metadata['ec']: # type: ignore
@@ -502,24 +515,30 @@ class AnnotatedTemplate(pyjess.Template):
                 if ec not in metadata['ec']: # type: ignore
                     metadata['ec'].append(ec)  # type: ignore
             if warn:
-                warnings.warn(f'Rare EC number {non_cat_matches} presumed to be noncatalytic detected!')
+                warnings.warn(f'Rare EC number(s) {[ec for ec in non_cat_matches]} presumed to be noncatalytic detected!')
         else:
-            if warn:
-                warnings.warn(f'Did not find a valid EC number, found {tokens[2]}')
+            raise ValueError(f'Did not find a valid EC number, found {tokens[2]}')
+
+    @classmethod
+    def _parse_cath(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
+        matches = [match.group() for match in re.finditer(r'\d{1,}(\.(\-|\d{1,})){3}', tokens[2])]
+        if matches:
+            for cath in matches:
+                if ec not in metadata['cath']: # type: ignore
+                    metadata['cath'].append(ec)  # type: ignore
+        else:
+            raise ValueError(f'Did not find a valid EC number, found {tokens[2]}')
 
     @classmethod
     def _parse_enzyme_discription(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
-        if not tokens[2]:
-            raise ValueError(f'Did not find an enzyme discription')
         metadata['enzyme_discription'] = ' '.join(tokens[2:])
 
     @classmethod
     def _parse_represented_sites(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
         try:
             metadata['represented_sites'] = int(tokens[2])
-        except ValueError:
-            if warn:
-                warnings.warn(f'Ill-formatted number of represented sites: {tokens[2]}')
+        except ValueError as exc:
+            raise ValueError(f'Ill-formatted number of represented sites: {tokens[2]}')
 
 # Populate the mapping of MCSA IDs to CATH numbers so that it can be accessed
 # by individual templates in the `Template.cath` property.
@@ -590,25 +609,26 @@ def check_template(template_tuple: Tuple[AnnotatedTemplate, Path], warn: bool = 
             checker = False
             warnings.warn(f'Could not find CATH annotations for the following template file {filepath}')
 
-        # check overlap between sifts mapping and CATH, EC annotations
-        # Source: pdb to sifts mapping which maps CATH to pdb chain IDs and UniProt IDs, sifts also provides UniProt to EC mapping
-        # Since AnnotatedTemplates may contain residues from multiple chains
-        pdbchains = set()
-        for res in template.residues:
-            pdbchains.add(template.pdb_id + res.chain_id) # TODO deal with this now that it is optional
+        if template.pdb_id:
+            # check overlap between sifts mapping and CATH, EC annotations
+            # Source: pdb to sifts mapping which maps CATH to pdb chain IDs and UniProt IDs, sifts also provides UniProt to EC mapping
+            # Since AnnotatedTemplates may contain residues from multiple chains
+            pdbchains = set()
+            for res in template.residues:
+                pdbchains.add(template.pdb_id + res.chain_id)
 
-        # Iterating of all pdbchains which were part of the AnnotatedTemplate
-        for pdbchain in pdbchains:
-            # also include EC annotations from PDB-SIFTS
-            subdict = template._PDB_SIFTS.get(pdbchain, None)
-            if subdict: # TODO this is an ugly workaround: Technically this is a bug either with missing annotations in SIFTS or due to wierd chain name conventions in .cif files
-                # if template.cath and subdict['cath']:
-                #     if not set(template.cath) & set(subdict['cath']):
-                #         warnings.warn(f'Did not find an intersection of CATH domains as annotated by the M-CSA ID {template.mcsa_id} with {template.cath} versus PDF-SIFTS {template._PDB_SIFTS[pdbchain]['cath']} for template {filepath} from pdb {template.pdb_id}')
-                sifts_uniprot = subdict['uniprot_id']
-                if template.uniprot_id != sifts_uniprot:
-                    checker = False
-                    warnings.warn(f'Different UniProt Accessions {template.uniprot_id} and {sifts_uniprot} found in template {filepath} from pdbid {template.pdb_id}')
+            # Iterating of all pdbchains which were part of the AnnotatedTemplate
+            for pdbchain in pdbchains:
+                # also include EC annotations from PDB-SIFTS
+                subdict = template._PDB_SIFTS.get(pdbchain, None)
+                if subdict: # TODO this is an ugly workaround: Technically this is a bug either with missing annotations in SIFTS or due to wierd chain name conventions in .cif files
+                    # if template.cath and subdict['cath']:
+                    #     if not set(template.cath) & set(subdict['cath']):
+                    #         warnings.warn(f'Did not find an intersection of CATH domains as annotated by the M-CSA ID {template.mcsa_id} with {template.cath} versus PDF-SIFTS {template._PDB_SIFTS[pdbchain]['cath']} for template {filepath} from PDB ID {template.pdb_id}')
+                    sifts_uniprot = subdict['uniprot_id']
+                    if template.uniprot_id != sifts_uniprot:
+                        checker = False
+                        warnings.warn(f'Different UniProt Accessions {template.uniprot_id} and {sifts_uniprot} found in template {filepath} from PDB ID {template.pdb_id}')
 
         return checker
     else:
