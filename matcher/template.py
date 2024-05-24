@@ -6,7 +6,7 @@ import re
 import json
 from importlib.resources import files
 from pathlib import Path
-from typing import Sequence, List, Tuple, Set, Dict, Optional, Union, TextIO, Iterator, ClassVar, IO
+from typing import Any, Sequence, List, Tuple, Set, Dict, Optional, Union, TextIO, Iterator, Iterable, ClassVar, IO
 from functools import cached_property
 from dataclasses import dataclass, field
 import io
@@ -20,23 +20,9 @@ from .utils import chunks, ranked_argsort
 __all__ = [
     "Vec3",
     "Residue",
-    "Atom",
-    "Template",
+    "AnnotatedTemplate",
     "load_templates",
 ]
-
-# Find all template files which end in .pdb
-def get_template_paths(directory_path: Path, extension: str ='.pdb') -> List[Path]:
-    pattern = f"{directory_path}/**/*{extension}"
-    file_paths = glob.glob(pattern, recursive=True)
-    files = []
-    for file in file_paths:
-        files.append(Path(file))
-
-    if files:
-        return files
-    else:
-        raise FileNotFoundError(f'No template files with the {extension} extension found in the {directory_path.resolve()} directory')
 
 @dataclass(frozen=True)
 class Vec3:
@@ -45,37 +31,70 @@ class Vec3:
     y: float
     z: float
 
-    @cached_property # TODO should this be cached?
+    @classmethod
+    def from_xyz(cls, item: Any) -> Vec3:
+        return Vec3(item.x, item.y, item.z)
+
+    @property
     def norm(self) -> float:
         return math.sqrt(self.x**2 + self.y**2 + self.z**2)
 
     def normalize(self) -> Vec3:
-        # TODO how should i deal with division by zero error
-        return Vec3(self.x/self.norm, self.y/self.norm, self.z/self.norm)
+        norm = self.norm
+        if norm == 0: # zero vector
+            return Vec3.from_xyz(self)
+        return self/norm
 
     def __matmul__(self, other: Vec3) -> float:
         """
         Overloads the @ operator to perform dot product between two vectors
         """
-        return self.x * other.x + self.y * other.y + self.z * other.z
+        if isinstance(other, Vec3):
+            return self.x * other.x + self.y * other.y + self.z * other.z
+        raise TypeError(f'Expected Vec3, got {type(other).__name__}')
 
-    def angle_to(self, other: Vec3): # from https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python
+    def __add__(self, other: Union[int, float, Vec3]) -> Vec3:
+        if isinstance(other, Vec3):
+            return Vec3(self.x + other.x, self.y + other.y, self.z + other.z)
+        elif isinstance(other, (int, float)):
+            return Vec3(self.x + other, self.y + other, self.z + other)
+        raise TypeError(f'Expected int, float or Vec3, got {type(other).__name__}')
+
+    def __truediv__(self, other: Union[int, float, Vec3]) -> Vec3:
+        if isinstance(other, Vec3):
+            return Vec3(self.x / other.x, self.y / other.y, self.z / other.z)
+        elif isinstance(other, (int, float)):
+            return Vec3(self.x / other, self.y / other, self.z / other)
+        raise TypeError(f'Expected int, float or Vec3, got {type(other).__name__}')
+
+    def __sub__(self, other: Union[int, float, Vec3]) -> Vec3:
+        if isinstance(other, Vec3):
+            return Vec3(self.x - other.x, self.y - other.y, self.z - other.z)
+        elif isinstance(other, (int, float)):
+            return Vec3(self.x - other, self.y - other, self.z - other)
+        raise TypeError(f'Expected int, float or Vec3, got {type(other).__name__}')
+
+    def angle_to(self, other: Vec3) -> float: # from https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python
         """ Returns the angle in radians between vectors 'v1' and 'v2':
         """
         return math.acos(self.normalize() @ other.normalize())
 
-@dataclass(frozen=False) # I have no idea how to freeze this and make it work with the classmethod
+@dataclass(init=False)
 class Residue:
-    """Class for storing Residues (defined as 3 atoms) belonging to a Template and associated residue level information"""
-    atoms: Tuple[Atom, Atom, Atom]
+    """Class for storing Residues (defined as 3 atoms) belonging to a template and associated residue level information"""
+    # TODO this class assumes that all atoms have the same match_mode, residue_names, chain_id, residue_number - implement something to check this in the init maybe!
 
-    def __post_init__(self) -> None:
-        if not self.atoms:
-            raise ValueError("Cannot create a residue with no atoms")
-        self._vec, self._indices = self.calc_residue_orientation(self.atoms)
+    _atoms: Tuple[pyjess.TemplateAtom, pyjess.TemplateAtom, pyjess.TemplateAtom]
+    _vec: Vec3
+    _indices: Tuple[int, int]
+
+    def __init__(self, atoms: Tuple[pyjess.TemplateAtom, pyjess.TemplateAtom, pyjess.TemplateAtom]):
+        assert len(atoms) == 3
+        self._vec, self._indices = self.calc_residue_orientation(atoms)
+        self._atoms = atoms
 
     @classmethod
-    def calc_residue_orientation(cls, atoms: Tuple[Atom, Atom, Atom]) -> Tuple[Vec3, Tuple[int, int]]:
+    def calc_residue_orientation(cls, atoms: Tuple[pyjess.TemplateAtom, pyjess.TemplateAtom, pyjess.TemplateAtom]) -> Tuple[Vec3, Tuple[int, int]]:
         # dictionary in which the vectors from start to finish are defined for each aminoacid type
         # the orientation vector is calculated differently for different aminoacid types
         vector_atom_type_dict = {'GLY': ('C','O'),
@@ -101,61 +120,65 @@ class Residue:
                             'PTM': ('CA','CB'),
                             'ANY': ('C','O')}
         try:
-            vectup = vector_atom_type_dict[atoms[0].residue_name]
+            vectup = vector_atom_type_dict[atoms[0].residue_names[0]]
         except KeyError as exc:
-                raise KeyError(f'Residue orientation is not defined for the residue type {atoms[0].residue_name}') from exc
+                raise KeyError(f'Residue orientation is not defined for the residue type {atoms[0].residue_names[0]}') from exc
 
         # In residues with two identical atoms, the vector is calculated from the middle atom to the mid point between the identical pair
         if vectup[1] == 'mid':
             try:
-                middle_index, middle_atom = next((index, atom) for index, atom in enumerate(atoms) if atom.name == vectup[0])
+                middle_index, middle_atom = next((index, atom) for index, atom in enumerate(atoms) if atom.atom_names[0] == vectup[0])
                 side1, side2 = [atom for atom in atoms if atom != middle_atom]
-                midpoint = [(side1.x + side2.x) / 2, (side1.y + side2.y) / 2, (side1.z + side2.z) / 2]
-                return Vec3(midpoint[0]- middle_atom.x, midpoint[1] - middle_atom.y, midpoint[2]- middle_atom.z), (middle_index, 9)
+                midpoint = (Vec3.from_xyz(side1) + Vec3.from_xyz(side2)) / 2
+                return midpoint - Vec3.from_xyz(middle_atom), (middle_index, 9)
             except StopIteration:
-                raise ValueError(f"Failed to find middle atom for amino-acid {atoms[0].residue_name!r}") from None
+                raise ValueError(f"Failed to find middle atom for amino-acid {atoms[0].residue_names[0]!r}") from None
 
         else: # from first atom to second atom
             try:
-                first_atom_index, first_atom = next((index, atom) for index, atom in enumerate(atoms) if atom.name == vectup[0])
+                first_atom_index, first_atom = next((index, atom) for index, atom in enumerate(atoms) if atom.atom_names[0] == vectup[0])
             except StopIteration:
-                raise ValueError(f'Failed to find first atom for amino-acid {atoms[0].residue_name!r}') from None
+                raise ValueError(f'Failed to find first atom for amino-acid {atoms[0].residue_names[0]!r}') from None
             try:
-                second_atom_index, second_atom = next((index, atom) for index, atom in enumerate(atoms) if atom.name == vectup[1])
+                second_atom_index, second_atom = next((index, atom) for index, atom in enumerate(atoms) if atom.atom_names[0] == vectup[1])
             except StopIteration:
-                raise ValueError(f'Failed to find second atom for amino-acid {atoms[0].residue_name!r}') from None
-                
-            return second_atom - first_atom, (first_atom_index, second_atom_index) # vec goes from first to second atom
+                raise ValueError(f'Failed to find second atom for amino-acid {atoms[0].residue_names[0]!r}') from None
+            return Vec3.from_xyz(second_atom) - Vec3.from_xyz(first_atom), (first_atom_index, second_atom_index)
+
+    @property
+    def atoms(self) -> Tuple[pyjess.TemplateAtom, pyjess.TemplateAtom, pyjess.TemplateAtom]:
+        return self._atoms
 
     @property
     def residue_name(self) -> str:
         """`str`: Get the amino-acid type as three letter code from the first atom
         """
-        return self.atoms[0].residue_name
+        return self.atoms[0].residue_names[0]
 
     @property
     def allowed_residues(self) -> str:
-        """`str`: Get the allowed residue types as string of single letter codes from the first atom
+        """`str`: Get the allowed residue types as string of single letter codes
         """
-        return self.atoms[0].allowed_residues
+        convert_to_single = {'ALA': 'A', 'CYS': 'C', 'ASP': 'D', 'GLU': 'E', 'PHE': 'F', 'GLY': 'G', 'HIS': 'H', 'ILE': 'I', 'LYS': 'K', 'LEU': 'L', 'MET': 'M', 'ASN': 'N', 'PRO': 'P', 'GLN': 'Q', 'ARG': 'R', 'SER': 'S', 'THR': 'T', 'VAL': 'V', 'TRP': 'W', 'TYR': 'Y', 'XXX': 'X'}
+        return ''.join(set(convert_to_single[i] for i in self.atoms[0].residue_names))
 
     @property
-    def specificity(self) -> int:
+    def match_mode(self) -> int:
         """`int`: Get the residue specificity (interger) from the first atom. <100 is specific
         """
-        return self.atoms[0].specificity
+        return self.atoms[0].match_mode
 
     @property
     def backbone(self) -> bool:
-        """`int`: Get boolean indicated if the residue is composed of backbone atoms from the first atom
+        """`int`: Boolean, An atom is a backbone atom if it may match ANY or XXX in residue_names
         """
-        return self.atoms[0].backbone
+        return ('ANY' in self.atoms[0].residue_names or 'XXX' in self.atoms[0].residue_names)
 
     @property
     def residue_number(self) -> int:
         """`int`: Get the pdb residue number from the first atom
         """
-        return int(self.atoms[0].residue_number)
+        return self.atoms[0].residue_number
 
     @property
     def chain_id(self) -> str:
@@ -176,94 +199,27 @@ class Residue:
         return self._indices
 
 @dataclass(frozen=True)
-class Atom:
-    '''Class for storing Atom information from a Template file'''
-    specificity: int
-    name: str
-    residue_name: str
-    backbone: bool
-    chain_id: str
-    residue_number: int
-    x: float
-    y: float
-    z: float
-    allowed_residues: str
-    altloc: Optional[str] = field(default=None)
-    flexibility: Optional[float] = field(default=None)
+class Cluster:
+    id: int
+    member: int
+    size: int
 
-    """
-    // atom specificity or match_mode defined in TessAtom.c may take the following values:
-
-    case 0: An exact match on both atom name and residue name.
-	case 1: An exact match on residue name and any non-carbon side-chain atom.
-	case 2: Any non-carbon atom in the list of residues given...
-	case 3: Atom type specified is residue(s) given
-	case 4: Non-carbon main-chain in given residue(s)
-	case 5: Any main-chain atom in the given residue(s)
-	case 6: Any side-chain atom in the given residue(s)
-	case 7: Any atom (in the specified resdiue)
-
-	//Riziotis options
-	case 8: Any atom in the same position in the given residue(s)
-
-	// Gail's options follow (no residue specificity)
-	case 100: name match
-	case 101: non-carbon side-chain atom.
-	case 102: Any non-carbon atom...
-	case 103: Atom type specified (no residue considered)
-	case 104: Non-carbon main-chain
-	case 105: Any main-chain atom in the given residue(s)
-	case 106: Any side-chain atom in the given residue(s)
-	case 107: Any atom AT ALL!!
-    """
-
-    @classmethod
-    def loads(cls, line: str) -> Atom:
-        ## this uses a modified PDB format
-        # first four characters are 'ATOM  ' [0:6]. 'HETATOM' are not allowed in Templates
-        specificity = int(line[6:11]) # inplace of atom number
-        name = str(line[12:16].strip()) # atom_name
-        altloc = str(line[16].strip()) # no idea what this is used for in a template, optional
-        residue_name = str(line[17:20].strip())
-        backbone = line[17:20].strip() == 'ANY'
-        chain_id = str(line[20:22].strip()) # allows for 2 letter chain IDs ! this is nonstandard
-        residue_number = int(line[22:26])
-        x = float(line[30:38])
-        y = float(line[38:46])
-        z = float(line[46:54])
-        allowed_residues = str(line[55:60].strip()) # inplace of Occupancy
-        flexibility = float(line[61:66]) # inplace of Temperature Factor, optional
-        # segment identifier: empty
-        # element: empty
-        # charge: empty
-        return cls(specificity=specificity, name=name, altloc=altloc, residue_name=residue_name, backbone=backbone, chain_id=chain_id, residue_number=residue_number, x=x, y=y, z=z, allowed_residues=allowed_residues, flexibility=flexibility)
-
-    def dumps(self) -> str:
-        buffer = io.StringIO()
-        self.dump(buffer)
-        return buffer.getvalue() # returns entire content temporary file object as a string
-
-    def dump(self, file: IO[str]):
-        one_char_elements = {'H', 'B', 'C', 'N', 'O', 'F', 'P', 'S', 'K', 'V', 'Y', 'I', 'W', 'U'}
-        if self.name[0] in one_char_elements:
-            file.write(f"ATOM  {self.specificity:>5}  {self.name:<3s}{self.altloc if self.altloc is not None else '':<1}{self.residue_name:<3}{self.chain_id:>2}{self.residue_number:>4}    {self.x:>8.3f}{self.y:>8.3f}{self.z:>8.3f} {self.allowed_residues:<5}{self.flexibility:>5.2f} \n")
-        else:
-            file.write(f"ATOM  {self.specificity:>5} {self.name:<4s}{self.altloc if self.altloc is not None else '':<1}{self.residue_name:<3}{self.chain_id:>2}{self.residue_number:>4}    {self.x:>8.3f}{self.y:>8.3f}{self.z:>8.3f} {self.allowed_residues:<5}{self.flexibility:>5.2f} \n")
-    
-    def __sub__(self, other):
-        if not isinstance(other, Atom):
-            raise TypeError(f'Expected an instance of "Atom" but got {type(other)}')
-        return Vec3(self.x - other.x, self.y - other.y, self.z - other.z)
+    def __post_init__(self):
+        if self.member > self.size:
+            raise ValueError("Cluster member cannot be greater than cluster size")
 
 @dataclass(frozen=True)
-class Template:
-    """Class for storing Templates and associated information"""
-    residues: List[Residue]
-    pdb_id: str
-    mcsa_id: int
-    cluster_id: int
-    cluster_member: int
-    cluster_size: int
+class AnnotatedTemplate(pyjess.Template):
+    """Class for storing Templates and associated information. Inherits from pyjess.Template"""
+
+    _CATH_MAPPING: ClassVar[Dict[str, List[str]]]
+    _EC_MAPPING: ClassVar[Dict[str, List[str]]]
+    _PDB_SIFTS: ClassVar[Dict[str, Dict[str, List[str]]]]
+
+    id: Optional[str]
+    pdb_id: Optional[str] = field(default=None)
+    mcsa_id: Optional[int] = field(default=None)
+    cluster: Optional[Cluster] = field(default=None)
     uniprot_id: Optional[str] = field(default=None)
     organism: Optional[str] = field(default=None)
     organism_id: Optional[int] = field(default=None)
@@ -271,21 +227,61 @@ class Template:
     experimental_method: Optional[str] = field(default=None)
     enzyme_discription: Optional[str] = field(default=None)
     represented_sites: Optional[int] = field(default=None)
-    ec: Optional[List[str]] = field(default=None)
+    ec: List[str] = field(default_factory=list)
+    
+    def __init__(self,
+            id: str,
+            atoms: Iterable[pyjess.TemplateAtom] = (),
+            residues: Iterable[Residue] = (),
+            *,
+            pdb_id: Optional[str] = None,
+            mcsa_id: Optional[int] = None,
+            cluster: Optional[Cluster] = None,
+            uniprot_id: Optional[str] = None,
+            organism: Optional[str] = None,
+            organism_id: Optional[int] = None,
+            resolution: Optional[float] = None,
+            experimental_method: Optional[str] = None,
+            enzyme_discription: Optional[str] = None,
+            represented_sites: Optional[int] = None,
+            ec: Iterable[str] = (),
+        ):
+            super().__init__(atoms, id=id)
+            super().__setattr__("residues", tuple(residues))
+            
+            super().__setattr__("pdb_id", pdb_id)
+            super().__setattr__("mcsa_id", mcsa_id)
+            super().__setattr__("cluster", cluster)
+            super().__setattr__("uniprot_id", uniprot_id)
+            super().__setattr__("organism", organism)
+            super().__setattr__("organism_id", organism_id)
+            super().__setattr__("resolution", resolution)
+            super().__setattr__("experimental_method", experimental_method)
+            super().__setattr__("enzyme_discription", enzyme_discription)
+            super().__setattr__("represented_sites", represented_sites)
+            super().__setattr__("ec", ec or [])
 
-    _CATH_MAPPING: ClassVar[Dict[str, List[str]]]
-    _EC_MAPPING: ClassVar[Dict[str, List[str]]]
-    _PDB_SIFTS: ClassVar[Dict[str, Dict[str, List[str]]]]
+            # object.__setattr__(self, "pdb_id", pdb_id)
+            # object.__setattr__(self, "mcsa_id", mcsa_id)
+            # object.__setattr__(self, "cluster", cluster)
+            # object.__setattr__(self, "uniprot_id", uniprot_id)
+            # object.__setattr__(self, "organism", organism)
+            # object.__setattr__(self, "organism_id", organism_id)
+            # object.__setattr__(self, "resolution", resolution)
+            # object.__setattr__(self, "experimental_method", experimental_method)
+            # object.__setattr__(self, "enzyme_discription", enzyme_discription)
+            # object.__setattr__(self, "represented_sites", represented_sites)
+            # object.__setattr__(self, "ec", ec or [])
 
     @classmethod # reading from text
-    def loads(cls, text: str, warn: bool = True) -> Template:
+    def loads(cls, text: str, warn: bool = True) -> AnnotatedTemplate:
         return cls.load(io.StringIO(text), warn=warn)
 
     @classmethod # reading from TextIO
-    def load(cls, file: TextIO, warn: bool = True) -> Template:
-        """Function to parse a template and its associated info into a Template object from TextIO
+    def load(cls, file: TextIO, warn: bool = True) -> AnnotatedTemplate:
+        """Overloaded load to parse a pyjess.Template and its associated info into a AnnotatedTemplate object from TextIO
         """
-        atom_lines = []
+        atoms = []
         residues = []
         metadata: dict[str, object] = {
             "ec": list(),
@@ -312,30 +308,29 @@ class Template:
                 if parser is not None:
                     parser(tokens, metadata, warn=warn)
             elif tokens[0] == 'ATOM':
-                atom_lines.append(line)
+                atoms.append(pyjess.TemplateAtom.loads(line))
             elif tokens[0] == 'HETATM':
-                raise ValueError('Supplied Template with HETATM record. HETATMs cannot be searched by Jess')
+                raise ValueError('Supplied template with HETATM record. HETATMs cannot be searched by Jess')
             else:
                 continue
 
-        for atom_triplet in chunks(atom_lines, 3): # yield chunks of 3 atom lines each
-            atoms: Tuple[Atom, Atom, Atom] = tuple(Atom.loads(line) for line in atom_triplet)  # type: ignore
+        for atom_triplet in chunks(atoms, 3): # yield chunks of 3 atom lines each
             # check if all three atoms belong to the same residue by adding a tuple of their residue defining properties to a set
-            unique_residues = { (atom.residue_name, atom.chain_id, atom.residue_number) for atom in atoms }
+            unique_residues = { (atom.residue_names[0], atom.chain_id, atom.residue_number) for atom in atom_triplet }
             if len(unique_residues) != 1:
                 raise ValueError('Multiple residues found in atom lines')
-            residues.append(Residue(atoms))
+            residues.append(Residue(atom_triplet)) # type: ignore
 
         # also include EC annotations from the M-CSA mapping. Consider that this is not necessarily direct annotation of the template but may be extended to the template trough homolgy
         if cls._EC_MAPPING[str(metadata['mcsa_id'])] not in metadata['ec']:  # type: ignore
             metadata['ec'].append(cls._EC_MAPPING[str(metadata['mcsa_id'])])  # type: ignore
 
-        # Since Templates may contain residues from multiple chains
+        # Since AnnotatedTemplates may contain residues from multiple chains
         pdbchains = set()
         for res in residues:
             pdbchains.add("{}{}".format(metadata['pdb_id'], res.chain_id))
 
-        # Iterating of all pdbchains which were part of the Template
+        # Iterating of all pdbchains which were part of the AnnotatedTemplate
         for pdbchain in pdbchains:
             # also include EC annotations from PDB-SIFTS
             subdict = cls._PDB_SIFTS.get(pdbchain)
@@ -345,9 +340,11 @@ class Template:
                     if ec != '?' and ec not in metadata['ec']: # type: ignore
                         metadata['ec'].append(ec) # type: ignore
 
-        return Template(
+        return AnnotatedTemplate(
+            atoms = atoms,
             residues = residues,
-            **metadata, # type: ignore # unpack everything we parsed into metadata
+            id = f"{metadata['mcsa_id']}_{len(residues)}_{metadata['pdb_id']}_{metadata['cluster'].id}_{metadata['cluster'].member}_{metadata['cluster'].size}", # type: ignore # TODO what to do if I dont have a cluster
+            **metadata, # type: ignore # unpack everything parsed into metadata
         )
 
     def dumps(self) -> str:
@@ -358,21 +355,21 @@ class Template:
     def dump(self, file: IO[str]):
         file.write(f'REMARK TEMPLATE\n')
         file.write(f'REMARK ID {self.id}\n')
-        file.write(f'REMARK PDB_ID {self.pdb_id}\n')
-        file.write(f'REMARK MCSA_ID {self.mcsa_id}\n')
-        file.write(f'REMARK UNIPROT_ID {self.uniprot_id}\n')
-        file.write(f'REMARK CLUSTER {self.cluster_id}_{self.cluster_member}_{self.cluster_size}\n')
-        file.write(f'REMARK ORGANISM_NAME {self.organism}\n')
-        file.write(f'REMARK ORGANISM_ID {self.organism_id}\n')
-        file.write(f'REMARK RESOLUTION {self.resolution}\n')
-        file.write(f'REMARK EXPERIMENTAL_METHOD {self.experimental_method}\n')
-        file.write(f'REMARK ENZYME {self.enzyme_discription}\n')
-        file.write(f'REMARK REPRESENTING {self.represented_sites} CATALYTIC SITES\n')
-        file.write(f'REMARK EXPERIMENTAL_METHOD {self.experimental_method}')
-        file.write(f"REMARK EC {','.join(self.ec) if self.ec is not None else ''}\n")
-        file.write(f"REMARK CATH {','.join(self.cath) if self.cath else ''}\n")
-        file.write(f'REMARK SIZE {self.size}\n')
-        file.write(f'REMARK TRUE_SIZE {self.true_size}\n')
+        if self.pdb_id : file.write(f"REMARK PDB_ID {self.pdb_id}\n")
+        if self.mcsa_id : file.write(f"REMARK MCSA_ID {self.mcsa_id}\n")
+        if self.uniprot_id : file.write(f"REMARK UNIPROT_ID {self.uniprot_id}\n")
+        if self.cluster : file.write(f"REMARK CLUSTER {'_'.join([str(self.cluster.id), str(self.cluster.member), str(self.cluster.size)])}\n")
+        if self.organism : file.write(f"REMARK ORGANISM_NAME {self.organism}\n")
+        if self.organism_id : file.write(f"REMARK ORGANISM_ID {self.organism_id}\n")
+        if self.resolution : file.write(f"REMARK RESOLUTION {self.resolution}\n")
+        if self.experimental_method : file.write(f"REMARK EXPERIMENTAL_METHOD {self.experimental_method}\n")
+        if self.enzyme_discription : file.write(f"REMARK ENZYME {self.enzyme_discription}\n")
+        if self.represented_sites : file.write(f"REMARK REPRESENTING {self.represented_sites} CATALYTIC SITES\n")
+        if self.experimental_method : file.write(f"REMARK EXPERIMENTAL_METHOD {self.experimental_method}\n")
+        if self.ec : file.write(f"REMARK EC {','.join(self.ec)}\n")
+        if self.cath : file.write(f"REMARK CATH {','.join(self.cath)}")
+        file.write(f'REMARK SIZE {self.effective_size}\n')
+        file.write(f'REMARK DIMENSION {self.dimension}\n')
         file.write(f'REMARK MULTIMERIC {self.multimeric}\n')
         file.write(f'REMARK RELATIVE_ORDER {self.relative_order}\n')
 
@@ -384,25 +381,9 @@ class Template:
                 atom.dump(file)
 
         file.write('END\n')
-
-    def to_pyjess_template(self) -> pyjess.Template:
-        return pyjess.Template.loads(self.dumps(), id=self.id)
-        # TODO create pyjess templates directlz through the python interface
-
-    @property
-    def id(self) -> str: # pyjess templates need a name, so mine do too
-        """`str`: The name of the template composed of M-CSA ID, true size, pdb_id, cluster seperated by underscores
-        """
-        return f'{self.mcsa_id}_{self.true_size}_{self.pdb_id}_{self.cluster_id}_{self.cluster_member}_{self.cluster_size}'
-
-    @property
-    def true_size(self) -> int: # Number of residues in the template as counted by triplets of atoms
-        """`int`: The number of residues in the template, as counted by triplets of atoms.
-        """
-        return len(self.residues)
     
     @cached_property
-    def size(self) -> int:
+    def effective_size(self) -> int:
         """`int`: The number of unique residues in the template, excluding backbone residues and unspecific residues.
         """
         # Number of residues as evaluated, the effective size
@@ -420,7 +401,7 @@ class Template:
 
         effective_size = 0
         for residue in self.residues:
-            if residue.specificity < 100 and residue.backbone == False: # type specific and not Backbone
+            if residue.match_mode < 100 and residue.backbone == False: # type specific and not Backbone
                 effective_size += 1
         return effective_size
 
@@ -431,8 +412,8 @@ class Template:
         return not all(res.chain_id == self.residues[0].chain_id for res in self.residues)
 
     @cached_property
-    def relative_order(self) -> List[int]: # list with length of deduplicated true_size
-        """`list` of `int`: Relative order of residues in the Template sorted by the pdb residue number. This only works for non-multimeric Templates
+    def relative_order(self) -> List[int]: # list with length of deduplicated template dimension
+        """`list` of `int`: Relative order of residues in the template sorted by the pdb residue number. This only works for non-multimeric templates
         """
         if self.multimeric:
             return [0]
@@ -442,15 +423,17 @@ class Template:
     
     @property
     def cath(self) -> List[str]:
-        """`list` of `str`: Set of CATH Ids associated with that Template"""
-        return self._CATH_MAPPING[str(self.mcsa_id)].copy()
+        """`list` of `str`: Set of CATH Ids associated with that template"""
+        return self._CATH_MAPPING[str(self.mcsa_id)].copy() # TODO URG this is ugly... shouldnt we pull via pdb_id....
+
+    # TODO test with a template without remarks, test with template with remarks but none of the parser keywords, test with both but no value like so ''
 
     @classmethod
     def _parse_pdb_id(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
-        if not tokens[2]:
-            raise ValueError(f'Did not find a PDB ID, found {tokens[2]}')
-        else:
+        try:
             metadata['pdb_id'] = tokens[2].lower()
+        except ValueError as exc:
+            raise ValueError(f'Did not find a PDB ID, found {tokens[2]}') from exc
 
     @classmethod
     def _parse_uniprot_id(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
@@ -473,16 +456,15 @@ class Template:
             raise ValueError(f'Did not find a Cluster specification, found {tokens[2]}')
         else:
             try:
-                cluster = tokens[2].split('_')
-                metadata['cluster_id'] = int(cluster[0])
-                metadata['cluster_member'] = int(cluster[1])
-                metadata['cluster_size'] = int(cluster[2])
+                cluster = Cluster(*list(map(int, tokens[2].split('_'))))
+                metadata['cluster'] = cluster
             except (IndexError, ValueError) as exc:
                 raise ValueError(f'Did not find a Cluster specification, found {tokens[2]}')
 
-
     @classmethod
     def _parse_organism_name(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
+        if not tokens[2]:
+            raise ValueError(f'Did not find an organism')
         metadata['organism'] = ' '.join(tokens[2:])
 
     @classmethod
@@ -503,6 +485,8 @@ class Template:
 
     @classmethod
     def _parse_experimental_method(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
+        if not tokens[2]:
+            raise ValueError(f'Did not find an experimental method')
         metadata['experimental_method'] = ' '.join(tokens[2:])
 
     @classmethod
@@ -525,6 +509,8 @@ class Template:
 
     @classmethod
     def _parse_enzyme_discription(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
+        if not tokens[2]:
+            raise ValueError(f'Did not find an enzyme discription')
         metadata['enzyme_discription'] = ' '.join(tokens[2:])
 
     @classmethod
@@ -539,10 +525,10 @@ class Template:
 # by individual templates in the `Template.cath` property.
 # Source: M-CSA which provides cath annotations for either residue homologs or for m-csa entries
 with files(__package__).joinpath('data', 'MCSA_CATH_mapping.json').open() as f: #type: ignore
-    Template._CATH_MAPPING = json.load(f)
+    AnnotatedTemplate._CATH_MAPPING = json.load(f)
 
 with files(__package__).joinpath('data', 'MCSA_EC_mapping.json').open() as f: #type: ignore
-    Template._EC_MAPPING = json.load(f)
+    AnnotatedTemplate._EC_MAPPING = json.load(f)
 
 # global MCSA_interpro_dict
 # # dictonariy mapping M-CSA entries to Interpro Identifiers
@@ -552,14 +538,28 @@ with files(__package__).joinpath('data', 'MCSA_EC_mapping.json').open() as f: #t
 
 # Source: CATH, EC and InterPro from PDB-SIFTS through mapping to the pdbchain
 with files(__package__).joinpath('data', 'pdb_sifts.json').open() as f: #type: ignore
-    Template._PDB_SIFTS = json.load(f)
+    AnnotatedTemplate._PDB_SIFTS = json.load(f)
 
+# TODO
 # # add a list of cofactors associated with each EC number from Neeras List
 # cofactors = set()
 # if Template_EC in cofactor_dict:
 #     cofactors.update(cofactor_dict[Template_EC])
 
-def load_templates(template_dir: Path = Path(str(files(__package__).joinpath('jess_templates_20230210'))), warn: bool = True) -> Iterator[Tuple[Template, Path]]:
+# Find all template files which end in .pdb
+def _get_paths_by_extension(directory_path: Path, extension: str) -> List[Path]:
+    pattern = f"{directory_path}/**/*{extension}"
+    file_paths = glob.glob(pattern, recursive=True)
+    files = []
+    for file in file_paths:
+        files.append(Path(file))
+
+    if files:
+        return files
+    else:
+        raise FileNotFoundError(f'No template files with the {extension} extension found in the {directory_path.resolve()} directory')
+
+def load_templates(template_dir: Path = Path(str(files(__package__).joinpath('jess_templates_20230210'))), warn: bool = True) -> Iterator[Tuple[AnnotatedTemplate, Path]]:
     """Load templates from a given directory, recursively.
     """
     if not template_dir.exists():
@@ -567,48 +567,48 @@ def load_templates(template_dir: Path = Path(str(files(__package__).joinpath('je
     elif not template_dir.is_dir():
         raise NotADirectoryError(template_dir)
 
-    template_paths = get_template_paths(template_dir)
+    template_paths = _get_paths_by_extension(template_dir, '.pdb')
     for template_path in template_paths:
         with template_path.open() as f:
             try:
-                # Yield the Template and its filepath as a tuple
-                yield (Template.load(file=f, warn=warn), template_path)
+                # Yield the AnnotatedTemplate and its filepath as a tuple
+                yield (AnnotatedTemplate.load(file=f, warn=warn), template_path) # read atom lines using pyjess.TemplateAtoms and create AnnotatedTemplate as instance of pyjess.Template
             except ValueError as exc:
                 raise ValueError(f"Failed to parse {template_path}!") # from exc
 
-def check_template(Template_tuple: Tuple[Template, Path], warn: bool = True) -> bool:
+def check_template(template_tuple: Tuple[AnnotatedTemplate, Path], warn: bool = True) -> bool:
     if warn:
         checker = True
-        Template, filepath = Template_tuple
+        template, filepath = template_tuple
 
         # Raise warnings if some properties could not be annotated!
-        if not Template.ec:
+        if not template.ec:
             checker = False
             warnings.warn(f'Could not find EC number annotations for the template file {filepath}')
 
-        if not Template.cath:
+        if not template.cath:
             checker = False
             warnings.warn(f'Could not find CATH annotations for the following template file {filepath}')
 
         # check overlap between sifts mapping and CATH, EC annotations
         # Source: pdb to sifts mapping which maps CATH to pdb chain IDs and UniProt IDs, sifts also provides UniProt to EC mapping
-        # Since Templates may contain residues from multiple chains
+        # Since AnnotatedTemplates may contain residues from multiple chains
         pdbchains = set()
-        for res in Template.residues:
-            pdbchains.add(Template.pdb_id + res.chain_id)
+        for res in template.residues:
+            pdbchains.add(template.pdb_id + res.chain_id) # TODO deal with this now that it is optional
 
-        # Iterating of all pdbchains which were part of the Template
+        # Iterating of all pdbchains which were part of the AnnotatedTemplate
         for pdbchain in pdbchains:
             # also include EC annotations from PDB-SIFTS
-            subdict = Template._PDB_SIFTS.get(pdbchain, None)
+            subdict = template._PDB_SIFTS.get(pdbchain, None)
             if subdict: # TODO this is an ugly workaround: Technically this is a bug either with missing annotations in SIFTS or due to wierd chain name conventions in .cif files
-                # if Template.cath and subdict['cath']:
-                #     if not set(Template.cath) & set(subdict['cath']):
-                #         warnings.warn(f'Did not find an intersection of CATH domains as annotated by the M-CSA ID {Template.mcsa_id} with {Template.cath} versus PDF-SIFTS {Template._PDB_SIFTS[pdbchain]['cath']} for Template {filepath} from pdb {Template.pdb_id}')
+                # if template.cath and subdict['cath']:
+                #     if not set(template.cath) & set(subdict['cath']):
+                #         warnings.warn(f'Did not find an intersection of CATH domains as annotated by the M-CSA ID {template.mcsa_id} with {template.cath} versus PDF-SIFTS {template._PDB_SIFTS[pdbchain]['cath']} for template {filepath} from pdb {template.pdb_id}')
                 sifts_uniprot = subdict['uniprot_id']
-                if Template.uniprot_id != sifts_uniprot:
+                if template.uniprot_id != sifts_uniprot:
                     checker = False
-                    warnings.warn(f'Different UniProt Accessions {Template.uniprot_id} and {sifts_uniprot} found in Template {filepath} from pdbid {Template.pdb_id}')
+                    warnings.warn(f'Different UniProt Accessions {template.uniprot_id} and {sifts_uniprot} found in template {filepath} from pdbid {template.pdb_id}')
 
         return checker
     else:

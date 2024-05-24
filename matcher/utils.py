@@ -3,7 +3,7 @@ from requests.adapters import HTTPAdapter # type: ignore
 from urllib3.util.retry import Retry # type: ignore
 from pathlib import Path
 import typing
-from typing import Dict, Set, List, Tuple, Iterable, Iterator, TypeVar, Union, Any
+from typing import Dict, Set, List, Tuple, Iterable, Iterator, TypeVar, Union, Any, Literal
 from itertools import islice
 import time
 import json
@@ -71,8 +71,17 @@ def json_extract(obj: Any, key: X) -> List[X]:
     return values
 
 T = TypeVar('T')
-def chunks(iterable: Iterable[T], n: int) -> Iterator[List[T]]:
+
+@typing.overload
+def chunks(iterable: Iterable[T], n: Literal[2]) -> Iterator[Tuple[T, T]]: 
+    ...
+
+@typing.overload
+def chunks(iterable: Iterable[T], n: Literal[3]) -> Iterator[Tuple[T, T, T]]: 
+    ...
+
+def chunks(iterable: Iterable[T], n: int) -> Iterator[Tuple[T, ...]]:
     """Yield successive n-sized chunks from iterable."""
     iterable = iter(iterable)
-    while chunk := list(islice(iterable, n)):
+    while chunk := tuple(islice(iterable, n)):
         yield chunk

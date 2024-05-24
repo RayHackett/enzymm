@@ -20,7 +20,7 @@ class TestIntegration(unittest.TestCase):
     def test_get_template_paths(self):
         data_path = Path(matcher / 'data/')
         # check if all the required annotation files are there - This will run the entire script
-        self.assertEqual(template.get_template_paths(data_path, '.json'), [Path(data_path, 'pdb_sifts.json'), Path(data_path, 'MCSA_EC_mapping.json'), Path(data_path, 'MCSA_CATH_mapping.json')])
+        self.assertEqual(template._get_paths_by_extension(data_path, '.json'), [Path(data_path, 'pdb_sifts.json'), Path(data_path, 'MCSA_EC_mapping.json'), Path(data_path, 'MCSA_CATH_mapping.json')])
 
 
 class TestVec3(unittest.TestCase):
@@ -47,8 +47,53 @@ class TestVec3(unittest.TestCase):
         self.assertEqual(self.vec1.normalize().x, 1/math.sqrt(14))
         self.assertEqual(self.vec1.normalize().y, 2/math.sqrt(14))
         self.assertEqual(self.vec1.normalize().z, 3/math.sqrt(14))
+        self.assertEqual(self.vec3.normalize(), self.vec3)
+    
+    def test_add(self):
+        result = self.vec1 + self.vec2
+        expected = template.Vec3(x=0.725, y=4.8, z=3.837)
+        self.assertAlmostEqual(result.x, expected.x)
+        self.assertAlmostEqual(result.y, expected.y)
+        self.assertAlmostEqual(result.z, expected.z)
+
+        result = self.vec1 + 5
+        expected = template.Vec3(x=6,y=7, z=8)
+        self.assertAlmostEqual(result.x, expected.x)
+        self.assertAlmostEqual(result.y, expected.y)
+        self.assertAlmostEqual(result.z, expected.z)
+
+        self.assertEqual(self.vec1 + self.vec3, self.vec1)
+
+    def test_sub(self):
+        result = self.vec1 - self.vec2
+        expected = template.Vec3(x=1.275, y=-0.8, z=2.163)
+        self.assertAlmostEqual(result.x, expected.x)
+        self.assertAlmostEqual(result.y, expected.y)
+        self.assertAlmostEqual(result.z, expected.z)
+
+        result = self.vec1 - 5
+        expected = template.Vec3(x=-4, y=-3, z=-2)
+        self.assertAlmostEqual(result.x, expected.x)
+        self.assertAlmostEqual(result.y, expected.y)
+        self.assertAlmostEqual(result.z, expected.z)
+
+        self.assertEqual(self.vec1 - self.vec3, self.vec1)
+
+    def test_truediv(self):
+        result = self.vec1 / self.vec2
+        expected = template.Vec3(x=-3.6363636, y=0.7142857, z=3.58422939)
+        self.assertAlmostEqual(result.x, expected.x)
+        self.assertAlmostEqual(result.y, expected.y)
+        self.assertAlmostEqual(result.z, expected.z)
+
+        result = self.vec1 / 2
+        expected = template.Vec3(x=0.5, y=1, z=1.5)
+        self.assertAlmostEqual(result.x, expected.x)
+        self.assertAlmostEqual(result.y, expected.y)
+        self.assertAlmostEqual(result.z, expected.z)
+
         with self.assertRaises(ZeroDivisionError):
-            self.vec3.normalize()
+            self.vec1 / self.vec3
 
     def test_matmul(self):
         self.assertEqual(self.vec1 @ self.vec3, 0)
@@ -58,46 +103,20 @@ class TestVec3(unittest.TestCase):
     def test_angle_to(self):
         self.assertAlmostEqual(self.vec1.angle_to(self.vec2), math.acos(0.713465))
 
-class TestAtom(unittest.TestCase):
+class TestCluster(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.atomstring1 = 'ATOM      3  CD ZGLU A 156      20.734  32.611  20.206 E     1.86 '
-        cls.atomstring2 = 'ATOM      3  OE1ZGLU A 156      21.042  31.877  19.239 E     1.86 '
-        cls.atomstring3 = 'ATOM      3  OE2ZGLU A 156      21.258  32.515  21.340 E     1.86 '
+        cls.cluster1 = template.Cluster(3, 1, 2)
+
+    def test_cluster_initialization(self):
+        with self.assertRaises(ValueError):
+            template.Cluster(1, 2, 1)
 
     def test_attributes(self):
-        atom1 = template.Atom.loads(self.atomstring1)
-        atom2 = template.Atom.loads(self.atomstring2)
-        atom3 = template.Atom.loads(self.atomstring3)
-        self.assertEqual(atom3.x, 21.258)
-        self.assertEqual(atom3.y, 32.515)
-        self.assertEqual(atom3.z, 21.340)
-        self.assertEqual(atom3.specificity, 3)
-        self.assertEqual(atom3.name, 'OE2')
-        self.assertEqual(atom3.altloc, 'Z')
-        self.assertEqual(atom3.residue_name, 'GLU')
-        self.assertEqual(atom3.allowed_residues, 'E')
-        self.assertEqual(atom3.specificity, 3)
-        self.assertEqual(atom3.backbone, False)
-        self.assertEqual(atom3.residue_number, 156)
-        self.assertEqual(atom3.chain_id, 'A')
-        self.assertEqual(atom3.flexibility, 1.86)
-        
-    def test_diff__(self):
-        atom1 = template.Atom(x=111, y=222, z=333, name='bla', altloc='Z', residue_name='GLU', allowed_residues='E', specificity=3, backbone=False, residue_number=1, chain_id='A', flexibility=1.86)
-        atom2 = template.Atom(x=111, y=222, z=333, name='bla', altloc=None, residue_name='GLU', allowed_residues='E', specificity=3, backbone=False, residue_number=1, chain_id='A', flexibility=None)
-        tmp = atom1-atom2
-        self.assertAlmostEqual(tmp.x, 0, places=3)
-        self.assertAlmostEqual(tmp.y, 0, places=3)
-        self.assertAlmostEqual(tmp.z, 0, places=3)
-
-    def test_dumps(self):
-        atom1 = template.Atom.loads(self.atomstring1)
-        atom2 = template.Atom.loads(self.atomstring2)
-        self.assertEqual(atom1.dumps(), 'ATOM      3  CD ZGLU A 156      20.734  32.611  20.206 E     1.86 \n')
-        self.assertEqual(atom2.dumps(), 'ATOM      3  OE1ZGLU A 156      21.042  31.877  19.239 E     1.86 \n')
-
+        self.assertEqual(self.cluster1.id, 3)
+        self.assertEqual(self.cluster1.size, 2)
+        self.assertEqual(self.cluster1.member, 1)
 
 class TestTemplate(unittest.TestCase):
 
@@ -109,13 +128,13 @@ class TestTemplate(unittest.TestCase):
             cls.template_text2 = f.read()
     
     def test_loads(self):
-        template1 = template.Template.loads(self.template_text1, warn=False)
-        template2 = template.Template.loads(self.template_text2, warn=False)
+        template1 = template.AnnotatedTemplate.loads(self.template_text1, warn=False)
+        template2 = template.AnnotatedTemplate.loads(self.template_text2, warn=False)
         self.assertEqual(template1.pdb_id, '1b74')
         self.assertEqual(template1.mcsa_id, 1)
-        self.assertEqual(template1.cluster_id, 1)
-        self.assertEqual(template1.cluster_member, 1)
-        self.assertEqual(template1.cluster_size, 1)
+        self.assertEqual(template1.cluster.id, 1)
+        self.assertEqual(template1.cluster.member, 1)
+        self.assertEqual(template1.cluster.size, 1)
         self.assertEqual(template1.uniprot_id, 'P56868')
         self.assertEqual(template1.organism, 'Aquifex pyrophilus')
         self.assertEqual(template1.organism_id, 2714)
@@ -124,8 +143,8 @@ class TestTemplate(unittest.TestCase):
         self.assertEqual(template1.ec, ['5.1.1.3']) # could be more info added through sifts
         self.assertEqual(template1.represented_sites, 2)
         self.assertEqual(template1.enzyme_discription, 'GLUTAMATE RACEMASE (E.C.5.1.1.3)')
-        self.assertEqual(template1.size, 6)
-        self.assertEqual(template1.true_size, 6)
+        self.assertEqual(template1.effective_size, 6)
+        self.assertEqual(template1.dimension, 6)
         self.assertEqual(template1.multimeric, True)
         self.assertEqual(template1.relative_order, [0])
         self.assertEqual(template1.cath, ['3.40.50.1860']) # could be more info added through sifts
@@ -133,9 +152,9 @@ class TestTemplate(unittest.TestCase):
 
         self.assertEqual(template2.pdb_id, '1qum')
         self.assertEqual(template2.mcsa_id, 11)
-        self.assertEqual(template2.cluster_id, 1)
-        self.assertEqual(template2.cluster_member, 1)
-        self.assertEqual(template2.cluster_size, 3)
+        self.assertEqual(template2.cluster.id, 1)
+        self.assertEqual(template2.cluster.member, 1)
+        self.assertEqual(template2.cluster.size, 3)
         self.assertEqual(template2.uniprot_id, None)
         self.assertEqual(template2.organism, 'Escherichia coli')
         self.assertEqual(template2.organism_id, 562)
@@ -144,8 +163,8 @@ class TestTemplate(unittest.TestCase):
         self.assertEqual(template2.ec, ['3.1.21.2']) # could be more info added through sifts
         self.assertEqual(template2.represented_sites, 1)
         self.assertEqual(template2.enzyme_discription, 'ENDONUCLEASE IV (E.C.3.1.21.2)/DNA')
-        self.assertEqual(template2.size, 4)
-        self.assertEqual(template2.true_size, 4)
+        self.assertEqual(template2.dimension, 4)
+        self.assertEqual(template2.effective_size, 4)
         self.assertEqual(template2.multimeric, False)
         self.assertEqual(template2.relative_order, [2,1,4,3])
         self.assertEqual(template2.cath, ['3.20.20.150']) # could be more info added through sifts
@@ -153,35 +172,37 @@ class TestTemplate(unittest.TestCase):
 
     def test_warnings(self):
         with self.assertWarns(Warning):
-            template2 = template.Template.loads(self.template_text2, warn=True)
-
-    # TODO test _to_pyjess_template method!
+            template2 = template.AnnotatedTemplate.loads(self.template_text2, warn=True)
 
 class TestResidue(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        atom1 = template.Atom(x=100, y=100, z=100, name='CD', altloc='Z', residue_name='GLU', allowed_residues='DE', specificity=3, backbone=False, residue_number=1, chain_id='A', flexibility=0)
-        atom2 = template.Atom(x=150, y=100, z=0, name='bla', altloc='Z', residue_name='GLU', allowed_residues='DE', specificity=3, backbone=False, residue_number=1, chain_id='A', flexibility=0)
-        atom3 = template.Atom(x=50, y=100, z=0, name='bla', altloc='Z', residue_name='GLU', allowed_residues='DE', specificity=3, backbone=False, residue_number=1, chain_id='A', flexibility=0)
-        atom4 = template.Atom(x=0, y=0, z=0, name='CA', altloc='Z', residue_name='VAL', allowed_residues='AV', specificity=3, backbone=False, residue_number=2, chain_id='A', flexibility=0)
-        atom5 = template.Atom(x=100, y=0, z=0, name='CB', altloc='Z', residue_name='VAL', allowed_residues='AV', specificity=3, backbone=False, residue_number=2, chain_id='A', flexibility=0)
-        atom6 = template.Atom(x=0, y=100, z=0, name='bla', altloc='Z', residue_name='VAL', allowed_residues='AV', specificity=3, backbone=False, residue_number=2, chain_id='A', flexibility=0)
-
-        cls.residue1 = template.Residue((atom1, atom2, atom3))
-        cls.residue2 = template.Residue((atom4, atom5, atom6))
+        with open(Path(matcher, 'jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb'), 'r') as f:
+            template1 = template.AnnotatedTemplate.loads(f.read(), warn=False)
+        cls.residue1 = template1.residues[0]
+        cls.residue2 = template1.residues[1]
 
     def test_attributes(self):
         self.assertEqual(self.residue1.residue_name, 'GLU')
-        self.assertEqual(self.residue1.allowed_residues, 'DE')
-        self.assertEqual(self.residue1.specificity, 3)
+        self.assertEqual(self.residue1.allowed_residues, 'E')
+        self.assertEqual(self.residue1.match_mode, 3)
         self.assertEqual(self.residue1.backbone, False)
-        self.assertEqual(self.residue1.residue_number, 1)
+        self.assertEqual(self.residue1.residue_number, 147)
         self.assertEqual(self.residue1.chain_id, 'A')
-        self.assertEqual(self.residue1.orientation_vector, template.Vec3(0,0,-100)) # Glu orientation is from C to midpoint between Os
+        result = self.residue1.orientation_vector # Glu orientation is from C to midpoint between Os
+        expected = template.Vec3(-0.125,-0.347499999,0.45599999)
+        self.assertAlmostEqual(result.x, expected.x)
+        self.assertAlmostEqual(result.y, expected.y)
+        self.assertAlmostEqual(result.z, expected.z) 
         self.assertEqual(self.residue1.orientation_vector_indices, (0,9)) # from O to midpoint
-        self.assertEqual(self.residue2.orientation_vector, template.Vec3(100,0,0)) # Val orientation is from from CA to CB
-        self.assertEqual(self.residue2.orientation_vector_indices, (0,1)) # from O to midpoint
+
+        result = self.residue2.orientation_vector # His orientation is from from CG to ND1
+        expected = template.Vec3(1.07900000,-0.63800000,0.570000000)
+        self.assertAlmostEqual(result.x, expected.x)
+        self.assertAlmostEqual(result.y, expected.y)
+        self.assertAlmostEqual(result.z, expected.z) 
+        self.assertEqual(self.residue2.orientation_vector_indices, (0,1)) # from atom 0 to atom 1
 
 class TestTemplate_Checking(unittest.TestCase):
 
@@ -190,7 +211,7 @@ class TestTemplate_Checking(unittest.TestCase):
         with open(Path(matcher, 'jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb'), 'r') as f:
             cls.template_text1 = f.read()
     def test_check_template(self):
-        template1 = template.Template.loads(self.template_text1, warn=False)
+        template1 = template.AnnotatedTemplate.loads(self.template_text1, warn=False)
         template1_path = Path(matcher, 'jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb')
-        self.assertEqual(template.check_template(Template_tuple=(template1, template1_path), warn=False), True)
-        self.assertEqual(template.check_template(Template_tuple=(template1, template1_path), warn=True), True)
+        self.assertEqual(template.check_template(template_tuple=(template1, template1_path), warn=False), True)
+        self.assertEqual(template.check_template(template_tuple=(template1, template1_path), warn=True), True)
