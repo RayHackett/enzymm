@@ -251,7 +251,7 @@ def single_query_run(molecule: pyjess.Molecule, templates: List[AnnotatedTemplat
                 possible_cluster_members = [x+1 for x in indexed_possible_cluster_members]
                 
                 found_cluster_members = [match.template.cluster.member for match in cluster_matches] # type: ignore
-
+                found_cluster_members.sort()
                 if found_cluster_members == possible_cluster_members:
                     for match in cluster_matches:
                         match.complete = True
@@ -280,8 +280,8 @@ class Matcher:
         if self.cpus <= 0:
             self.cpus = -2 + self.cpus + (os.cpu_count() or 1)
 
+        self.verbose_print(f'PyJess Version: {pyjess.__version__}')
         self.verbose_print(f'Running on {self.cpus} Threads')
-
         self.verbose_print(f'Warnings are set to {self.warn}')
         self.verbose_print(f'Skip_smaller_hits search is set to {self.skip_smaller_hits}')
 
