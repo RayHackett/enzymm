@@ -17,7 +17,4 @@ ATOM      0  CH2ZTRP A 205      40.907   5.934  80.753 W     0.09
 ATOM      3  CE1ZTYR A 209      41.565  -5.709  82.949 Y     0.17 
 ATOM      3  CZ ZTYR A 209      41.102  -6.633  82.028 Y     0.17 
 ATOM      1  OH ZTYR A 209      41.434  -7.961  82.167 Y     0.17 
-ATOM      0  NE1ZTRP A 205      41.758   6.170  84.336 W     0.09 
-ATOM      0  CZ2ZTRP A 205      41.455   6.514  81.868 W     0.09 
-ATOM      0  CH2ZTRP A 205      40.907   5.934  80.753 W     0.09 
 END

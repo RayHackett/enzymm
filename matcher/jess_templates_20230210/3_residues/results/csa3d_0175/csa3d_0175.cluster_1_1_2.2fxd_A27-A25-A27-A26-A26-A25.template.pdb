@@ -17,7 +17,4 @@ ATOM      3  OD2ZASP A  25      15.624  25.291   6.040 D     0.78
 ATOM      3  CA ZTHR A  26      17.038  29.860   2.710 T     0.71 
 ATOM      3  CB ZTHR A  26      18.180  30.250   1.758 T     0.71 
 ATOM      1  OG1ZTHR A  26      18.975  29.098   1.452 T     0.71 
-ATOM      3  CA ZTHR A  26      17.038  29.860   2.710 T     0.71 
-ATOM      3  CB ZTHR A  26      18.180  30.250   1.758 T     0.71 
-ATOM      1  OG1ZTHR A  26      18.975  29.098   1.452 T     0.71 
 END

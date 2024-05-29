@@ -124,10 +124,12 @@ class Match:
         # # Hit.atoms is a list of matched atoms with all info on residue numbers and residue chain ids and atom types, this should conserve order if Hit.atoms is a list!!!
         atom_triplets = []
         for atom_triplet in chunks(self.hit.atoms(transform=True), 3): # yield chunks of 3 atoms each, transform true because for angle calculation atoms need to be in template reference frame
+            if len(atom_triplet) != 3:
+                raise ValueError(f'Failed to construct residues. Got only {len(atom_triplet)} ATOM lines')
             # check if all three atoms belong to the same residue by adding a tuple of their residue defining properties to a set
             unique_residues = { (atom.residue_name, atom.chain_id, atom.residue_number) for atom in atom_triplet }
             if len(unique_residues) != 1:
-                raise ValueError('Mixed up atom triplets. The atoms come from different residues!')
+                raise ValueError(f'Mixed up atom triplets {unique_residues}. The atoms come from different residues!')
             atom_triplets.append(atom_triplet)
         return atom_triplets
 
@@ -197,10 +199,14 @@ class Match:
             all_residue_numbers.add(atom.residue_number)
         return len(all_residue_numbers)
 
-def single_query_run(molecule: pyjess.Molecule, templates: List[AnnotatedTemplate], rmsd: float = 2.0, distance: float = 3.0, max_dynamic_distance: float = 3.0, max_candidates: int = 10000) -> List[Match]:
+def single_query_run(molecule: pyjess.Molecule, templates: List[AnnotatedTemplate], rmsd: float = 2.0, distance: float = 1.5, max_dynamic_distance: float = 1.5, max_candidates: int = 10000) -> List[Match]:
+    # TODO add documentation string here
 
-    id_to_template: Dict[str, AnnotatedTemplate] = {} # mapping pyjess.Template.id to AnnotatedTemplate objects
+    # mapping pyjess.Template to AnnotatedTemplate via the str AnnotatedTemplate.id which is preserved in pyjess.Template.id
+    id_to_template: Dict[str, AnnotatedTemplate] = {}
     for template in templates:
+        if template.id in id_to_template:
+            raise KeyError('Multiple Templates share the same id! To be able to map annotations, create and pass AnnoateTemplate objects with unique ids!')
         id_to_template[template.id] = template
 
     # killswitch is controlled by max_candidates. Internal default is currently 1000
@@ -233,9 +239,9 @@ def single_query_run(molecule: pyjess.Molecule, templates: List[AnnotatedTemplat
                 else:
                     lone_matches.append(match)
 
-            # Group hit objects by the pair (hit.template.m-csa, hit.template.cluster.id)
-            def get_key(obj: Match) -> Tuple[int, int]:
-                return obj.template.mcsa_id, obj.template.cluster.id # type: ignore
+            # Group hit objects by the triple (hit.template.m-csa, hit.template.cluster.id, hit.template.dimension)
+            def get_key(obj: Match) -> Tuple[int, int, int]:
+                return obj.template.mcsa_id, obj.template.cluster.id, obj.template.dimension # type: ignore
 
             grouped_matches = [list(g) for _, g in itertools.groupby(sorted(groupable_matches, key=get_key), get_key)]
 
@@ -252,12 +258,10 @@ def single_query_run(molecule: pyjess.Molecule, templates: List[AnnotatedTemplat
                 
                 found_cluster_members = [match.template.cluster.member for match in cluster_matches] # type: ignore
                 found_cluster_members.sort()
+
                 if found_cluster_members == possible_cluster_members:
                     for match in cluster_matches:
                         match.complete = True
-
-            if lone_matches:
-                warnings.warn(f'Found {len(lone_matches)} matches with templates lacking M-CSA or Cluster annotation information')
 
             for match in lone_matches:
                 match.complete=True
@@ -267,15 +271,15 @@ def single_query_run(molecule: pyjess.Molecule, templates: List[AnnotatedTemplat
     return matches
 
 class Matcher:
-    def __init__(self, template_path: Path, jess_params: Dict[int, Dict[str, float]], conservation_cutoff: int = 0, warn: bool = True, verbose: bool = False, skip_smaller_hits: bool = False, match_small_templates: bool = False, cpus: int = 0):
-        self.template_path = template_path
-        self.jess_params = jess_params
+    def __init__(self, template_path: str = '', jess_params: Dict[int, Dict[str, float]] = {}, conservation_cutoff: int = 0, warn: bool = False, verbose: bool = False, skip_smaller_hits: bool = False, match_small_templates: bool = False, cpus: int = 0):
+        # TODO change template_path to template objects itself, check function should just print template.id
+
+        self.cpus = cpus
         self.conservation_cutoff = conservation_cutoff
         self.warn = warn
         self.verbose = verbose
         self.skip_smaller_hits = skip_smaller_hits
         self.match_small_templates = match_small_templates
-        self.cpus = cpus
 
         if self.cpus <= 0:
             self.cpus = -2 + self.cpus + (os.cpu_count() or 1)
@@ -289,16 +293,30 @@ class Matcher:
             self.verbose_print(f'Conservation Cutoff set to {self.conservation_cutoff}')
 
         ######## Checking template path ##################################
-        if self.template_path:
-            self.verbose_print(f'loading supplied template files from {self.template_path.resolve()}')
-            template_tuples = list(load_templates(self.template_path, warn=self.warn))
+        if template_path:
+            self.template_path = template_path
+            self.verbose_print(f'loading supplied template files from {template_path}')
+            template_tuples = list(load_templates(Path(self.template_path), warn=self.warn))
         else:
+            self.template_path = str(Path(str(files(__package__).joinpath('jess_templates_20230210'))).resolve())
             self.verbose_print('loading default template files')
             template_tuples = list(load_templates(warn=self.warn)) # default templates
 
+        if jess_params:
+                self.jess_params = jess_params
+        else:
+            ####### Default Jess parameters by Size ##################################
+            self.jess_params = {
+                3: {'rmsd': 2, 'distance': 1, 'max_dynamic_distance': 1},
+                4: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
+                5: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
+                6: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
+                7: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
+                8: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5}}
+
         # check each template and if it passes add it to the dictionary of templates
         self.templates_by_effective_size: Dict[int, List[AnnotatedTemplate]] = collections.defaultdict(list) # Dictionary of List of AnnoatedTemplate objects grouped by Template.effective_size as keys
-        for i, template_tuple in enumerate(template_tuples):
+        for template_tuple in template_tuples:
             if check_template(template_tuple, warn=self.warn): # returns True if the Template passed all checks or if warn is set to False
                 self.templates_by_effective_size[template_tuple[0].effective_size].append(template_tuple[0])
         
@@ -312,7 +330,7 @@ class Matcher:
                 print('The following templates are too small:')
                 for template_size in smaller_sizes:
                     for tmp in self.templates_by_effective_size[template_size]:
-                        print(tmp.id) # GAAAA TODO how do i appropriately map back to tell the user which templates suck!
+                        print(tmp.id) # TODO print a list of all templates loaded with index: template_path. index is saved in AnnoatedTemplate.id
                 if self.match_small_templates:
                     print('For small templates Jess parameters for templates of 3 residues will be used.')
                 else:
@@ -412,6 +430,7 @@ if __name__ == "__main__":
     if not args.files:
         parser.error("No input files were passed. Use the -i and/or -l flags to pass input.")
 
+    jess_params = {}
     if args.jess:
         jess_params_list = [i for i in args.jess]
         # jess parameters
@@ -419,8 +438,7 @@ if __name__ == "__main__":
         rmsd = jess_params_list[0] # in Angstrom, typcically set to 2
         distance = jess_params_list[1] # in Angstrom between 1.0 and 1.5 - lower is more strict. This changes with template size
         max_dynamic_distance = jess_params_list[2] # if equal to distance dynamic is off: this option is currenlty dysfunctional
-        
-
+    
         jess_params = {
             3: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance},
             4: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance},
@@ -428,16 +446,6 @@ if __name__ == "__main__":
             6: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance},
             7: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance},
             8: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance}}
-
-    else:
-        ####### Default Jess parameters by Size ##################################
-        jess_params = {
-            3: {'rmsd': 2, 'distance': 1, 'max_dynamic_distance': 1},
-            4: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
-            5: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
-            6: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
-            7: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
-            8: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5}}
 
     try:
 

@@ -4,13 +4,14 @@ from . import test_data
 
 from pathlib import Path
 import io
+import os
 
 from matcher import template, jess_run
 import pyjess # type: ignore
 
 matcher = Path(__package__).parent / 'matcher/'
 
-class TestMatcher(unittest.TestCase):
+class TestMatch(unittest.TestCase):
 
     maxDiff = None
 
@@ -18,14 +19,14 @@ class TestMatcher(unittest.TestCase):
     def setUpClass(cls):
         with open(Path(matcher, 'jess_templates_20230210/5_residues/results/csa3d_0285/csa3d_0285.cluster_1_1_1.1uh3_A396-A262-A356-A471-A472.template.pdb'), 'r') as f:
             template_text1 = f.read()
-            cls.template1 = template.AnnotatedTemplate.loads(template_text1, warn=False)
+            cls.template1 = template.AnnotatedTemplate.loads(template_text1, str(0), warn=False)
             pyjess_template1 = pyjess.Template.loads(template_text1, id=cls.template1.id)
             jess_1 = pyjess.Jess([pyjess_template1])
 
         with files(test_data).joinpath("1AMY.pdb").open() as f:
             molecule = pyjess.Molecule.load(f)
 
-        query = jess_1.query(molecule, 2, 1.5, 1.5, max_candidates=10000)
+        query = jess_1.query(molecule, 2, 1.5, 1.5, max_candidates=10000, best_match=True)
         best_hits = list(query)
         
         cls.match1 = jess_run.Match(hit=best_hits[0], template=cls.template1)
@@ -33,11 +34,11 @@ class TestMatcher(unittest.TestCase):
 
         with open(Path(matcher, 'jess_templates_20230210/3_residues/results/csa3d_0415/csa3d_0415.cluster_1_1_2.1be0_A124-A175-A125-A289-A260.template.pdb'), 'r') as f:
             template_text2 = f.read()
-            cls.template2 = template.AnnotatedTemplate.loads(template_text2, warn=False)
+            cls.template2 = template.AnnotatedTemplate.loads(template_text2, str(0), warn=False)
             pyjess_template2 = pyjess.Template.loads(template_text2, id=cls.template2.id)
             jess_2 = pyjess.Jess([pyjess_template2])
 
-        query = jess_2.query(molecule, 2, 1, 1, max_candidates=10000)
+        query = jess_2.query(molecule, 2, 1, 1, max_candidates=10000, best_match=True)
         best_hits = list(query)
         
         cls.match2 = jess_run.Match(hit=best_hits[0], template=cls.template2)
@@ -95,8 +96,14 @@ class TestMatcher(unittest.TestCase):
 
     def test_match_dump2pdb(self):
         buffer = io.StringIO()
-        self.match1.dump2pdb(buffer, transform=False, include_query=False) # TODO include checks for either options too
+        self.match1.dump2pdb(buffer, transform=False, include_query=False)
         with files(test_data).joinpath("1AMY_matches_query.pdb").open() as f:
+            self.assertEqual(buffer.getvalue(), f.read())
+
+    def test_match_dump2pdb_with_query(self):
+        buffer = io.StringIO()
+        self.match1.dump2pdb(buffer, transform=False, include_query=True)
+        with files(test_data).joinpath("1AMY_matches_query_included.pdb").open() as f:
             self.assertEqual(buffer.getvalue(), f.read())
 
     def test_match_dump2pdb_transformed(self):
@@ -105,6 +112,110 @@ class TestMatcher(unittest.TestCase):
         with files(test_data).joinpath("1AMY_matches_template.pdb").open() as f:
             self.assertEqual(buffer.getvalue(), f.read())
 
-# TODO test single_query_run and completeness check. This will be refactored anyway I assume
+class Test_single_query_run(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        with open(Path(matcher, 'jess_templates_20230210/5_residues/results/csa3d_0285/csa3d_0285.cluster_1_1_1.1uh3_A396-A262-A356-A471-A472.template.pdb'), 'r') as f:
+            template_text1 = f.read()
 
-# TODO test matcher_run ?? this has no output to test.
+        with open(Path(matcher, 'jess_templates_20230210/5_residues/results/csa3d_0045/csa3d_0045.cluster_1_1_1.2cxg_A227-A229-A257-A327-A328.template.pdb'), 'r') as f:
+            template_text2 = f.read()
+
+        with open(Path(matcher, 'jess_templates_20230210/3_residues/results/csa3d_0914/csa3d_0914.cluster_4_2_2.3gvr_A41-A164-A37-A50-A86.template.pdb'), 'r') as f:
+            template_text3 = f.read()
+
+        with open(Path(matcher, 'jess_templates_20230210/3_residues/results/csa3d_0285/csa3d_0285.cluster_1_1_2.1uh3_A396-A262-A356-A471-A472.template.pdb'), 'r') as f:
+            template_text4 = f.read()
+
+        with open(Path(matcher, 'jess_templates_20230210/3_residues/results/csa3d_0285/csa3d_0285.cluster_1_2_2.1uh3_A396-A262-A356-A471-A472.template.pdb'), 'r') as f:
+            template_text5 = f.read()
+
+        template_list = []
+        for index, txt in enumerate([template_text1, template_text2, template_text3, template_text4, template_text5]):
+            template_list.append(template.AnnotatedTemplate.loads(txt, str(index), warn=False))
+        cls.template_list = template_list
+
+        with files(test_data).joinpath("bad_templates/no_remark.pdb").open() as f:
+            template_no_remark = f.read()
+        cls.unannotated_templates = [template.AnnotatedTemplate.loads(template_no_remark, str(index), warn=False)]
+
+        cls.bad_template_list = [template.AnnotatedTemplate.loads(template_text1, str(0), warn=False), template.AnnotatedTemplate.loads(template_text2, str(0), warn=False)]
+            
+        with files(test_data).joinpath("1AMY.pdb").open() as f:
+            cls.molecule = pyjess.Molecule.load(f)
+
+    def test_single_query_run_function(self):
+        # we only have to check that filtering works, completeness checking works and that templates are correctly mapped back again
+        matches = jess_run.single_query_run(molecule=self.molecule, templates=self.template_list, rmsd = 2, distance=1.5, max_dynamic_distance=1.5)
+        pdb_ids = []
+        for match in matches:
+            pdb_ids.append(match.template.pdb_id)
+        pdb_ids.sort()
+
+        self.assertEqual(len(matches), 5)
+        self.assertEqual(pdb_ids, ['1uh3', '1uh3', '1uh3', '2cxg', '3gvr'])
+
+        for match in matches:
+            if match.template.id == '0':
+                self.assertEqual(match.complete, True)
+                self.assertEqual(match.template.pdb_id, '1uh3')
+            elif match.template.id == '1':
+                self.assertEqual(match.complete, True)
+                self.assertEqual(match.template.pdb_id, '2cxg')
+            elif match.template.id == '2':
+                self.assertEqual(match.complete, False)
+                self.assertEqual(match.template.pdb_id, '3gvr')
+            elif match.template.id == '3':
+                self.assertEqual(match.complete, True)
+                self.assertEqual(match.template.pdb_id, '1uh3')
+            elif match.template.id == '4':
+                self.assertEqual(match.complete, True)
+                self.assertEqual(match.template.pdb_id, '1uh3')
+            else:
+                self.fail(f"Encountered an unexpected template.id {match.template.id}!")
+
+        matches2 = jess_run.single_query_run(molecule=self.molecule, templates=self.unannotated_templates, rmsd = 2, distance=1.5, max_dynamic_distance=1.5)
+        for match in matches2:
+            self.assertEqual(match.complete, True)
+
+    def test_nonunique_template_id_error(self):
+        with self.assertRaises(KeyError):
+            matches = jess_run.single_query_run(molecule=self.molecule, templates=self.bad_template_list, rmsd = 2, distance=1.5, max_dynamic_distance=1.5)
+
+# TODO test Matcher class
+# check matcher.run
+
+class TestMatcher(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.default_matcher = jess_run.Matcher()
+        cls.template_matcher = jess_run.Matcher(template_path=str(Path(matcher, 'jess_templates_20230210/5_residues/results/csa3d_0285/').resolve()), cpus=8)
+
+        with files(test_data).joinpath("1AMY.pdb").open() as f:
+            cls.molecule = pyjess.Molecule.load(f)
+
+    def test_init(self):
+        jess_params = {
+            3: {'rmsd': 2, 'distance': 1, 'max_dynamic_distance': 1},
+            4: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
+            5: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
+            6: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
+            7: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
+            8: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5}}
+
+        self.assertEqual(self.default_matcher.template_path, str(Path(matcher, 'jess_templates_20230210').resolve()))
+        self.assertEqual(self.default_matcher.cpus, (os.cpu_count() or 1) -2 )
+        self.assertEqual(self.default_matcher.jess_params, jess_params)
+        
+        self.assertEqual(self.template_matcher.template_path, str(Path(matcher, 'jess_templates_20230210/5_residues/results/csa3d_0285/').resolve()))
+        self.assertEqual(self.template_matcher.cpus, 8)
+        self.assertEqual(self.template_matcher.template_effective_sizes, [5])
+
+    def test_Matcher_run(self):
+        processed_molecules = self.template_matcher.run(list([self.molecule]))
+        self.assertEqual(list(processed_molecules.keys())[0], self.molecule)
+
+        matches = processed_molecules[self.molecule]
+        self.assertEqual(len(matches), 1)
+
+# TODO test skip_smaller_hits and match_small_templates too

@@ -12,7 +12,6 @@ from dataclasses import dataclass, field
 import io
 import tempfile
 import math
-import uuid
 
 import pyjess # type: ignore
 
@@ -83,14 +82,13 @@ class Vec3:
 @dataclass(init=False)
 class Residue:
     """Class for storing Residues (defined as 3 atoms) belonging to a template and associated residue level information"""
-    # TODO this class assumes that all atoms have the same match_mode, residue_names, chain_id, residue_number - implement something to check this in the init maybe!
 
     _atoms: Tuple[pyjess.TemplateAtom, pyjess.TemplateAtom, pyjess.TemplateAtom]
     _vec: Vec3
     _indices: Tuple[int, int]
 
     def __init__(self, atoms: Tuple[pyjess.TemplateAtom, pyjess.TemplateAtom, pyjess.TemplateAtom]):
-        assert len(atoms) == 3
+        assert len(atoms) == 3 # TODO shoud I keep this? I have an error in my AnnotatedTemplates init (and more checking)
         self._vec, self._indices = self.calc_residue_orientation(atoms)
         self._atoms = atoms
 
@@ -209,7 +207,6 @@ class Cluster:
         if self.member > self.size:
             raise ValueError("Cluster member cannot be greater than cluster size")
 
-# @dataclass(frozen=True)
 class AnnotatedTemplate(pyjess.Template):
     """Class for storing Templates and associated information. Inherits from pyjess.Template"""
 
@@ -220,6 +217,7 @@ class AnnotatedTemplate(pyjess.Template):
     _PDB_SIFTS: ClassVar[Dict[str, Dict[str, List[str]]]]
 
     pdb_id: Optional[str] = field(default=None)
+    template_id_string : Optional[str] = field(default=None)
     mcsa_id: Optional[int] = field(default=None)
     cluster: Optional[Cluster] = field(default=None)
     uniprot_id: Optional[str] = field(default=None)
@@ -233,11 +231,11 @@ class AnnotatedTemplate(pyjess.Template):
     cath: List[str] = field(default_factory=list)
     
     def __init__(self,
-            atoms: Iterable[pyjess.TemplateAtom] = (),
-            id: Optional[str] = None,
+            atoms: Iterable[pyjess.TemplateAtom],
+            id: str,
             *,
             pdb_id: Optional[str] = None,
-            id_residue_string: Optional[str] = None,
+            template_id_string: Optional[str] = None,
             mcsa_id: Optional[int] = None,
             cluster: Optional[Cluster] = None,
             uniprot_id: Optional[str] = None,
@@ -250,20 +248,22 @@ class AnnotatedTemplate(pyjess.Template):
             ec: Iterable[str] = (),
             cath: Iterable[str] = ()
         ):
-            super().__init__(atoms, id=id)
+            super().__init__(atoms, id)
 
             residues = []
             for atom_triplet in chunks(atoms, 3): # yield chunks of 3 atom lines each
+                if len(atom_triplet) != 3:
+                    raise ValueError(f'Failed to construct residues. Got only {len(atom_triplet)} ATOM lines')
                 # check if all three atoms belong to the same residue by adding a tuple of their residue defining properties to a set
                 unique_residues = { (atom.residue_names[0], atom.chain_id, atom.residue_number) for atom in atom_triplet }
                 if len(unique_residues) != 1:
-                    raise ValueError('Multiple residues found in atom lines')
+                    raise ValueError(f'Failed to construct residues. Atoms of different match_mode, chains, residue types or residue numbers {unique_residues} found in Atom triplet')
                 residues.append(Residue(atom_triplet))
 
             super().__setattr__("residues", tuple(residues))
             super().__setattr__("pdb_id", pdb_id)
             super().__setattr__("mcsa_id", mcsa_id)
-            super().__setattr__("id_residue_string", id_residue_string)
+            super().__setattr__("template_id_string", template_id_string)
             super().__setattr__("cluster", cluster)
             super().__setattr__("uniprot_id", uniprot_id)
             super().__setattr__("organism", organism)
@@ -277,11 +277,11 @@ class AnnotatedTemplate(pyjess.Template):
             super().__setattr__("cath", sorted({*cath, *self._add_cath_annotations()}))
 
     @classmethod # reading from text
-    def loads(cls, text: str, warn: bool = True) -> AnnotatedTemplate:
-        return cls.load(io.StringIO(text), warn=warn)
+    def loads(cls, text: str, internal_template_id: str, warn: bool = True) -> AnnotatedTemplate:
+        return cls.load(io.StringIO(text), internal_template_id, warn=warn)
 
     @classmethod # reading from TextIO
-    def load(cls, file: TextIO, warn: bool = True) -> AnnotatedTemplate:
+    def load(cls, file: TextIO, internal_template_id: str, warn: bool = True) -> AnnotatedTemplate:
         """Overloaded load to parse a pyjess.Template and its associated info into a AnnotatedTemplate object from TextIO
         """
         atoms = []
@@ -291,7 +291,7 @@ class AnnotatedTemplate(pyjess.Template):
         }
 
         _PARSERS = {
-            'ID' : cls._parse_id_residue_string,
+            'ID' : cls._parse_template_id_string,
             'PDB_ID': cls._parse_pdb_id,
             'UNIPROT_ID': cls._parse_uniprot_id,
             'MCSA_ID': cls._parse_mcsa_id,
@@ -306,6 +306,7 @@ class AnnotatedTemplate(pyjess.Template):
             'REPRESENTING': cls._parse_represented_sites
         }
                 
+        atom_lines = []
         for line in filter(str.strip, file):
             tokens = line.split()
             if tokens[0] == 'REMARK':
@@ -320,15 +321,21 @@ class AnnotatedTemplate(pyjess.Template):
                         continue
                     parser(tokens, metadata, warn=warn)
             elif tokens[0] == 'ATOM':
+                if line in atom_lines:
+                    raise ValueError(f'Duplicate Atom lines passed!')
+                atom_lines.append(line)
                 atoms.append(pyjess.TemplateAtom.loads(line))
             elif tokens[0] == 'HETATM':
                 raise ValueError('Supplied template with HETATM record. HETATMs cannot be searched by Jess')
             else:
                 continue
 
+        if not atoms: # TODO this is honestly just causing extra errors. if a file has no atoms it matches nothgin and creates no output but also no error. I suppose that is fine?
+            raise ValueError(f'No lines beginning with ATOM were found!')
+
         return AnnotatedTemplate(
             atoms = atoms,
-            id = str(uuid.uuid4()),  # type: ignore
+            id = internal_template_id,
             **metadata, # type: ignore # unpack everything parsed into metadata
         )
 
@@ -339,7 +346,7 @@ class AnnotatedTemplate(pyjess.Template):
 
     def dump(self, file: IO[str]):
         file.write(f'REMARK TEMPLATE\n')
-        if self.id_residue_string : file.write(f'REMARK ID {self.id_residue_string}\n')
+        if self.template_id_string : file.write(f'REMARK ID {self.template_id_string}\n')
         if self.pdb_id : file.write(f"REMARK PDB_ID {self.pdb_id}\n")
         if self.mcsa_id : file.write(f"REMARK MCSA_ID {self.mcsa_id}\n")
         if self.uniprot_id : file.write(f"REMARK UNIPROT_ID {self.uniprot_id}\n")
@@ -457,8 +464,8 @@ class AnnotatedTemplate(pyjess.Template):
         metadata['pdb_id'] = tokens[2].lower()
 
     @classmethod
-    def _parse_id_residue_string(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
-        metadata['id_residue_string'] = tokens[2]
+    def _parse_template_id_string(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
+        metadata['template_id_string'] = tokens[2]
 
     @classmethod
     def _parse_uniprot_id(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
@@ -587,15 +594,17 @@ def load_templates(template_dir: Path = Path(str(files(__package__).joinpath('je
         raise NotADirectoryError(template_dir)
 
     template_paths = _get_paths_by_extension(template_dir, '.pdb')
-    for template_path in template_paths:
+
+    for template_index, template_path in enumerate(template_paths):
         with template_path.open() as f:
             try:
                 # Yield the AnnotatedTemplate and its filepath as a tuple
-                yield (AnnotatedTemplate.load(file=f, warn=warn), template_path) # read atom lines using pyjess.TemplateAtoms and create AnnotatedTemplate as instance of pyjess.Template
+                yield (AnnotatedTemplate.load(file=f, warn=warn, internal_template_id=str(template_index)), template_path) # read atom lines using pyjess.TemplateAtoms and create AnnotatedTemplate as instance of pyjess.Template
             except ValueError as exc:
-                raise ValueError(f"Failed to parse {template_path}!") # from exc
+                raise ValueError(f'Passed Template file {template_path.resolve()} contained ATOM lines which are not in Jess Template format.')
 
 def check_template(template_tuple: Tuple[AnnotatedTemplate, Path], warn: bool = True) -> bool:
+    # TODO improve this and make it useful without filepaths! and write tests
     if warn:
         checker = True
         template, filepath = template_tuple
@@ -633,13 +642,3 @@ def check_template(template_tuple: Tuple[AnnotatedTemplate, Path], warn: bool = 
         return checker
     else:
         return True
-
-if __name__ == "__main__":
-    # TODO this is here for debugging purposes - delete later
-    for template_res_num in [8, 7, 6, 5, 4, 3]:
-        templates = list(load_templates(Path(str(files(__package__).joinpath('jess_templates_20230210', f'{template_res_num}_residues'))), warn=False)) #type: ignore
-        print(f'current template size folder: {template_res_num}')
-        print(len(templates))
-        #for template in templates:
-        #    check_template(template)
-

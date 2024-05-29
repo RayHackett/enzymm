@@ -17,7 +17,4 @@ ATOM      0  O  ZANY B  19      -3.270   6.279  -1.038 AGS   0.91
 ATOM      3  CG ZASP B  20      -3.862   2.171  -3.879 ED    0.65 
 ATOM      3  OD1ZASP B  20      -2.624   2.327  -3.801 ED    0.65 
 ATOM      3  OD2ZASP B  20      -4.381   1.093  -4.246 ED    0.65 
-ATOM      3  CG ZASP B  20      -3.862   2.171  -3.879 ED    0.65 
-ATOM      3  OD1ZASP B  20      -2.624   2.327  -3.801 ED    0.65 
-ATOM      3  OD2ZASP B  20      -4.381   1.093  -4.246 ED    0.65 
 END

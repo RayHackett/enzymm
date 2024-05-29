@@ -16,14 +16,24 @@ class TestIntegration(unittest.TestCase):
     def test_load_templates(self):
         with self.assertRaises(FileNotFoundError):
             templates = list(template.load_templates(Path("/some/bogus/folder")))
+        
+        with self.assertRaises(NotADirectoryError):
+            templates = list(template.load_templates(Path(files(test_data).joinpath("bad_templates/pdb_id_none.pdb"))))
 
-        ## End to End test # TODO
-        # self.assertEqual(len(list(template.load_templates())), 7611) # check if all the expected templates were found
+        with self.assertRaises(ValueError):
+            templates = list(template.load_templates(Path(files(test_data))))
+
+        # End to End test # TODO
+        self.assertEqual(len(list(template.load_templates(warn=False))), 7611) # check if all the expected templates were found
     
     def test_get_template_paths(self):
         data_path = Path(matcher / 'data/')
         # check if all the required annotation files are there - This will run the entire script
         self.assertEqual(template._get_paths_by_extension(data_path, '.json'), [Path(data_path, 'pdb_sifts.json'), Path(data_path, 'MCSA_EC_mapping.json'), Path(data_path, 'MCSA_CATH_mapping.json')])
+
+    def test__get_paths_by_extension(self):
+        with self.assertRaises(FileNotFoundError):
+            template._get_paths_by_extension(Path(files(test_data)), '.xyz')
 
 class TestVec3(unittest.TestCase):
 
@@ -32,6 +42,7 @@ class TestVec3(unittest.TestCase):
         cls.vec1 = template.Vec3(1.0, 2.0, 3.0)
         cls.vec2 = template.Vec3(-0.275, 2.8, 0.837)
         cls.vec3 = template.Vec3(0, 0 ,0)
+        cls.notavec = (0, 3, 5)
 
     def test_attributes(self):
         self.assertEqual(self.vec1.x, 1.0)
@@ -66,6 +77,9 @@ class TestVec3(unittest.TestCase):
 
         self.assertEqual(self.vec1 + self.vec3, self.vec1)
 
+        with self.assertRaises(TypeError):
+            self.vec1 + self.notavec
+
     def test_sub(self):
         result = self.vec1 - self.vec2
         expected = template.Vec3(x=1.275, y=-0.8, z=2.163)
@@ -80,6 +94,9 @@ class TestVec3(unittest.TestCase):
         self.assertAlmostEqual(result.z, expected.z)
 
         self.assertEqual(self.vec1 - self.vec3, self.vec1)
+
+        with self.assertRaises(TypeError):
+            self.vec1 - self.notavec
 
     def test_truediv(self):
         result = self.vec1 / self.vec2
@@ -97,10 +114,16 @@ class TestVec3(unittest.TestCase):
         with self.assertRaises(ZeroDivisionError):
             self.vec1 / self.vec3
 
+        with self.assertRaises(TypeError):
+            self.vec1 / self.notavec
+
     def test_matmul(self):
         self.assertEqual(self.vec1 @ self.vec3, 0)
         self.assertAlmostEqual((self.vec1 @ self.vec2), 7.836)
         self.assertAlmostEqual((self.vec1.normalize() @ self.vec2.normalize()), 0.713465)
+
+        with self.assertRaises(TypeError):
+            self.vec1 @ self.notavec
 
     def test_angle_to(self):
         self.assertAlmostEqual(self.vec1.angle_to(self.vec2), math.acos(0.713465))
@@ -120,7 +143,7 @@ class TestCluster(unittest.TestCase):
         self.assertEqual(self.cluster1.size, 2)
         self.assertEqual(self.cluster1.member, 1)
 
-class TestTemplate(unittest.TestCase):
+class TestAnnotatedTemplate(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -128,12 +151,33 @@ class TestTemplate(unittest.TestCase):
             cls.template_text1 = f.read()
         with open(Path(matcher, 'jess_templates_20230210/4_residues/results/csa3d_0011/csa3d_0011.cluster_1_1_3.1qum_D145-D109-D37-D72-D69-D229-D182-D231-D261-D216-D179.template.pdb'), 'r') as f:
             cls.template_text2 = f.read()
+        with files(test_data).joinpath("bad_templates/empty_remark.pdb").open() as f:
+            cls.template_empty_remark = f.read()
+        with files(test_data).joinpath("bad_templates/hetatm.pdb").open() as f:
+            cls.template_hetatm = f.read()
+        with files(test_data).joinpath("bad_templates/malformed_residues_1.pdb").open() as f:
+            cls.template_malformed_residue_1 = f.read()
+        with files(test_data).joinpath("bad_templates/malformed_residues_2.pdb").open() as f:
+            cls.template_malformed_residue_2 = f.read()
+        with files(test_data).joinpath("bad_templates/malformed_residues_3.pdb").open() as f:
+            cls.template_malformed_residue_3 = f.read()
+        with files(test_data).joinpath("bad_templates/missing_cluster_annotation.pdb").open() as f:
+            cls.template_missing_cluster_annotation = f.read()
+        with files(test_data).joinpath("bad_templates/new_remark.pdb").open() as f:
+            cls.template_new_remark = f.read()
+        with files(test_data).joinpath("bad_templates/pdb_id_none.pdb").open() as f:
+            cls.template_pdb_id_none = f.read()
+        with files(test_data).joinpath("bad_templates/not_a_template.pdb").open() as f:
+            cls.not_a_template = f.read()
+        with files(test_data).joinpath("bad_templates/no_remark.pdb").open() as f:
+            cls.template_no_remark = f.read()
     
-    def test_loads(self):
-        template1 = template.AnnotatedTemplate.loads(self.template_text1, warn=False)
-        template2 = template.AnnotatedTemplate.loads(self.template_text2, warn=False)
+    def test_good_loads(self):
+        template1 = template.AnnotatedTemplate.loads(self.template_text1, str(0), warn=True)
+        template2 = template.AnnotatedTemplate.loads(self.template_text2, str(1), warn=True)
+        self.assertEqual(template1.id, '0')
         self.assertEqual(template1.pdb_id, '1b74')
-        self.assertEqual(template1.id_residue_string, '1b74_A147-AA180-AA70-AA178-AA8-AA7')
+        self.assertEqual(template1.template_id_string, '1b74_A147-AA180-AA70-AA178-AA8-AA7')
         self.assertEqual(template1.mcsa_id, 1)
         self.assertEqual(template1.cluster.id, 1)
         self.assertEqual(template1.cluster.member, 1)
@@ -153,8 +197,9 @@ class TestTemplate(unittest.TestCase):
         self.assertEqual(template1.cath, ['3.40.50.1860']) # could be more info added through sifts
         self.assertEqual(len(template1.residues), 6)
 
+        self.assertEqual(template2.id, '1')
         self.assertEqual(template2.pdb_id, '1qum')
-        self.assertEqual(template2.id_residue_string, '1qum_D145-D109-D37-D72-D69-D229-D182-D231-D261-D216-D179')
+        self.assertEqual(template2.template_id_string, '1qum_D145-D109-D37-D72-D69-D229-D182-D231-D261-D216-D179')
         self.assertEqual(template2.mcsa_id, 11)
         self.assertEqual(template2.cluster.id, 1)
         self.assertEqual(template2.cluster.member, 1)
@@ -174,14 +219,69 @@ class TestTemplate(unittest.TestCase):
         self.assertEqual(template2.cath, ['3.20.20.150']) # could be more info added through sifts
         self.assertEqual(len(template2.residues), 4)
 
+    def test_bad_loads(self):
+        with self.assertWarns(Warning):
+            template1 = template.AnnotatedTemplate.loads(self.template_empty_remark, str(0), warn=True)
+        with self.assertRaises(ValueError):
+            template1 = template.AnnotatedTemplate.loads(self.template_hetatm, str(0), warn=True)
+        with self.assertRaises(IndexError):
+            template1 = template.AnnotatedTemplate.loads(self.template_missing_cluster_annotation, str(0), warn=True)
+        with self.assertRaises(ValueError):
+            template1 = template.AnnotatedTemplate.loads(self.template_malformed_residue_1, str(0), warn=True)
+        with self.assertRaises(ValueError):
+            template1 = template.AnnotatedTemplate.loads(self.template_malformed_residue_2, str(0), warn=True)
+        with self.assertRaises(ValueError):
+            template1 = template.AnnotatedTemplate.loads(self.template_malformed_residue_3, str(0), warn=True)
+        with self.assertRaises(ValueError):
+            template1 = template.AnnotatedTemplate.loads(self.not_a_template, str(0), warn=True)
+
+        template1 = template.AnnotatedTemplate.loads(self.template_no_remark, str(0), warn=True)
+
+        # These do not raise Warnings.
+        template1 = template.AnnotatedTemplate.loads(self.template_new_remark, str(0), warn=True)
+        template1 = template.AnnotatedTemplate.loads(self.template_pdb_id_none, str(0), warn=True)
+
+    def test_dump(self):
+        pass # TODO when atoms have dump method
+
+    def test_dumps(self):
+        pass # TODO when atoms have dump method
+
+    def test_annotation_warnings(self):
+        # template1 = template.AnnotatedTemplate.loads(self.template_text1, str(0), warn=True)
+
+        # template1.pdb_id = '1b74p'
+        # with self.assertWarns(Warning):
+        #     x = template.AnnotatedTemplate.loads(template1.dumps(), str(0), warn=True)
+        # template1.pdb_id = '1b74'
+
+        pass # TODO test all the load template warnings when atoms have a dump method
+
 class TestResidue(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
         with open(Path(matcher, 'jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb'), 'r') as f:
-            template1 = template.AnnotatedTemplate.loads(f.read(), warn=False)
+            template1 = template.AnnotatedTemplate.loads(f.read(), str(0), warn=False)
         cls.residue1 = template1.residues[0]
         cls.residue2 = template1.residues[1]
+
+        with files(test_data).joinpath("bad_templates/unk_residue.pdb").open() as f:
+            cls.template_unkown_residue_text = f.read()
+        with files(test_data).joinpath("bad_templates/bad_atom_names_1.pdb").open() as f:
+            cls.bad_atom_names_1 = f.read()
+        with files(test_data).joinpath("bad_templates/bad_atom_names_2.pdb").open() as f:
+            cls.bad_atom_names_2 = f.read()
+
+    def test_unkown_resids(self):
+        with self.assertRaises(KeyError):
+            template1 = template.AnnotatedTemplate.loads(self.template_unkown_residue_text, str(0), warn=True)
+
+    def test_bad_atoms_in_orientation(self):
+        with self.assertRaises(ValueError):
+            template1 = template.AnnotatedTemplate.loads(self.bad_atom_names_1, str(0), warn=True)
+        with self.assertRaises(ValueError):
+            template1 = template.AnnotatedTemplate.loads(self.bad_atom_names_2, str(0), warn=True)
 
     def test_attributes(self):
         self.assertEqual(self.residue1.residue_name, 'GLU')
@@ -211,7 +311,7 @@ class TestTemplate_Checking(unittest.TestCase):
         with open(Path(matcher, 'jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb'), 'r') as f:
             cls.template_text1 = f.read()
     def test_check_template(self):
-        template1 = template.AnnotatedTemplate.loads(self.template_text1, warn=False)
+        template1 = template.AnnotatedTemplate.loads(self.template_text1, str(0), warn=False)
         template1_path = Path(matcher, 'jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb')
         self.assertEqual(template.check_template(template_tuple=(template1, template1_path), warn=False), True)
         self.assertEqual(template.check_template(template_tuple=(template1, template1_path), warn=True), True)

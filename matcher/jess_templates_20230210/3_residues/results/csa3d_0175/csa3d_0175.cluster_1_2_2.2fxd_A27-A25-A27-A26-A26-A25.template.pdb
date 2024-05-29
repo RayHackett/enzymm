@@ -17,7 +17,4 @@ ATOM      0  O  ZANY A  27      13.244  25.447   2.456 G     0.46
 ATOM      3  CG ZASP A  25      16.400  26.228   5.758 D     0.78 
 ATOM      3  OD1ZASP A  25      17.027  26.292   4.682 D     0.78 
 ATOM      3  OD2ZASP A  25      15.624  25.291   6.040 D     0.78 
-ATOM      3  CG ZASP A  25      16.400  26.228   5.758 D     0.78 
-ATOM      3  OD1ZASP A  25      17.027  26.292   4.682 D     0.78 
-ATOM      3  OD2ZASP A  25      15.624  25.291   6.040 D     0.78 
 END
