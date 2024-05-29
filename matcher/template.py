@@ -427,7 +427,7 @@ class AnnotatedTemplate(pyjess.Template):
             for pdbchain in pdbchains:
                 # also include CATH annotations from PDB-SIFTS
                 subdict = self._PDB_SIFTS.get(pdbchain)
-                if subdict is not None: # TODO this is an ugly workaround: Technically this is a bug either with missing annotations in SIFTS or due to wierd chain name conventions in .cif files
+                if subdict is not None:
                     sifts_caths = subdict.get('cath').copy() # type: ignore
                     for cath in sifts_caths:
                         if cath != '?': # type: ignore
@@ -449,7 +449,7 @@ class AnnotatedTemplate(pyjess.Template):
             for pdbchain in pdbchains:
                 # also include EC annotations from PDB-SIFTS
                 subdict = self._PDB_SIFTS.get(pdbchain)
-                if subdict is not None: # TODO this is an ugly workaround: Technically this is a bug either with missing annotations in SIFTS or due to wierd chain name conventions in .cif files
+                if subdict is not None:
                     sifts_ecs = subdict.get('ec').copy() # type: ignore
                     for ec in sifts_ecs:
                         if ec != '?': # type: ignore
@@ -585,7 +585,7 @@ def _get_paths_by_extension(directory_path: Path, extension: str) -> List[Path]:
     else:
         raise FileNotFoundError(f'No template files with the {extension} extension found in the {directory_path.resolve()} directory')
 
-def load_templates(template_dir: Path = Path(str(files(__package__).joinpath('jess_templates_20230210'))), warn: bool = True) -> Iterator[Tuple[AnnotatedTemplate, Path]]:
+def load_templates(template_dir: Path = Path(str(files(__package__).joinpath('jess_templates_20230210'))), warn: bool = True, verbose: bool = False) -> Iterator[AnnotatedTemplate]:
     """Load templates from a given directory, recursively.
     """
     if not template_dir.exists():
@@ -594,29 +594,30 @@ def load_templates(template_dir: Path = Path(str(files(__package__).joinpath('je
         raise NotADirectoryError(template_dir)
 
     template_paths = _get_paths_by_extension(template_dir, '.pdb')
-
+    if verbose:
+        print(f'Loading Template files from {str(template_dir.resolve())}')
     for template_index, template_path in enumerate(template_paths):
         with template_path.open() as f:
             try:
+                # TODO print a list of all templates loaded with index: template_path.
                 # Yield the AnnotatedTemplate and its filepath as a tuple
-                yield (AnnotatedTemplate.load(file=f, warn=warn, internal_template_id=str(template_index)), template_path) # read atom lines using pyjess.TemplateAtoms and create AnnotatedTemplate as instance of pyjess.Template
+                yield AnnotatedTemplate.load(file=f, warn=warn, internal_template_id=str(template_index)) # read atom lines using pyjess.TemplateAtoms and create AnnotatedTemplate as instance of pyjess.Template
             except ValueError as exc:
                 raise ValueError(f'Passed Template file {template_path.resolve()} contained ATOM lines which are not in Jess Template format.')
 
-def check_template(template_tuple: Tuple[AnnotatedTemplate, Path], warn: bool = True) -> bool:
-    # TODO improve this and make it useful without filepaths! and write tests
+def check_template(template: AnnotatedTemplate, warn: bool = True) -> bool:
+    # TODO improve this and write tests
     if warn:
         checker = True
-        template, filepath = template_tuple
 
         # Raise warnings if some properties could not be annotated!
         if not template.ec:
             checker = False
-            warnings.warn(f'Could not find EC number annotations for the template file {filepath}')
+            warnings.warn(f'Could not find EC number annotations for the template file {template.id}')
 
         if not template.cath:
             checker = False
-            warnings.warn(f'Could not find CATH annotations for the following template file {filepath}')
+            warnings.warn(f'Could not find CATH annotations for the following template file {template.id}')
 
         if template.pdb_id:
             # check overlap between sifts mapping and CATH, EC annotations
@@ -630,14 +631,14 @@ def check_template(template_tuple: Tuple[AnnotatedTemplate, Path], warn: bool = 
             for pdbchain in pdbchains:
                 # also include EC annotations from PDB-SIFTS
                 subdict = template._PDB_SIFTS.get(pdbchain, None)
-                if subdict: # TODO this is an ugly workaround: Technically this is a bug either with missing annotations in SIFTS or due to wierd chain name conventions in .cif files
+                if subdict:
                     # if template.cath and subdict['cath']:
                     #     if not set(template.cath) & set(subdict['cath']):
                     #         warnings.warn(f'Did not find an intersection of CATH domains as annotated by the M-CSA ID {template.mcsa_id} with {template.cath} versus PDF-SIFTS {template._PDB_SIFTS[pdbchain]['cath']} for template {filepath} from PDB ID {template.pdb_id}')
                     sifts_uniprot = subdict['uniprot_id']
                     if template.uniprot_id != sifts_uniprot:
                         checker = False
-                        warnings.warn(f'Different UniProt Accessions {template.uniprot_id} and {sifts_uniprot} found in template {filepath} from PDB ID {template.pdb_id}')
+                        warnings.warn(f'Different UniProt Accessions {template.uniprot_id} and {sifts_uniprot} found in template {template.id} from PDB ID {template.pdb_id}')
 
         return checker
     else:

@@ -23,7 +23,7 @@ class TestIntegration(unittest.TestCase):
         with self.assertRaises(ValueError):
             templates = list(template.load_templates(Path(files(test_data))))
 
-        # End to End test # TODO
+        # End to End test loading all supplied templates
         self.assertEqual(len(list(template.load_templates(warn=False))), 7611) # check if all the expected templates were found
     
     def test_get_template_paths(self):
@@ -312,6 +312,5 @@ class TestTemplate_Checking(unittest.TestCase):
             cls.template_text1 = f.read()
     def test_check_template(self):
         template1 = template.AnnotatedTemplate.loads(self.template_text1, str(0), warn=False)
-        template1_path = Path(matcher, 'jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb')
-        self.assertEqual(template.check_template(template_tuple=(template1, template1_path), warn=False), True)
-        self.assertEqual(template.check_template(template_tuple=(template1, template1_path), warn=True), True)
+        self.assertEqual(template.check_template(template=template1, warn=False), True)
+        self.assertEqual(template.check_template(template=template1, warn=True), True)

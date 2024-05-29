@@ -200,7 +200,7 @@ class Match:
         return len(all_residue_numbers)
 
 def single_query_run(molecule: pyjess.Molecule, templates: List[AnnotatedTemplate], rmsd: float = 2.0, distance: float = 1.5, max_dynamic_distance: float = 1.5, max_candidates: int = 10000) -> List[Match]:
-    # TODO add documentation string here
+    """`list` of `Match`: Match the list of Templates to one Molecule (pyjess.Molecule) and caluclate completeness for each match (True if all members of a Template cluster match)"""
 
     # mapping pyjess.Template to AnnotatedTemplate via the str AnnotatedTemplate.id which is preserved in pyjess.Template.id
     id_to_template: Dict[str, AnnotatedTemplate] = {}
@@ -271,9 +271,9 @@ def single_query_run(molecule: pyjess.Molecule, templates: List[AnnotatedTemplat
     return matches
 
 class Matcher:
-    def __init__(self, template_path: str = '', jess_params: Dict[int, Dict[str, float]] = {}, conservation_cutoff: int = 0, warn: bool = False, verbose: bool = False, skip_smaller_hits: bool = False, match_small_templates: bool = False, cpus: int = 0):
-        # TODO change template_path to template objects itself, check function should just print template.id
+    def __init__(self, templates: List[AnnotatedTemplate], jess_params: Dict[int, Dict[str, float]] = {}, conservation_cutoff: int = 0, warn: bool = False, verbose: bool = False, skip_smaller_hits: bool = False, match_small_templates: bool = False, cpus: int = 0):
 
+        self.templates = templates
         self.cpus = cpus
         self.conservation_cutoff = conservation_cutoff
         self.warn = warn
@@ -292,16 +292,6 @@ class Matcher:
         if self.conservation_cutoff:
             self.verbose_print(f'Conservation Cutoff set to {self.conservation_cutoff}')
 
-        ######## Checking template path ##################################
-        if template_path:
-            self.template_path = template_path
-            self.verbose_print(f'loading supplied template files from {template_path}')
-            template_tuples = list(load_templates(Path(self.template_path), warn=self.warn))
-        else:
-            self.template_path = str(Path(str(files(__package__).joinpath('jess_templates_20230210'))).resolve())
-            self.verbose_print('loading default template files')
-            template_tuples = list(load_templates(warn=self.warn)) # default templates
-
         if jess_params:
                 self.jess_params = jess_params
         else:
@@ -316,9 +306,9 @@ class Matcher:
 
         # check each template and if it passes add it to the dictionary of templates
         self.templates_by_effective_size: Dict[int, List[AnnotatedTemplate]] = collections.defaultdict(list) # Dictionary of List of AnnoatedTemplate objects grouped by Template.effective_size as keys
-        for template_tuple in template_tuples:
-            if check_template(template_tuple, warn=self.warn): # returns True if the Template passed all checks or if warn is set to False
-                self.templates_by_effective_size[template_tuple[0].effective_size].append(template_tuple[0])
+        for template in templates:
+            if check_template(template, warn=self.warn): # returns True if the Template passed all checks or if warn is set to False
+                self.templates_by_effective_size[template.effective_size].append(template)
         
         self.template_effective_sizes = list(self.templates_by_effective_size.keys())
         self.template_effective_sizes.sort(reverse=True) # get a list of template_sizes in decending order
@@ -330,7 +320,7 @@ class Matcher:
                 print('The following templates are too small:')
                 for template_size in smaller_sizes:
                     for tmp in self.templates_by_effective_size[template_size]:
-                        print(tmp.id) # TODO print a list of all templates loaded with index: template_path. index is saved in AnnoatedTemplate.id
+                        print(tmp.id)
                 if self.match_small_templates:
                     print('For small templates Jess parameters for templates of 3 residues will be used.')
                 else:
@@ -467,8 +457,13 @@ if __name__ == "__main__":
         if not molecules and args.warn:
             warnings.warn(f"received no molecules from input")
 
+        if args.template_dir:
+            templates = list(load_templates(template_dir=Path(args.template_dir), warn=args.warn, verbose=args.verbose))
+        else:
+            templates = list(load_templates(warn=args.warn, verbose=args.verbose))
+
         ############ Initialize Matcher object ################################
-        matcher = Matcher(template_path=args.template_dir, jess_params=jess_params, conservation_cutoff=args.conservation_cutoff, warn=args.warn, verbose=args.verbose, skip_smaller_hits=args.skip_smaller_hits, match_small_templates=args.match_small_templates, cpus=args.jobs)
+        matcher = Matcher(templates=templates, jess_params=jess_params, conservation_cutoff=args.conservation_cutoff, warn=args.warn, verbose=args.verbose, skip_smaller_hits=args.skip_smaller_hits, match_small_templates=args.match_small_templates, cpus=args.jobs)
 
         ############ Call Matcher.run ##########################################
         processed_molecules = matcher.run(molecules = molecules)

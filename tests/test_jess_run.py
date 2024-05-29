@@ -182,14 +182,12 @@ class Test_single_query_run(unittest.TestCase):
         with self.assertRaises(KeyError):
             matches = jess_run.single_query_run(molecule=self.molecule, templates=self.bad_template_list, rmsd = 2, distance=1.5, max_dynamic_distance=1.5)
 
-# TODO test Matcher class
-# check matcher.run
-
 class TestMatcher(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.default_matcher = jess_run.Matcher()
-        cls.template_matcher = jess_run.Matcher(template_path=str(Path(matcher, 'jess_templates_20230210/5_residues/results/csa3d_0285/').resolve()), cpus=8)
+        selected_templates = template.load_templates(template_dir=Path(matcher, 'jess_templates_20230210/5_residues/results/csa3d_0285/'), warn=False, verbose=False)
+        cls.template_matcher = jess_run.Matcher(templates=selected_templates, cpus=8)
+        cls.template_matcher2 = jess_run.Matcher(templates=selected_templates)
 
         with files(test_data).joinpath("1AMY.pdb").open() as f:
             cls.molecule = pyjess.Molecule.load(f)
@@ -203,13 +201,10 @@ class TestMatcher(unittest.TestCase):
             7: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
             8: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5}}
 
-        self.assertEqual(self.default_matcher.template_path, str(Path(matcher, 'jess_templates_20230210').resolve()))
-        self.assertEqual(self.default_matcher.cpus, (os.cpu_count() or 1) -2 )
-        self.assertEqual(self.default_matcher.jess_params, jess_params)
-        
-        self.assertEqual(self.template_matcher.template_path, str(Path(matcher, 'jess_templates_20230210/5_residues/results/csa3d_0285/').resolve()))
+        self.assertEqual(self.template_matcher.jess_params, jess_params)
         self.assertEqual(self.template_matcher.cpus, 8)
         self.assertEqual(self.template_matcher.template_effective_sizes, [5])
+        self.assertEqual(self.template_matcher2.cpus, (os.cpu_count() or 1)-2)
 
     def test_Matcher_run(self):
         processed_molecules = self.template_matcher.run(list([self.molecule]))
