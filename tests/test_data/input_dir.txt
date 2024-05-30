@@ -1,0 +1,2 @@
+tests/test_data/
+tests/test_data/AF-P0DUB6-F1-model_v4.pdb

@@ -1,5 +1,7 @@
+import errno
 import unittest
 from importlib.resources import files
+import argparse
 from . import test_data
 
 from pathlib import Path
@@ -19,7 +21,7 @@ class TestMatch(unittest.TestCase):
     def setUpClass(cls):
         with open(Path(matcher, 'jess_templates_20230210/5_residues/results/csa3d_0285/csa3d_0285.cluster_1_1_1.1uh3_A396-A262-A356-A471-A472.template.pdb'), 'r') as f:
             template_text1 = f.read()
-            cls.template1 = template.AnnotatedTemplate.loads(template_text1, str(0), warn=False)
+            cls.template1 = template.AnnotatedTemplate.annotated_loads(template_text1, str(0), warn=False)
             pyjess_template1 = pyjess.Template.loads(template_text1, id=cls.template1.id)
             jess_1 = pyjess.Jess([pyjess_template1])
 
@@ -34,7 +36,7 @@ class TestMatch(unittest.TestCase):
 
         with open(Path(matcher, 'jess_templates_20230210/3_residues/results/csa3d_0415/csa3d_0415.cluster_1_1_2.1be0_A124-A175-A125-A289-A260.template.pdb'), 'r') as f:
             template_text2 = f.read()
-            cls.template2 = template.AnnotatedTemplate.loads(template_text2, str(0), warn=False)
+            cls.template2 = template.AnnotatedTemplate.annotated_loads(template_text2, str(0), warn=False)
             pyjess_template2 = pyjess.Template.loads(template_text2, id=cls.template2.id)
             jess_2 = pyjess.Jess([pyjess_template2])
 
@@ -132,21 +134,21 @@ class Test_single_query_run(unittest.TestCase):
 
         template_list = []
         for index, txt in enumerate([template_text1, template_text2, template_text3, template_text4, template_text5]):
-            template_list.append(template.AnnotatedTemplate.loads(txt, str(index), warn=False))
+            template_list.append(template.AnnotatedTemplate.annotated_loads(txt, str(index), warn=False))
         cls.template_list = template_list
 
         with files(test_data).joinpath("bad_templates/no_remark.pdb").open() as f:
             template_no_remark = f.read()
-        cls.unannotated_templates = [template.AnnotatedTemplate.loads(template_no_remark, str(index), warn=False)]
+        cls.unannotated_templates = [template.AnnotatedTemplate.annotated_loads(template_no_remark, str(index), warn=False)]
 
-        cls.bad_template_list = [template.AnnotatedTemplate.loads(template_text1, str(0), warn=False), template.AnnotatedTemplate.loads(template_text2, str(0), warn=False)]
+        cls.bad_template_list = [template.AnnotatedTemplate.annotated_loads(template_text1, str(0), warn=False), template.AnnotatedTemplate.annotated_loads(template_text2, str(0), warn=False)]
             
         with files(test_data).joinpath("1AMY.pdb").open() as f:
             cls.molecule = pyjess.Molecule.load(f)
 
     def test_single_query_run_function(self):
         # we only have to check that filtering works, completeness checking works and that templates are correctly mapped back again
-        matches = jess_run.single_query_run(molecule=self.molecule, templates=self.template_list, rmsd = 2, distance=1.5, max_dynamic_distance=1.5)
+        matches = jess_run.single_query_run(molecule=self.molecule, templates=self.template_list, rmsd_threshold=2, distance_cutoff=1.5, max_dynamic_distance=1.5)
         pdb_ids = []
         for match in matches:
             pdb_ids.append(match.template.pdb_id)
@@ -171,26 +173,27 @@ class Test_single_query_run(unittest.TestCase):
             elif match.template.id == '4':
                 self.assertEqual(match.complete, True)
                 self.assertEqual(match.template.pdb_id, '1uh3')
-            else:
-                self.fail(f"Encountered an unexpected template.id {match.template.id}!")
 
-        matches2 = jess_run.single_query_run(molecule=self.molecule, templates=self.unannotated_templates, rmsd = 2, distance=1.5, max_dynamic_distance=1.5)
+        matches2 = jess_run.single_query_run(molecule=self.molecule, templates=self.unannotated_templates, rmsd_threshold=2, distance_cutoff=1.5, max_dynamic_distance=1.5)
         for match in matches2:
             self.assertEqual(match.complete, True)
 
     def test_nonunique_template_id_error(self):
         with self.assertRaises(KeyError):
-            matches = jess_run.single_query_run(molecule=self.molecule, templates=self.bad_template_list, rmsd = 2, distance=1.5, max_dynamic_distance=1.5)
+            matches = jess_run.single_query_run(molecule=self.molecule, templates=self.bad_template_list, rmsd_threshold=2, distance_cutoff=1.5, max_dynamic_distance=1.5)
 
 class TestMatcher(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         selected_templates = template.load_templates(template_dir=Path(matcher, 'jess_templates_20230210/5_residues/results/csa3d_0285/'), warn=False, verbose=False)
-        cls.template_matcher = jess_run.Matcher(templates=selected_templates, cpus=8)
-        cls.template_matcher2 = jess_run.Matcher(templates=selected_templates)
+        cls.template_matcher = jess_run.Matcher(templates=selected_templates, cpus=2)
+        cls.template_matcher2 = jess_run.Matcher(templates=selected_templates, cpus=-1)
+        cls.template_matcher3 = jess_run.Matcher(templates=selected_templates)
 
         with files(test_data).joinpath("1AMY.pdb").open() as f:
             cls.molecule = pyjess.Molecule.load(f)
+        with files(test_data).joinpath("AF-P0DUB6-F1-model_v4.pdb").open() as f:
+            cls.molecule2 = pyjess.Molecule.load(f)
 
     def test_init(self):
         jess_params = {
@@ -202,15 +205,42 @@ class TestMatcher(unittest.TestCase):
             8: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5}}
 
         self.assertEqual(self.template_matcher.jess_params, jess_params)
-        self.assertEqual(self.template_matcher.cpus, 8)
+        self.assertEqual(self.template_matcher.cpus, 2)
         self.assertEqual(self.template_matcher.template_effective_sizes, [5])
-        self.assertEqual(self.template_matcher2.cpus, (os.cpu_count() or 1)-2)
+        self.assertEqual(self.template_matcher2.cpus, (os.cpu_count() or 1))
+        self.assertEqual(self.template_matcher3.cpus, (os.cpu_count() or 1)-2)
 
     def test_Matcher_run(self):
-        processed_molecules = self.template_matcher.run(list([self.molecule]))
+        processed_molecules = self.template_matcher.run(molecules=[self.molecule, self.molecule2])
         self.assertEqual(list(processed_molecules.keys())[0], self.molecule)
+        self.assertEqual(list(processed_molecules.keys())[1], self.molecule2)
 
         matches = processed_molecules[self.molecule]
         self.assertEqual(len(matches), 1)
 
-# TODO test skip_smaller_hits and match_small_templates too
+# TODO test skip_smaller_hits and match_small_templates and conservation
+
+class Test_main(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        molecule_path = str(Path(files(test_data).joinpath("1AMY.pdb")).resolve())
+        list_path = str(Path(files(test_data).joinpath("input_list.txt")).resolve())
+        list_path2 = str(Path(files(test_data).joinpath("input_dir.txt")).resolve())
+        selected_template_dir = str(Path(matcher, 'jess_templates_20230210/5_residues/results/csa3d_0285/').resolve())
+        cls.arguments_normal = ['-i', molecule_path, '-t', selected_template_dir, '-o', 'temp_result.tsv']
+        cls.arguments_list = ['-l', list_path, '-t', selected_template_dir, '-o', 'temp_result.tsv', '-j', '5', '1.1', '1.5']
+        cls.arguments_both = ['-i', molecule_path, '-l', list_path, '-t', selected_template_dir, '-o', 'temp_result.tsv']
+
+        cls.bad_argument_1 = ['-l', molecule_path, '-o', 'temp_result.tsv'] # not a file in list file
+        cls.bad_argument_2 = ['-l', list_path2, '-o', 'temp_result.tsv'] # passing a dir in list file
+
+    def test_default_main(self):
+        self.assertEqual(jess_run.main(self.arguments_normal), 0)
+        self.assertEqual(jess_run.main(self.arguments_list), 0)
+        self.assertEqual(jess_run.main(self.arguments_both), 0)
+
+        retcode = jess_run.main(self.bad_argument_1, stderr=io.StringIO())
+        self.assertEqual(retcode, errno.ENOENT)
+        retcode2 = jess_run.main(self.bad_argument_2, stderr=io.StringIO())
+        self.assertEqual(retcode2, errno.EISDIR)

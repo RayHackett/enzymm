@@ -13,7 +13,7 @@ import io
 import tempfile
 import math
 
-import pyjess # type: ignore
+import pyjess
 
 from .utils import chunks, ranked_argsort
 
@@ -169,7 +169,7 @@ class Residue:
 
     @property
     def backbone(self) -> bool:
-        """`int`: Boolean, An atom is a backbone atom if it may match ANY or XXX in residue_names
+        """`bool`: Boolean, An atom is a backbone atom if it may match ANY or XXX in residue_names
         """
         return ('ANY' in self.atoms[0].residue_names or 'XXX' in self.atoms[0].residue_names)
 
@@ -181,7 +181,7 @@ class Residue:
 
     @property
     def chain_id(self) -> str:
-        """`int`: Get the pdb chain_id id from the first atom
+        """`str`: Get the pdb chain_id id from the first atom
         """
         return self.atoms[0].chain_id
 
@@ -231,7 +231,7 @@ class AnnotatedTemplate(pyjess.Template):
     cath: List[str] = field(default_factory=list)
     
     def __init__(self,
-            atoms: Iterable[pyjess.TemplateAtom],
+            atoms: Sequence[pyjess.TemplateAtom],
             id: str,
             *,
             pdb_id: Optional[str] = None,
@@ -277,11 +277,11 @@ class AnnotatedTemplate(pyjess.Template):
             super().__setattr__("cath", sorted({*cath, *self._add_cath_annotations()}))
 
     @classmethod # reading from text
-    def loads(cls, text: str, internal_template_id: str, warn: bool = True) -> AnnotatedTemplate:
-        return cls.load(io.StringIO(text), internal_template_id, warn=warn)
+    def annotated_loads(cls, text: str, internal_template_id: str, warn: bool = True) -> AnnotatedTemplate:
+        return cls.annotated_load(io.StringIO(text), internal_template_id, warn=warn)
 
     @classmethod # reading from TextIO
-    def load(cls, file: TextIO, internal_template_id: str, warn: bool = True) -> AnnotatedTemplate:
+    def annotated_load(cls, file: TextIO, internal_template_id: str, warn: bool = True) -> AnnotatedTemplate:
         """Overloaded load to parse a pyjess.Template and its associated info into a AnnotatedTemplate object from TextIO
         """
         atoms = []
@@ -329,9 +329,6 @@ class AnnotatedTemplate(pyjess.Template):
                 raise ValueError('Supplied template with HETATM record. HETATMs cannot be searched by Jess')
             else:
                 continue
-
-        if not atoms: # TODO this is honestly just causing extra errors. if a file has no atoms it matches nothgin and creates no output but also no error. I suppose that is fine?
-            raise ValueError(f'No lines beginning with ATOM were found!')
 
         return AnnotatedTemplate(
             atoms = atoms,
@@ -459,8 +456,8 @@ class AnnotatedTemplate(pyjess.Template):
 
     @classmethod
     def _parse_pdb_id(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
-        if warn and len(tokens[2]) != 4:
-            warnings.warn(f'Found {tokens[2]} which has more than the expected 4 characters of a PDB_ID.')
+        if len(tokens[2]) != 4:
+            raise ValueError(f'Found {tokens[2]} which has more than the expected 4 characters of a PDB_ID.')
         metadata['pdb_id'] = tokens[2].lower()
 
     @classmethod
@@ -487,7 +484,7 @@ class AnnotatedTemplate(pyjess.Template):
         try:
             cluster = Cluster(*list(map(int, tokens[2].split('_'))))
             metadata['cluster'] = cluster
-        except (IndexError, ValueError) as exc:
+        except ValueError as exc:
             raise ValueError(f'Did not find a Cluster specification in the form <id>_<member>_<size>, found {tokens[2]}')
 
     @classmethod
@@ -511,8 +508,8 @@ class AnnotatedTemplate(pyjess.Template):
 
     @classmethod
     def _parse_ec(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
-        matches = [match.group() for match in re.finditer(r'\d{1,2}(\.(\-|\d{1,})){3}', tokens[2])]
-        non_cat_matches = [match.group() for match in re.finditer(r'\d{1,2}(\.(\-|\d{1,}|n\d{1,})){3}', tokens[2])]
+        matches = [match.group() for match in re.finditer(r'[1-7](\.(\-|\d{1,})){3}', tokens[2])]
+        non_cat_matches = [match.group() for match in re.finditer(r'[1-7](\.(\-|\d{1,}|n\d{1,})){3}', tokens[2])]
         if matches:
             for ec in matches:
                 if ec not in metadata['ec']: # type: ignore
@@ -528,13 +525,13 @@ class AnnotatedTemplate(pyjess.Template):
 
     @classmethod
     def _parse_cath(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
-        matches = [match.group() for match in re.finditer(r'\d{1,}(\.(\-|\d{1,})){3}', tokens[2])]
+        matches = [match.group() for match in re.finditer(r'[1-46](\.(\-|\d{1,})){3}', tokens[2])]
         if matches:
             for cath in matches:
-                if ec not in metadata['cath']: # type: ignore
-                    metadata['cath'].append(ec)  # type: ignore
+                if cath not in metadata['cath']: # type: ignore
+                    metadata['cath'].append(cath)  # type: ignore
         else:
-            raise ValueError(f'Did not find a valid EC number, found {tokens[2]}')
+            raise ValueError(f'Did not find a valid CATH number, found {tokens[2]}')
 
     @classmethod
     def _parse_enzyme_discription(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
@@ -601,7 +598,7 @@ def load_templates(template_dir: Path = Path(str(files(__package__).joinpath('je
             try:
                 # TODO print a list of all templates loaded with index: template_path.
                 # Yield the AnnotatedTemplate and its filepath as a tuple
-                yield AnnotatedTemplate.load(file=f, warn=warn, internal_template_id=str(template_index)) # read atom lines using pyjess.TemplateAtoms and create AnnotatedTemplate as instance of pyjess.Template
+                yield AnnotatedTemplate.annotated_load(file=f, warn=warn, internal_template_id=str(template_index)) # read atom lines using pyjess.TemplateAtoms and create AnnotatedTemplate as instance of pyjess.Template
             except ValueError as exc:
                 raise ValueError(f'Passed Template file {template_path.resolve()} contained ATOM lines which are not in Jess Template format.')
 
