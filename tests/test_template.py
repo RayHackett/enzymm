@@ -4,7 +4,7 @@ from matcher import template
 from pathlib import Path
 import math
 import io
-import warnings
+# import warnings
 
 from importlib.resources import files
 from . import test_data

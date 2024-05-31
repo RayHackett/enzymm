@@ -318,18 +318,17 @@ class Matcher:
         if self.warn:
             smaller_sizes = [i for i in self.template_effective_sizes if i < 3]
             if smaller_sizes:
-                print('Templates with an effective size smaller than 3 defined sidechain residues were supplied.')
-                print('The following templates are too small:')
-                for template_size in smaller_sizes:
-                    for tmp in self.templates_by_effective_size[template_size]:
-                        print(tmp.id)
+                small_templates = []
+                for i in smaller_sizes:
+                    small_templates.extend(self.templates_by_effective_size[i])
+
                 if self.match_small_templates:
-                    print('For small templates Jess parameters for templates of 3 residues will be used.')
+                    warnings.warn(f'{len(small_templates)} Templates with an effective size smaller than 3 defined sidechain residues were supplied.\nFor small templates Jess parameters for templates of 3 residues will be used.')
                 else:
-                    print('These will be excluded since these templates are too general')
-                    
-            if any(i > 8 for i in self.template_effective_sizes):
-                print('Templates with more than 8 residues were passed. Jess parameters for templates of 8 residues will be used.')
+                    warnings.warn(f'{len(small_templates)} Templates with an effective size smaller than 3 defined sidechain residues were supplied.\nThese will be excluded since these templates are too general.')
+
+                self.verbose_print('The templates with the following ids are too small:')
+                self.verbose_print(small_templates)
 
     def verbose_print(self, *args):
         if self.verbose:
@@ -409,7 +408,7 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
     parser.add_argument('-v', '--verbose', default=False, action="store_true", help='If process information and time progress should be printed to the command line')
     parser.add_argument('-w', '--warn', default=False, action="store_true", help='If warings about bad template processing or suspicous and missing annotations should be raised')
     parser.add_argument('-q', '--include-query', default=False, action="store_true", help='Include the query structure together with the hits in the pdb output')
-    parser.add_argument('-c', '--conservation-cutoff', default=0, help='Atoms with a value in the B-factor column below this cutoff will be excluded form matching to the templates')
+    parser.add_argument('-c', '--conservation-cutoff', type=float, default=0, help='Atoms with a value in the B-factor column below this cutoff will be excluded form matching to the templates. Useful for predicted structures.')
     parser.add_argument('-n', '--n-jobs', type=int, default=0, help='The number of threads to run in parallel. Pass 1 to run everything in the main thread, 0 to automatically select a suitable number, or any postive number. Negative numbers take all.')
 
     parser.add_argument('--transform', default=False, action="store_true", help='Transform the coordinate system of the hits to that of the template in the pdb output')
@@ -443,7 +442,7 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
         ######## Loading all query molecules #############################
         molecules: List[pyjess.Molecule] = []
         for molecule_path in args.files:
-            molecule = pyjess.Molecule.load(str(molecule_path)) # by default it will stop at ENDMDL
+            molecule = pyjess.Molecule.load(str(molecule_path)) # by default it will stop at ENDMDL # TODO add an id string after Martin maybe fixes the id thing.
             if args.conservation_cutoff: # if martin changes the cutoff function to stop it from making a copy if conservation cutoff is 0 or false or something I can drop this
                 molecule = molecule.conserved(args.conservation_cutoff)
                 # conserved is a method called on a molecule object that returns a filtered molecule

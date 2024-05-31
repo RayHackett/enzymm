@@ -1,4 +1,5 @@
 import unittest
+import json
 
 from matcher import utils
 
@@ -21,3 +22,9 @@ class TestUtils(unittest.TestCase):
 
     def test_json_extract(self):
         self.assertEqual(utils.json_extract({1: 'a', 2: 'b', 3: {1: 'c', 2: 'd'}}, 2), ['b', 'd'])
+        self.assertEqual(utils.json_extract([{1: 'a', 2: 'b'}, {1: 'c', 2: 'd'}], 2), ['b', 'd'])
+
+class TestSetEncoder(unittest.TestCase):
+    def test_encode_set(self):
+        result = json.dumps({'numbers': {1, 2, 3, 4, 5}}, cls=utils.SetEncoder)
+        self.assertEqual(result, '{"numbers": [1, 2, 3, 4, 5]}')

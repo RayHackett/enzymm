@@ -88,7 +88,6 @@ class Residue:
     _indices: Tuple[int, int]
 
     def __init__(self, atoms: Tuple[pyjess.TemplateAtom, pyjess.TemplateAtom, pyjess.TemplateAtom]):
-        assert len(atoms) == 3 # TODO shoud I keep this? I have an error in my AnnotatedTemplates init (and more checking)
         self._vec, self._indices = self.calc_residue_orientation(atoms)
         self._atoms = atoms
 

@@ -1,7 +1,6 @@
 import errno
 import unittest
 from importlib.resources import files
-import argparse
 from . import test_data
 
 from pathlib import Path
@@ -185,15 +184,22 @@ class Test_single_query_run(unittest.TestCase):
 class TestMatcher(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        selected_templates = template.load_templates(template_dir=Path(matcher, 'jess_templates_20230210/5_residues/results/csa3d_0285/'), warn=False, verbose=False)
-        cls.template_matcher = jess_run.Matcher(templates=selected_templates, cpus=2)
-        cls.template_matcher2 = jess_run.Matcher(templates=selected_templates, cpus=-1)
-        cls.template_matcher3 = jess_run.Matcher(templates=selected_templates)
+        res5_templates = list(template.load_templates(template_dir=Path(matcher, 'jess_templates_20230210/5_residues/results/csa3d_0285/'), warn=False, verbose=False))
+        res4_templates = list(template.load_templates(template_dir=Path(matcher, 'jess_templates_20230210/4_residues/results/csa3d_0285'), warn=False, verbose=False))
+        res3_templates = list(template.load_templates(template_dir=Path(matcher, 'jess_templates_20230210/3_residues/results/csa3d_0344'), warn=False, verbose=False))
+
+        selected_templates = res5_templates + res4_templates
+        with_smaller_templates = selected_templates + res3_templates
+        cls.template_matcher = jess_run.Matcher(templates=selected_templates, cpus=2, warn=True)
+        cls.template_matcher2 = jess_run.Matcher(templates=selected_templates, skip_smaller_hits=True)
+        with cls.assertWarns(cls, Warning):
+            cls.template_matcher3 = jess_run.Matcher(templates=with_smaller_templates, match_small_templates=True, warn=True, cpus=-1)
 
         with files(test_data).joinpath("1AMY.pdb").open() as f:
             cls.molecule = pyjess.Molecule.load(f)
         with files(test_data).joinpath("AF-P0DUB6-F1-model_v4.pdb").open() as f:
             cls.molecule2 = pyjess.Molecule.load(f)
+            cls.molecule3 = cls.molecule2.conserved(80)
 
     def test_init(self):
         jess_params = {
@@ -206,30 +212,40 @@ class TestMatcher(unittest.TestCase):
 
         self.assertEqual(self.template_matcher.jess_params, jess_params)
         self.assertEqual(self.template_matcher.cpus, 2)
-        self.assertEqual(self.template_matcher.template_effective_sizes, [5])
-        self.assertEqual(self.template_matcher2.cpus, (os.cpu_count() or 1))
-        self.assertEqual(self.template_matcher3.cpus, (os.cpu_count() or 1)-2)
+        self.assertEqual(self.template_matcher.template_effective_sizes, [5, 4])
+        self.assertEqual(self.template_matcher2.cpus, (os.cpu_count() or 1)-2)
+        self.assertEqual(self.template_matcher3.cpus, (os.cpu_count() or 1))
 
     def test_Matcher_run(self):
-        processed_molecules = self.template_matcher.run(molecules=[self.molecule, self.molecule2])
-        self.assertEqual(list(processed_molecules.keys())[0], self.molecule)
-        self.assertEqual(list(processed_molecules.keys())[1], self.molecule2)
+        processed_molecules_1 = self.template_matcher.run(molecules=[self.molecule, self.molecule2])
+        self.assertEqual(list(processed_molecules_1.keys())[0], self.molecule)
+        self.assertEqual(list(processed_molecules_1.keys())[1], self.molecule2)
+        self.assertEqual(len(processed_molecules_1[self.molecule]), 2)
+        self.assertEqual(len(processed_molecules_1[self.molecule2]), 2)
+        self.assertEqual(processed_molecules_1[self.molecule2][0].query_residue_count, 511)
 
-        matches = processed_molecules[self.molecule]
-        self.assertEqual(len(matches), 1)
+        processed_molecules_2 = self.template_matcher2.run(molecules=[self.molecule, self.molecule3])
+        self.assertEqual(len(processed_molecules_2[self.molecule]), 1) # skip smaller hits
+        self.assertEqual(processed_molecules_2[self.molecule3][0].query_residue_count, 494) # conservation cutoff applied
 
-# TODO test skip_smaller_hits and match_small_templates and conservation
+        processed_molecules_3 = self.template_matcher3.run(molecules=[self.molecule])
+        self.assertEqual(len(processed_molecules_3[self.molecule]), 3) # match-small-templates
+
+# TODO test conservation
 
 class Test_main(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
         molecule_path = str(Path(files(test_data).joinpath("1AMY.pdb")).resolve())
+
         list_path = str(Path(files(test_data).joinpath("input_list.txt")).resolve())
         list_path2 = str(Path(files(test_data).joinpath("input_dir.txt")).resolve())
+
         selected_template_dir = str(Path(matcher, 'jess_templates_20230210/5_residues/results/csa3d_0285/').resolve())
+
         cls.arguments_normal = ['-i', molecule_path, '-t', selected_template_dir, '-o', 'temp_result.tsv']
-        cls.arguments_list = ['-l', list_path, '-t', selected_template_dir, '-o', 'temp_result.tsv', '-j', '5', '1.1', '1.5']
+        cls.arguments_list = ['-l', list_path, '-t', selected_template_dir, '-o', 'temp_result.tsv', '-j', '5', '1.1', '1.5', '-c', '2']
         cls.arguments_both = ['-i', molecule_path, '-l', list_path, '-t', selected_template_dir, '-o', 'temp_result.tsv']
 
         cls.bad_argument_1 = ['-l', molecule_path, '-o', 'temp_result.tsv'] # not a file in list file
