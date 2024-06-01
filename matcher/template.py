@@ -77,7 +77,16 @@ class Vec3:
     def angle_to(self, other: Vec3) -> float: # from https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python
         """ Returns the angle in radians between vectors 'v1' and 'v2':
         """
-        return math.acos(self.normalize() @ other.normalize())
+        dot_product = self.normalize() @ other.normalize()
+        if -1 <= dot_product <= 1:
+            return math.acos(dot_product)
+        else:
+            if math.isclose(dot_product,1): # due to numerical errors two identical vectors may have a dot_product not exactly 1
+                return 0
+            elif math.isclose(dot_product,-1): # same but with opposite vectors
+                return math.pi
+            else:
+                raise ValueError(f'ArcCos is not defined outside [-1,1]')
 
 @dataclass(init=False)
 class Residue:

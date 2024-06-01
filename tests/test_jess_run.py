@@ -251,6 +251,8 @@ class Test_main(unittest.TestCase):
         cls.bad_argument_1 = ['-l', molecule_path, '-o', 'temp_result.tsv'] # not a file in list file
         cls.bad_argument_2 = ['-l', list_path2, '-o', 'temp_result.tsv'] # passing a dir in list file
 
+        # TODO either remove the temp_result.tsv file or avoid writing it? I cant see how that oculd work though
+
     def test_default_main(self):
         self.assertEqual(jess_run.main(self.arguments_normal), 0)
         self.assertEqual(jess_run.main(self.arguments_list), 0)

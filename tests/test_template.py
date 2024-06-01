@@ -4,7 +4,6 @@ from matcher import template
 from pathlib import Path
 import math
 import io
-# import warnings
 
 from importlib.resources import files
 from . import test_data
@@ -42,6 +41,10 @@ class TestVec3(unittest.TestCase):
         cls.vec1 = template.Vec3(1.0, 2.0, 3.0)
         cls.vec2 = template.Vec3(-0.275, 2.8, 0.837)
         cls.vec3 = template.Vec3(0, 0 ,0)
+        cls.vec4 = template.Vec3(1.00000000001, 0, 0)
+        cls.vec5 = template.Vec3(-1, 0, 0)
+        cls.vec6 = template.Vec3(-0.43667809853452577, 0.6652199071133453, 0.6056357927338702)
+        cls.vec7 = template.Vec3(-0.4366780985345203, 0.6652199071133459, 0.6056357927338736)
         cls.notavec = (0, 3, 5)
 
     def test_attributes(self):
@@ -127,6 +130,9 @@ class TestVec3(unittest.TestCase):
 
     def test_angle_to(self):
         self.assertAlmostEqual(self.vec1.angle_to(self.vec2), math.acos(0.713465))
+        self.assertAlmostEqual(self.vec4.angle_to(self.vec4), 0)
+        self.assertAlmostEqual(self.vec4.angle_to(self.vec5), math.pi)
+        self.assertAlmostEqual(self.vec6.angle_to(self.vec7), 0)
 
 class TestCluster(unittest.TestCase):
 

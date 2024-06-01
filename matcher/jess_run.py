@@ -498,7 +498,7 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
 
         if args.pdbs:
             for molecule, matches in processed_molecules.items():
-                write_hits2_pdb(matches=matches, filename=molecule.id, outdir=args.pdbs) # TODO maybe write it to the name of the input file?
+                write_hits2_pdb(matches=matches, filename=molecule.id, outdir=args.pdbs) # TODO this will be fixed when we pass 
 
     except IsADirectoryError as exc:
         print("File is a directory:", exc.filename, file=stderr)
