@@ -225,7 +225,8 @@ def single_query_run(molecule: pyjess.Molecule, templates: List[AnnotatedTemplat
     matches: List[Match] = []
     for hit in query: # hit is pyjess.Hit
         template = id_to_template[hit.template.id]
-        matches.append(Match(hit=hit, template=template))
+        if hit.molecule.id.lower() != template.pdb_id.lower(): # TODO to avoid self matches. this is technically user responsiblilitz and not part of the package
+            matches.append(Match(hit=hit, template=template))
 
     def _check_completeness(matches: List[Match]):
         # only after all templates of a certain size have been scanned could we compute the complete tag

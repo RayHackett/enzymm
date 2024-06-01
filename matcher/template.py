@@ -81,9 +81,9 @@ class Vec3:
         if -1 <= dot_product <= 1:
             return math.acos(dot_product)
         else:
-            if math.isclose(dot_product,1): # due to numerical errors two identical vectors may have a dot_product not exactly 1
+            if math.isclose(dot_product,1, rel_tol=1e-5): # due to numerical errors two identical vectors may have a dot_product not exactly 1
                 return 0
-            elif math.isclose(dot_product,-1): # same but with opposite vectors
+            elif math.isclose(dot_product,-1, rel_tol=1e-5): # same but with opposite vectors
                 return math.pi
             else:
                 raise ValueError(f'ArcCos is not defined outside [-1,1]')
