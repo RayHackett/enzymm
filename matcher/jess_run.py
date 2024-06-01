@@ -483,7 +483,10 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
             for index, (molecule, matches) in enumerate(processed_molecules.items()):
                 for jndex, match in enumerate(matches):
                     i = index+jndex
-                    match.dump(tsvfile, header=i==0) # one line per match, write header only for the first match
+                    try:
+                        match.dump(tsvfile, header=i==0) # one line per match, write header only for the first match
+                    except ValueError:
+                        print(f'encountered problem dumping {match.hit.molecule.id} and {match.template.id}')
 
         def write_hits2_pdb(matches: List[Match], filename: str, outdir: Path):
             outdir.mkdir(parents=True, exist_ok=True)
