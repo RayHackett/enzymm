@@ -31,6 +31,10 @@ class Vec3:
     y: float
     z: float
 
+    def __post_init__(self):
+        if math.isnan(self.x) or math.isnan(self.y) or math.isnan(self.z):
+            raise ValueError("Cannot create a Vec3 with NaN values. Likely the Jess superposition failed.")
+
     @classmethod
     def from_xyz(cls, item: Any) -> Vec3:
         return Vec3(item.x, item.y, item.z)
@@ -86,7 +90,7 @@ class Vec3:
             elif math.isclose(dot_product,-1, rel_tol=1e-5): # same but with opposite vectors
                 return math.pi
             else:
-                raise ValueError(f'ArcCos is not defined outside [-1,1]')
+                raise ValueError(f'ArcCos is not defined outside [-1,1]. self.vec is {[self.x, self.y, self.z]}, other vec is {[other.x, other.y, other.z]}')
 
 @dataclass(init=False)
 class Residue:

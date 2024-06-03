@@ -15,7 +15,7 @@ def filter_hits(hits: List[pyjess.Hit], all_instances=False) -> List[pyjess.Hit]
     # For each sub-list find the best hit and append it to a list (of length equal to the number of sub-lists)
     # Group hit objects by the pair (hit.template, hit.target)
     def get_key(obj: pyjess.Hit) -> Tuple[str, str]:
-        return obj.template.id, obj.molecule.id
+        return obj.template.id, obj.molecule.id # type: ignore # my molecules always have a unique id
 
     grouped_hits = [list(g) for _, g in itertools.groupby(sorted(hits, key=get_key), get_key)]
 

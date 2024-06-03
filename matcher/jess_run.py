@@ -225,8 +225,7 @@ def single_query_run(molecule: pyjess.Molecule, templates: List[AnnotatedTemplat
     matches: List[Match] = []
     for hit in query: # hit is pyjess.Hit
         template = id_to_template[hit.template.id]
-        if hit.molecule.id.lower() != template.pdb_id.lower(): # TODO to avoid self matches. this is technically user responsiblilitz and not part of the package
-            matches.append(Match(hit=hit, template=template))
+        matches.append(Match(hit=hit, template=template))
 
     def _check_completeness(matches: List[Match]):
         # only after all templates of a certain size have been scanned could we compute the complete tag
@@ -312,6 +311,14 @@ class Matcher:
         for template in templates:
             if check_template(template, warn=self.warn): # returns True if the Template passed all checks or if warn is set to False
                 self.templates_by_effective_size[template.effective_size].append(template)
+
+        if self.verbose:
+            template_number_dict: Dict[int, int] = {}
+            for size, template_list in self.templates_by_effective_size.items():
+                if not self.match_small_templates and size < 3:
+                    continue
+                template_number_dict[size] = len(template_list)
+            print(f'Templates by effective size: {collections.OrderedDict(sorted(template_number_dict.items()))}')
         
         self.template_effective_sizes = list(self.templates_by_effective_size.keys())
         self.template_effective_sizes.sort(reverse=True) # get a list of template_sizes in decending order
@@ -442,9 +449,18 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
 
         ######## Loading all query molecules #############################
         molecules: List[pyjess.Molecule] = []
+        stem_counter: Dict[str, int] = collections.defaultdict(int)
         for molecule_path in args.files:
-            molecule = pyjess.Molecule.load(str(molecule_path)) # by default it will stop at ENDMDL # TODO add an id string after Martin maybe fixes the id thing.
-            if args.conservation_cutoff: # if martin changes the cutoff function to stop it from making a copy if conservation cutoff is 0 or false or something I can drop this
+            stem = Path(molecule_path).stem
+            stem_counter[stem] += 1
+            if stem_counter[stem] > 1:
+                # In case the same stem occurs multiple times, create a unique ID using the stem and a running number starting from 2
+                unique_id = f"{stem}_{stem_counter[stem]}"
+            else:
+                unique_id = stem
+
+            molecule = pyjess.Molecule.load(str(molecule_path), id=unique_id) # by default it will stop at ENDMDL
+            if args.conservation_cutoff: # if the pyjess cutoff function changes to stop it from making a copy if conservation cutoff is 0 or false or something I can drop this
                 molecule = molecule.conserved(args.conservation_cutoff)
                 # conserved is a method called on a molecule object that returns a filtered molecule
                 # atoms with a temperature-factor BELOW the conservation cutoff will be excluded
@@ -484,14 +500,11 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
             for index, (molecule, matches) in enumerate(processed_molecules.items()):
                 for jndex, match in enumerate(matches):
                     i = index+jndex
-                    try:
-                        match.dump(tsvfile, header=i==0) # one line per match, write header only for the first match
-                    except ValueError:
-                        print(f'encountered problem dumping {match.hit.molecule.id} and {match.template.id}')
+                    match.dump(tsvfile, header=i==0) # one line per match, write header only for the first match
 
         def write_hits2_pdb(matches: List[Match], filename: str, outdir: Path):
             outdir.mkdir(parents=True, exist_ok=True)
-            # TODO somehow we need to give unique filenames in case molecule.id is not unique
+            # make sure molecule.id is unique!
             with open(Path(outdir, f'{filename}_matches.pdb'), 'w', encoding ="utf-8") as pdbfile:
                 if args.include_query: # write the molecule structure to the top of the pdb output too
                     for i, match in enumerate(matches):
@@ -502,7 +515,7 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
 
         if args.pdbs:
             for molecule, matches in processed_molecules.items():
-                write_hits2_pdb(matches=matches, filename=molecule.id, outdir=args.pdbs) # TODO this will be fixed when we pass 
+                write_hits2_pdb(matches=matches, filename=molecule.id, outdir=args.pdbs) # type: ignore
 
     except IsADirectoryError as exc:
         print("File is a directory:", exc.filename, file=stderr)
