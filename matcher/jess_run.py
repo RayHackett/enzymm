@@ -300,7 +300,7 @@ class Matcher:
             ####### Default Jess parameters by Size ##################################
             self.jess_params = {
                 3: {'rmsd': 2, 'distance': 1, 'max_dynamic_distance': 1},
-                4: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
+                4: {'rmsd': 2, 'distance': 1.7, 'max_dynamic_distance': 1.7},
                 5: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
                 6: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
                 7: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},

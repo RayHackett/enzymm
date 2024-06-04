@@ -318,6 +318,8 @@ class AnnotatedTemplate(pyjess.Template):
             'REPRESENTING': cls._parse_represented_sites
         }
                 
+        # Note that currently mutliple templates per file are not supported by this parser function.
+        # Note this parser does not check for the existance of a header like REMARK TEMPLATE
         atom_lines = []
         for line in filter(str.strip, file):
             tokens = line.split()
