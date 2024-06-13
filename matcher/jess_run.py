@@ -299,12 +299,12 @@ class Matcher:
         else:
             ####### Default Jess parameters by Size ##################################
             self.jess_params = {
-                3: {'rmsd': 2, 'distance': 1, 'max_dynamic_distance': 1},
+                3: {'rmsd': 2, 'distance': 0.9, 'max_dynamic_distance': 0.9},
                 4: {'rmsd': 2, 'distance': 1.7, 'max_dynamic_distance': 1.7},
-                5: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
-                6: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
-                7: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
-                8: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5}}
+                5: {'rmsd': 2, 'distance': 2.0, 'max_dynamic_distance': 2.0},
+                6: {'rmsd': 2, 'distance': 2.0, 'max_dynamic_distance': 2.0},
+                7: {'rmsd': 2, 'distance': 2.0, 'max_dynamic_distance': 2.0},
+                8: {'rmsd': 2, 'distance': 2.0, 'max_dynamic_distance': 2.0}}
 
         # check each template and if it passes add it to the dictionary of templates
         self.templates_by_effective_size: Dict[int, List[AnnotatedTemplate]] = collections.defaultdict(list) # Dictionary of List of AnnoatedTemplate objects grouped by Template.effective_size as keys

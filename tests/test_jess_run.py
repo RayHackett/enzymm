@@ -8,7 +8,7 @@ import io
 import os
 
 from matcher import template, jess_run
-import pyjess # type: ignore
+import pyjess
 
 matcher = Path(__package__).parent / 'matcher/'
 
@@ -203,12 +203,12 @@ class TestMatcher(unittest.TestCase):
 
     def test_init(self):
         jess_params = {
-            3: {'rmsd': 2, 'distance': 1, 'max_dynamic_distance': 1},
-            4: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
-            5: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
-            6: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
-            7: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5},
-            8: {'rmsd': 2, 'distance': 1.5, 'max_dynamic_distance': 1.5}}
+            3: {'rmsd': 2, 'distance': 0.9, 'max_dynamic_distance': 0.9},
+            4: {'rmsd': 2, 'distance': 1.7, 'max_dynamic_distance': 1.7},
+            5: {'rmsd': 2, 'distance': 2.0, 'max_dynamic_distance': 2.0},
+            6: {'rmsd': 2, 'distance': 2.0, 'max_dynamic_distance': 2.0},
+            7: {'rmsd': 2, 'distance': 2.0, 'max_dynamic_distance': 2.0},
+            8: {'rmsd': 2, 'distance': 2.0, 'max_dynamic_distance': 2.0}}
 
         self.assertEqual(self.template_matcher.jess_params, jess_params)
         self.assertEqual(self.template_matcher.cpus, 2)
