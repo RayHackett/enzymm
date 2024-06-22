@@ -3,7 +3,6 @@ import unittest
 from matcher import template
 from pathlib import Path
 import math
-import io
 
 from importlib.resources import files
 from . import test_data
@@ -14,13 +13,13 @@ class TestIntegration(unittest.TestCase):
 
     def test_load_templates(self):
         with self.assertRaises(FileNotFoundError):
-            templates = list(template.load_templates(Path("/some/bogus/folder")))
+            list(template.load_templates(Path("/some/bogus/folder"),warn=False))
         
         with self.assertRaises(NotADirectoryError):
-            templates = list(template.load_templates(Path(files(test_data).joinpath("bad_templates/pdb_id_none.pdb"))))
+            list(template.load_templates(Path(files(test_data).joinpath("bad_templates/pdb_id_none.pdb")),warn=False))
 
         with self.assertRaises(ValueError):
-            templates = list(template.load_templates(Path(files(test_data))))
+            list(template.load_templates(Path(files(test_data)),warn=False))
 
         # End to End test loading all supplied templates
         self.assertEqual(len(list(template.load_templates(warn=False))), 7611) # check if all the expected templates were found
@@ -227,23 +226,23 @@ class TestAnnotatedTemplate(unittest.TestCase):
 
     def test_bad_loads(self):
         with self.assertWarns(Warning):
-            template1 = template.AnnotatedTemplate.annotated_loads(self.template_empty_remark, str(0), warn=True)
+            template.AnnotatedTemplate.annotated_loads(self.template_empty_remark, str(0), warn=True)
         with self.assertRaises(ValueError):
-            template1 = template.AnnotatedTemplate.annotated_loads(self.template_hetatm, str(0), warn=True)
+            template.AnnotatedTemplate.annotated_loads(self.template_hetatm, str(0), warn=True)
         with self.assertRaises(IndexError):
-            template1 = template.AnnotatedTemplate.annotated_loads(self.template_missing_cluster_annotation, str(0), warn=True)
+            template.AnnotatedTemplate.annotated_loads(self.template_missing_cluster_annotation, str(0), warn=True)
         with self.assertRaises(ValueError):
-            template1 = template.AnnotatedTemplate.annotated_loads(self.template_malformed_residue_1, str(0), warn=True)
+            template.AnnotatedTemplate.annotated_loads(self.template_malformed_residue_1, str(0), warn=True)
         with self.assertRaises(ValueError):
-            template1 = template.AnnotatedTemplate.annotated_loads(self.template_malformed_residue_2, str(0), warn=True)
+            template.AnnotatedTemplate.annotated_loads(self.template_malformed_residue_2, str(0), warn=True)
         with self.assertRaises(ValueError):
-            template1 = template.AnnotatedTemplate.annotated_loads(self.template_malformed_residue_3, str(0), warn=True)
+            template.AnnotatedTemplate.annotated_loads(self.template_malformed_residue_3, str(0), warn=True)
 
         # These do not raise Warnings or errors
-        template1 = template.AnnotatedTemplate.annotated_loads(self.template_no_remark, str(0), warn=True)
-        template1 = template.AnnotatedTemplate.annotated_loads(self.template_new_remark, str(0), warn=True)
-        template1 = template.AnnotatedTemplate.annotated_loads(self.template_pdb_id_none, str(0), warn=True)
-        template1 = template.AnnotatedTemplate.annotated_loads(self.not_a_template, str(0), warn=True)
+        template.AnnotatedTemplate.annotated_loads(self.template_no_remark, str(0), warn=True)
+        template.AnnotatedTemplate.annotated_loads(self.template_new_remark, str(0), warn=True)
+        template.AnnotatedTemplate.annotated_loads(self.template_pdb_id_none, str(0), warn=True)
+        template.AnnotatedTemplate.annotated_loads(self.not_a_template, str(0), warn=True)
 
     def test_dump(self):
         pass # TODO when atoms have dump method
@@ -297,15 +296,15 @@ class TestResidue(unittest.TestCase):
 
     def test_unkown_resids(self):
         with self.assertRaises(KeyError):
-            template1 = template.AnnotatedTemplate.annotated_loads(self.template_unkown_residue_text, str(0), warn=True)
+            template.AnnotatedTemplate.annotated_loads(self.template_unkown_residue_text, str(0), warn=True)
 
     def test_bad_atoms_in_orientation(self):
         with self.assertRaises(ValueError):
-            template1 = template.AnnotatedTemplate.annotated_loads(self.bad_atom_names_1, str(0), warn=True)
+            template.AnnotatedTemplate.annotated_loads(self.bad_atom_names_1, str(0), warn=True)
         with self.assertRaises(ValueError):
-            template1 = template.AnnotatedTemplate.annotated_loads(self.bad_atom_names_2, str(0), warn=True)
+            template.AnnotatedTemplate.annotated_loads(self.bad_atom_names_2, str(0), warn=True)
         with self.assertRaises(ValueError):
-            template1 = template.AnnotatedTemplate.annotated_loads(self.bad_atom_names_3, str(0), warn=True)
+            template.AnnotatedTemplate.annotated_loads(self.bad_atom_names_3, str(0), warn=True)
 
     def test_attributes(self):
         self.assertEqual(self.residue1.residue_name, 'GLU')
