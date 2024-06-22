@@ -1,17 +1,13 @@
 import argparse
 import collections
 from pathlib import Path
-from importlib.resources import files
-from typing import List, Set, Tuple, Dict, Optional, Union, TextIO, Iterator, Iterable, IO
+from typing import List, Tuple, Dict, Optional, IO
 from functools import cached_property
 from dataclasses import dataclass, field
-import errno
-import tempfile
 import warnings
 import csv
 import itertools
 import io
-import time
 import sys
 import os
 
@@ -25,9 +21,9 @@ from multiprocessing.pool import ThreadPool
 import functools
 
 __all__ = [
-    "Match"
-    "single_query_run"
-    "Matcher"
+    "Match",
+    "single_query_run",
+    "Matcher",
 ]
 
 @dataclass
@@ -58,13 +54,13 @@ class Match:
                 file.write(write_atom_line(atom))
             file.write('END\n\n')
 
-        file.write(f'REMARK TEMPLATE_PDB_ID {str(self.template.pdb_id)}\n')
+        file.write(f'REMARK TEMPLATE_PDB {str(self.template.pdb_id)}_{",".join(set(res.chain_id for res in self.template.residues))}\n')
         file.write(f'REMARK MOLECULE_ID {str(self.hit.molecule.id)}\n')
 
         if transform:
-            file.write(f'REMARK TEMPLATE COORDINATE FRAME\n')
+            file.write('REMARK TEMPLATE COORDINATE FRAME\n')
         else:
-            file.write(f'REMARK QUERY COORDINATE FRAME\n')
+            file.write('REMARK QUERY COORDINATE FRAME\n')
 
         for atom in self.hit.atoms(transform=transform): # if transform == True then the atom coordinates are transformed to the template reference frame
             file.write(write_atom_line(atom))
@@ -76,6 +72,7 @@ class Match:
                 writer.writerow([
                     "query_id",
                     "template_pdb_id",
+                    "template_pdb_chains",
                     "template_cluster_id",
                     "template_cluster_member",
                     "template_cluster_size",
@@ -99,6 +96,7 @@ class Match:
         writer.writerow([
                 str(self.hit.molecule.id),
                 str(self.template.pdb_id if self.template.pdb_id else ''),
+                (','.join(set(res.chain_id for res in self.template.residues))),
                 str(self.template.cluster.id if self.template.cluster else ''),
                 str(self.template.cluster.member if self.template.cluster else ''),
                 str(self.template.cluster.size if self.template.cluster else ''),
@@ -438,12 +436,12 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
         max_dynamic_distance = jess_params_list[2] # if equal to distance dynamic is off: this option is currenlty dysfunctional
     
         jess_params = {
-            3: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance},
-            4: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance},
-            5: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance},
-            6: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance},
-            7: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance},
-            8: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': distance}}
+            3: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': max_dynamic_distance},
+            4: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': max_dynamic_distance},
+            5: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': max_dynamic_distance},
+            6: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': max_dynamic_distance},
+            7: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': max_dynamic_distance},
+            8: {'rmsd': rmsd, 'distance': distance, 'max_dynamic_distance': max_dynamic_distance}}
 
     try:
 
@@ -470,7 +468,7 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
                 warnings.warn(f"received an empty molecule from {molecule_path}")
 
         if not molecules and args.warn:
-            warnings.warn(f"received no molecules from input")
+            warnings.warn("received no molecules from input")
 
         if args.template_dir:
             templates = list(load_templates(template_dir=Path(args.template_dir), warn=args.warn, verbose=args.verbose))

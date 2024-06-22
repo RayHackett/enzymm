@@ -6,11 +6,10 @@ import re
 import json
 from importlib.resources import files
 from pathlib import Path
-from typing import Any, Sequence, List, Tuple, Set, Dict, Optional, Union, TextIO, Iterator, Iterable, ClassVar, IO
+from typing import Any, Sequence, List, Tuple, Dict, Optional, Union, TextIO, Iterator, Iterable, ClassVar, IO
 from functools import cached_property
 from dataclasses import dataclass, field
 import io
-import tempfile
 import math
 
 import pyjess
@@ -325,7 +324,7 @@ class AnnotatedTemplate(pyjess.Template):
             tokens = line.split()
             if tokens[0] == 'REMARK':
                 if warn and len(tokens) == 1:
-                    warnings.warn(f'Expected some annotation information after the REMARK flag. Line Skipped.')
+                    warnings.warn('Expected some annotation information after the REMARK flag. Line Skipped.')
                     continue
                 parser = _PARSERS.get(tokens[1])
                 if parser is not None:
@@ -336,7 +335,7 @@ class AnnotatedTemplate(pyjess.Template):
                     parser(tokens, metadata, warn=warn)
             elif tokens[0] == 'ATOM':
                 if line in atom_lines:
-                    raise ValueError(f'Duplicate Atom lines passed!')
+                    raise ValueError('Duplicate Atom lines passed!')
                 atom_lines.append(line)
                 atoms.append(pyjess.TemplateAtom.loads(line))
             elif tokens[0] == 'HETATM':
@@ -356,21 +355,35 @@ class AnnotatedTemplate(pyjess.Template):
         return buffer.getvalue() # returns entire content temporary file object as a string
 
     def dump(self, file: IO[str]):
-        file.write(f'REMARK TEMPLATE\n')
-        if self.template_id_string : file.write(f'REMARK ID {self.template_id_string}\n')
-        if self.pdb_id : file.write(f"REMARK PDB_ID {self.pdb_id}\n")
-        if self.mcsa_id : file.write(f"REMARK MCSA_ID {self.mcsa_id}\n")
-        if self.uniprot_id : file.write(f"REMARK UNIPROT_ID {self.uniprot_id}\n")
-        if self.cluster : file.write(f"REMARK CLUSTER {'_'.join([str(self.cluster.id), str(self.cluster.member), str(self.cluster.size)])}\n")
-        if self.organism : file.write(f"REMARK ORGANISM_NAME {self.organism}\n")
-        if self.organism_id : file.write(f"REMARK ORGANISM_ID {self.organism_id}\n")
-        if self.resolution : file.write(f"REMARK RESOLUTION {self.resolution}\n")
-        if self.experimental_method : file.write(f"REMARK EXPERIMENTAL_METHOD {self.experimental_method}\n")
-        if self.enzyme_discription : file.write(f"REMARK ENZYME {self.enzyme_discription}\n")
-        if self.represented_sites : file.write(f"REMARK REPRESENTING {self.represented_sites} CATALYTIC SITES\n")
-        if self.experimental_method : file.write(f"REMARK EXPERIMENTAL_METHOD {self.experimental_method}\n")
-        if self.ec : file.write(f"REMARK EC {','.join(self.ec)}\n")
-        if self.cath : file.write(f"REMARK CATH {','.join(self.cath)}")
+        file.write('REMARK TEMPLATE\n')
+        if self.template_id_string:
+            file.write(f'REMARK ID {self.template_id_string}\n')
+        if self.pdb_id:
+            file.write(f"REMARK PDB_ID {self.pdb_id}\n")
+        if self.mcsa_id:
+            file.write(f"REMARK MCSA_ID {self.mcsa_id}\n")
+        if self.uniprot_id:
+            file.write(f"REMARK UNIPROT_ID {self.uniprot_id}\n")
+        if self.cluster: 
+            file.write(f"REMARK CLUSTER {'_'.join([str(self.cluster.id), str(self.cluster.member), str(self.cluster.size)])}\n")
+        if self.organism: 
+            file.write(f"REMARK ORGANISM_NAME {self.organism}\n")
+        if self.organism_id: 
+            file.write(f"REMARK ORGANISM_ID {self.organism_id}\n")
+        if self.resolution:
+            file.write(f"REMARK RESOLUTION {self.resolution}\n")
+        if self.experimental_method:
+            file.write(f"REMARK EXPERIMENTAL_METHOD {self.experimental_method}\n")
+        if self.enzyme_discription:
+            file.write(f"REMARK ENZYME {self.enzyme_discription}\n")
+        if self.represented_sites:
+            file.write(f"REMARK REPRESENTING {self.represented_sites} CATALYTIC SITES\n")
+        if self.experimental_method:
+            file.write(f"REMARK EXPERIMENTAL_METHOD {self.experimental_method}\n")
+        if self.ec:
+            file.write(f"REMARK EC {','.join(self.ec)}\n")
+        if self.cath:
+            file.write(f"REMARK CATH {','.join(self.cath)}")
         file.write(f'REMARK SIZE {self.effective_size}\n')
         file.write(f'REMARK DIMENSION {self.dimension}\n')
         file.write(f'REMARK MULTIMERIC {self.multimeric}\n')
@@ -381,7 +394,8 @@ class AnnotatedTemplate(pyjess.Template):
 
         for residue in self.residues:
             for atom in residue.atoms:
-                atom.dump(file)
+                raise NotImplementedError('Still need to write a dump method for templates in PyJess')
+                # atom.dump(file)
 
         file.write('END\n')
     
@@ -404,7 +418,7 @@ class AnnotatedTemplate(pyjess.Template):
 
         effective_size = 0
         for residue in self.residues:
-            if residue.match_mode < 100 and residue.backbone == False: # type specific and not Backbone
+            if residue.match_mode < 100 and not residue.backbone: # type specific and not Backbone
                 effective_size += 1
         return effective_size
 
@@ -499,7 +513,7 @@ class AnnotatedTemplate(pyjess.Template):
             cluster = Cluster(*list(map(int, tokens[2].split('_'))))
             metadata['cluster'] = cluster
         except ValueError as exc:
-            raise ValueError(f'Did not find a Cluster specification in the form <id>_<member>_<size>, found {tokens[2]}')
+            raise ValueError(f'Did not find a Cluster specification in the form <id>_<member>_<size>, found {tokens[2]}') from exc
 
     @classmethod
     def _parse_organism_name(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
@@ -514,7 +528,7 @@ class AnnotatedTemplate(pyjess.Template):
         try:
             metadata['resolution'] = float(tokens[2])
         except ValueError as exc:
-            raise ValueError(f'Ill-formatted pdb resolution: {tokens[2]}')
+            raise ValueError(f'Ill-formatted pdb resolution: {tokens[2]}') from exc
 
     @classmethod
     def _parse_experimental_method(cls, tokens: List[str], metadata: dict[str, object], warn: bool = True):
@@ -556,7 +570,7 @@ class AnnotatedTemplate(pyjess.Template):
         try:
             metadata['represented_sites'] = int(tokens[2])
         except ValueError as exc:
-            raise ValueError(f'Ill-formatted number of represented sites: {tokens[2]}')
+            raise ValueError(f'Ill-formatted number of represented sites: {tokens[2]}') from exc
 
 # Populate the mapping of MCSA IDs to CATH numbers so that it can be accessed
 # by individual templates in the `Template.cath` property.
@@ -614,7 +628,7 @@ def load_templates(template_dir: Path = Path(str(files(__package__).joinpath('je
                 # Yield the AnnotatedTemplate and its filepath as a tuple
                 yield AnnotatedTemplate.annotated_load(file=f, warn=warn, internal_template_id=str(template_index)) # read atom lines using pyjess.TemplateAtoms and create AnnotatedTemplate as instance of pyjess.Template
             except ValueError as exc:
-                raise ValueError(f'Passed Template file {template_path.resolve()} contained ATOM lines which are not in Jess Template format.')
+                raise ValueError(f'Passed Template file {template_path.resolve()} contained ATOM lines which are not in Jess Template format.') from exc
 
 def check_template(template: AnnotatedTemplate, warn: bool = True) -> bool:
     # TODO improve this and write tests
