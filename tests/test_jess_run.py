@@ -179,7 +179,7 @@ class Test_single_query_run(unittest.TestCase):
 
     def test_nonunique_template_id_error(self):
         with self.assertRaises(KeyError):
-            matches = jess_run.single_query_run(molecule=self.molecule, templates=self.bad_template_list, rmsd_threshold=2, distance_cutoff=1.5, max_dynamic_distance=1.5)
+            jess_run.single_query_run(molecule=self.molecule, templates=self.bad_template_list, rmsd_threshold=2, distance_cutoff=1.5, max_dynamic_distance=1.5)
 
 class TestMatcher(unittest.TestCase):
     @classmethod
