@@ -46,6 +46,7 @@ class TestMatch(unittest.TestCase):
 
     def test_match(self):
         self.assertEqual(self.match1.hit.molecule.id, '1AMY')
+        self.assertEqual(self.match1.index, 0)
         self.assertEqual(self.match1.template.id, self.template1.id)
         self.assertEqual(self.match1.template.pdb_id, self.template1.pdb_id)
         self.assertEqual(self.match1.template.effective_size, self.template1.effective_size)
@@ -92,13 +93,13 @@ class TestMatch(unittest.TestCase):
             self.assertEqual(buffer.getvalue(), f.read())
 
     def test_match_dumps(self):
-        dumps_string = 'query_id	template_pdb_id	template_pdb_chains	template_cluster_id	template_cluster_member	template_cluster_size	template_effective_size	template_dimension	template_mcsa_id	template_uniprot_id	template_ec	template_cath	template_multimeric	query_multimeric	query_atom_count	query_residue_count	rmsd	log_evalue	orientation	preserved_order	completeness	matched_residues\n1AMY	1uh3	A	1	1	1	5	5	285	Q60053	3.2.1.10,3.2.1.135	2.60.40.10,2.60.40.1180,3.20.20.80	False	False	3339	558	0.32093143180639955	-3.084244780540347	0.1532705432273403	True	True	GLU_A_204,ASP_A_87,ASP_A_179,HIS_A_288,ASP_A_289\n'
+        dumps_string = 'query_id	match_index	template_pdb_id	template_pdb_chains	template_cluster_id	template_cluster_member	template_cluster_size	template_effective_size	template_dimension	template_mcsa_id	template_uniprot_id	template_ec	template_cath	template_multimeric	query_multimeric	query_atom_count	query_residue_count	rmsd	log_evalue	orientation	preserved_order	completeness	matched_residues\n1AMY	0	1uh3	A	1	1	1	5	5	285	Q60053	3.2.1.10,3.2.1.135	2.60.40.10,2.60.40.1180,3.20.20.80	False	False	3339	558	0.32093143180639955	-3.084244780540347	0.1532705432273403	True	True	GLU_A_204,ASP_A_87,ASP_A_179,HIS_A_288,ASP_A_289\n'
         self.assertEqual(self.match1.dumps(header=True), dumps_string)
 
     def test_match_dump2pdb(self):
         buffer = io.StringIO()
         self.match1.dump2pdb(buffer, transform=False, include_query=False)
-        with files(test_data).joinpath("1AMY_matches_query.pdb").open() as f:
+        with files(test_data).joinpath("1AMY_matches_no_query.pdb").open() as f:
             self.assertEqual(buffer.getvalue(), f.read())
 
     def test_match_dump2pdb_with_query(self):

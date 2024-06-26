@@ -32,7 +32,7 @@ class Match:
     hit: pyjess.Hit
     template: AnnotatedTemplate
     complete: bool = field(default=False)
-    # maybe have the raw PDB output for use with pymol too
+    index: int = field(default=0)
 
     def dumps(self, header:bool = False) -> str:
         buffer = io.StringIO()
@@ -55,7 +55,12 @@ class Match:
             file.write('END\n\n')
 
         file.write(f'REMARK TEMPLATE_PDB {str(self.template.pdb_id)}_{",".join(set(res.chain_id for res in self.template.residues))}\n')
+        if self.template.cluster:
+            file.write(f'REMARK TEMPLATE CLUSTER {str(self.template.cluster.id)}_{str(self.template.cluster.member)}_{str(self.template.cluster.size)}\n')
+        if self.template.represented_sites:
+            file.write(f'REMARK TEMPLATE RESIDUES {str(self.template.template_id_string)}\n')
         file.write(f'REMARK MOLECULE_ID {str(self.hit.molecule.id)}\n')
+        file.write(f'MATCH INDEX {self.index}\n')
 
         if transform:
             file.write('REMARK TEMPLATE COORDINATE FRAME\n')
@@ -71,6 +76,7 @@ class Match:
         if header:
                 writer.writerow([
                     "query_id",
+                    "match_index",
                     "template_pdb_id",
                     "template_pdb_chains",
                     "template_cluster_id",
@@ -95,6 +101,7 @@ class Match:
 
         writer.writerow([
                 str(self.hit.molecule.id),
+                str(self.index),
                 str(self.template.pdb_id if self.template.pdb_id else ''),
                 (','.join(set(res.chain_id for res in self.template.residues))),
                 str(self.template.cluster.id if self.template.cluster else ''),
@@ -370,12 +377,12 @@ class Matcher:
                 
                 _single_query_run = functools.partial(single_query_run, templates=templates, rmsd_threshold=rmsd, distance_cutoff=distance, max_dynamic_distance=max_dynamic_distance)
 
-                total_matches = 0 # counter for all matches found over all molecules passed 
                 if self.skip_smaller_hits:
                     query_molecules = [ molecule for molecule in molecules if molecule not in processed_molecules ]
                 else:
                     query_molecules = molecules
 
+                total_matches = 0 # counter for all matches found over all molecules passed 
                 all_matches = pool.map(_single_query_run, query_molecules) # all_matches are a list of Match objects
                 for molecule, matches in zip(query_molecules, all_matches):
                     processed_molecules[molecule].extend(matches)
@@ -384,7 +391,6 @@ class Matcher:
                 self.verbose_print(f'{total_matches} matches were found for templates of effective size {template_size}')
 
         return processed_molecules
-
 
 def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
 
@@ -498,6 +504,7 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
             for index, (molecule, matches) in enumerate(processed_molecules.items()):
                 for jndex, match in enumerate(matches):
                     i = index+jndex
+                    match.index = jndex+1 # 1 indexed matches per query
                     match.dump(tsvfile, header=i==0) # one line per match, write header only for the first match
 
         def write_hits2_pdb(matches: List[Match], filename: str, outdir: Path):
