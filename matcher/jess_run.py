@@ -60,7 +60,7 @@ class Match:
         if self.template.represented_sites:
             file.write(f'REMARK TEMPLATE RESIDUES {str(self.template.template_id_string)}\n')
         file.write(f'REMARK MOLECULE_ID {str(self.hit.molecule.id)}\n')
-        file.write(f'MATCH INDEX {self.index}\n')
+        file.write(f'REMARK MATCH INDEX {self.index}\n')
 
         if transform:
             file.write('REMARK TEMPLATE COORDINATE FRAME\n')
