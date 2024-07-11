@@ -377,7 +377,7 @@ class Matcher:
                 
                 _single_query_run = functools.partial(single_query_run, templates=templates, rmsd_threshold=rmsd, distance_cutoff=distance, max_dynamic_distance=max_dynamic_distance)
 
-                if self.skip_smaller_hits:
+                if self.skip_smaller_hits: # only search the molecule if no larger hits have been found for it already
                     query_molecules = [ molecule for molecule in molecules if molecule not in processed_molecules ]
                 else:
                     query_molecules = molecules
@@ -385,8 +385,9 @@ class Matcher:
                 total_matches = 0 # counter for all matches found over all molecules passed 
                 all_matches = pool.map(_single_query_run, query_molecules) # all_matches are a list of Match objects
                 for molecule, matches in zip(query_molecules, all_matches):
-                    processed_molecules[molecule].extend(matches)
-                    total_matches += len(matches)
+                    if matches:
+                        processed_molecules[molecule].extend(matches)
+                        total_matches += len(matches)
 
                 self.verbose_print(f'{total_matches} matches were found for templates of effective size {template_size}')
 
