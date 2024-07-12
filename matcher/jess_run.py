@@ -30,7 +30,6 @@ __all__ = [
 class Match:
     """"Class for storing annotated Jess hits. Wrapper around pyjess.Hit and the original Template object"""
     hit: pyjess.Hit
-    template: AnnotatedTemplate
     complete: bool = field(default=False)
     index: int = field(default=0)
 
@@ -54,11 +53,11 @@ class Match:
                 file.write(write_atom_line(atom))
             file.write('END\n\n')
 
-        file.write(f'REMARK TEMPLATE_PDB {str(self.template.pdb_id)}_{",".join(set(res.chain_id for res in self.template.residues))}\n')
-        if self.template.cluster:
-            file.write(f'REMARK TEMPLATE CLUSTER {str(self.template.cluster.id)}_{str(self.template.cluster.member)}_{str(self.template.cluster.size)}\n')
-        if self.template.represented_sites:
-            file.write(f'REMARK TEMPLATE RESIDUES {str(self.template.template_id_string)}\n')
+        file.write(f'REMARK TEMPLATE_PDB {str(self.hit.template.pdb_id)}_{",".join(set(res.chain_id for res in self.hit.template.residues))}\n')
+        if self.hit.template.cluster:
+            file.write(f'REMARK TEMPLATE CLUSTER {str(self.hit.template.cluster.id)}_{str(self.hit.template.cluster.member)}_{str(self.hit.template.cluster.size)}\n')
+        if self.hit.template.represented_sites:
+            file.write(f'REMARK TEMPLATE RESIDUES {str(self.hit.template.template_id_string)}\n')
         file.write(f'REMARK MOLECULE_ID {str(self.hit.molecule.id)}\n')
         file.write(f'REMARK MATCH INDEX {self.index}\n')
 
@@ -102,18 +101,18 @@ class Match:
         writer.writerow([
                 str(self.hit.molecule.id),
                 str(self.index),
-                str(self.template.pdb_id if self.template.pdb_id else ''),
-                (','.join(set(res.chain_id for res in self.template.residues))),
-                str(self.template.cluster.id if self.template.cluster else ''),
-                str(self.template.cluster.member if self.template.cluster else ''),
-                str(self.template.cluster.size if self.template.cluster else ''),
-                str(self.template.effective_size),
-                str(self.template.dimension),
-                str(self.template.mcsa_id if self.template.mcsa_id else ''),
-                str(self.template.uniprot_id if self.template.uniprot_id else ''),
-                ",".join(self.template.ec if self.template.ec is not None else ''),
-                ",".join(self.template.cath if self.template.cath else ''),
-                str(self.template.multimeric),
+                str(self.hit.template.pdb_id if self.hit.template.pdb_id else ''),
+                (','.join(set(res.chain_id for res in self.hit.template.residues))),
+                str(self.hit.template.cluster.id if self.hit.template.cluster else ''),
+                str(self.hit.template.cluster.member if self.hit.template.cluster else ''),
+                str(self.hit.template.cluster.size if self.hit.template.cluster else ''),
+                str(self.hit.template.effective_size),
+                str(self.hit.template.dimension),
+                str(self.hit.template.mcsa_id if self.hit.template.mcsa_id else ''),
+                str(self.hit.template.uniprot_id if self.hit.template.uniprot_id else ''),
+                ",".join(self.hit.template.ec if self.hit.template.ec is not None else ''),
+                ",".join(self.hit.template.cath if self.hit.template.cath else ''),
+                str(self.hit.template.multimeric),
                 str(self.multimeric),
                 str(self.query_atom_count),
                 str(self.query_residue_count),
@@ -155,17 +154,17 @@ class Match:
         """`bool`: Boolean if the residues in the template and in the matched query structure have the same relative order.
         This is a good filtering parameter but excludes hits on examples of convergent evolution or circular permutations
         """
-        if self.template.multimeric or self.multimeric:
+        if self.hit.template.multimeric or self.multimeric:
             return False
         else:
             # Now extract relative atom order in hit
-            return ranked_argsort([atom_triplet[0].residue_number for atom_triplet in self.atom_triplets]) == self.template.relative_order
+            return ranked_argsort([atom_triplet[0].residue_number for atom_triplet in self.atom_triplets]) == self.hit.template.relative_order
 
     @cached_property
     def match_vector_list(cls) -> List[Vec3]:
         # !!! atom coordinates must be in template coordinate system!
         vector_list = []
-        for residue_index, residue in enumerate(cls.template.residues):
+        for residue_index, residue in enumerate(cls.hit.template.residues):
             first_atom_index, second_atom_index = residue.orientation_vector_indices
             if second_atom_index == 9: # Calculate orientation vector going from middle_atom to mitpoint between side1 and side2
                 middle_atom = cls.atom_triplets[residue_index][first_atom_index]
@@ -181,7 +180,7 @@ class Match:
 
     @property
     def template_vector_list(self) -> List[Vec3]:
-        return [res.orientation_vector for res in self.template.residues]
+        return [res.orientation_vector for res in self.hit.template.residues]
     
     @property
     def orientation(self) -> float: # average angle
@@ -208,12 +207,17 @@ class Match:
 def single_query_run(molecule: pyjess.Molecule, templates: List[AnnotatedTemplate], rmsd_threshold: float = 2.0, distance_cutoff: float = 1.5, max_dynamic_distance: float = 1.5, max_candidates: int = 10000) -> List[Match]:
     """`list` of `Match`: Match the list of Templates to one Molecule (pyjess.Molecule) and caluclate completeness for each match (True if all members of a Template cluster match)"""
 
-    # mapping pyjess.Template to AnnotatedTemplate via the str AnnotatedTemplate.id which is preserved in pyjess.Template.id
-    id_to_template: Dict[str, AnnotatedTemplate] = {}
-    for template in templates:
-        if template.id in id_to_template:
-            raise KeyError('Multiple Templates share the same id! To be able to map annotations, create and pass AnnoateTemplate objects with unique ids!')
-        id_to_template[template.id] = template
+    ids = [template.id for template in templates]
+    if len(ids) != len(set(ids)):
+        raise KeyError('Multiple Templates share the same id! Create and pass AnnoateTemplate objects with unique ids!')
+
+    # TODO
+    # # mapping pyjess.Template to AnnotatedTemplate via the str AnnotatedTemplate.id which is preserved in pyjess.Template.id
+    # id_to_template: Dict[str, AnnotatedTemplate] = {}
+    # for template in templates:
+    #     if template.id in id_to_template:
+    #         raise KeyError('Multiple Templates share the same id! To be able to map annotations, create and pass AnnoateTemplate objects with unique ids!')
+    #     id_to_template[template.id] = template
 
     # killswitch is controlled by max_candidates. Internal default is currently 1000
     # killswitch serves to limit the iterations in cases where the template would be too general, and the program would run in an almost endless loop
@@ -229,8 +233,10 @@ def single_query_run(molecule: pyjess.Molecule, templates: List[AnnotatedTemplat
 
     matches: List[Match] = []
     for hit in query: # hit is pyjess.Hit
-        template = id_to_template[hit.template.id]
-        matches.append(Match(hit=hit, template=template))
+        # TODO
+        # template = id_to_template[hit.template.id]
+        # matches.append(Match(hit=hit, template=template))
+        matches.append(Match(hit=hit))
 
     def _check_completeness(matches: List[Match]):
         # only after all templates of a certain size have been scanned could we compute the complete tag
@@ -239,14 +245,14 @@ def single_query_run(molecule: pyjess.Molecule, templates: List[AnnotatedTemplat
         lone_matches = []
 
         for match in matches:
-            if match.template.mcsa_id is not None and match.template.cluster is not None:
+            if match.hit.template.mcsa_id is not None and match.hit.template.cluster is not None:
                 groupable_matches.append(match)
             else:
                 lone_matches.append(match)
 
         # Group hit objects by the triple (hit.template.m-csa, hit.template.cluster.id, hit.template.dimension)
         def get_key(obj: Match) -> Tuple[int, int, int]:
-            return obj.template.mcsa_id, obj.template.cluster.id, obj.template.dimension # type: ignore
+            return obj.hit.template.mcsa_id, obj.hit.template.cluster.id, obj.hit.template.dimension # type: ignore
 
         grouped_matches = [list(g) for _, g in itertools.groupby(sorted(groupable_matches, key=get_key), get_key)]
 
@@ -258,10 +264,10 @@ def single_query_run(molecule: pyjess.Molecule, templates: List[AnnotatedTemplat
             # or say like: This template cluster was always complete while this template cluster was only complete X times out of Y Queries matched to one member
             #
             # check if all the cluster members up to and including cluster_size are present in the group,
-            indexed_possible_cluster_members = list(range(cluster_matches[0].template.cluster.size)) # type: ignore
+            indexed_possible_cluster_members = list(range(cluster_matches[0].hit.template.cluster.size)) # type: ignore
             possible_cluster_members = [x+1 for x in indexed_possible_cluster_members]
             
-            found_cluster_members = [match.template.cluster.member for match in cluster_matches] # type: ignore
+            found_cluster_members = [match.hit.template.cluster.member for match in cluster_matches] # type: ignore
             found_cluster_members.sort()
 
             if found_cluster_members == possible_cluster_members:
@@ -341,7 +347,7 @@ class Matcher:
                     warnings.warn(f'{len(small_templates)} Templates with an effective size smaller than 3 defined sidechain residues were supplied.\nThese will be excluded since these templates are too general.')
 
                 self.verbose_print('The templates with the following ids are too small:')
-                self.verbose_print(small_templates)
+                self.verbose_print([st.id for st in small_templates])
 
     def verbose_print(self, *args):
         if self.verbose:
@@ -466,7 +472,9 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
 
             molecule = pyjess.Molecule.load(str(molecule_path), id=unique_id) # by default it will stop at ENDMDL
             if args.conservation_cutoff: # if the pyjess cutoff function changes to stop it from making a copy if conservation cutoff is 0 or false or something I can drop this
-                molecule = molecule.conserved(args.conservation_cutoff)
+                # TODO
+                molecule.conserved(args.conservation_cutoff)
+                # molecule = molecule.conserved(args.conservation_cutoff)
                 # conserved is a method called on a molecule object that returns a filtered molecule
                 # atoms with a temperature-factor BELOW the conservation cutoff will be excluded
             if molecule:

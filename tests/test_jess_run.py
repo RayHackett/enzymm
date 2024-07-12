@@ -21,8 +21,7 @@ class TestMatch(unittest.TestCase):
         with open(Path(matcher, 'jess_templates_20230210/5_residues/results/csa3d_0285/csa3d_0285.cluster_1_1_1.1uh3_A396-A262-A356-A471-A472.template.pdb'), 'r') as f:
             template_text1 = f.read()
             cls.template1 = template.AnnotatedTemplate.annotated_loads(template_text1, str(0), warn=False)
-            pyjess_template1 = pyjess.Template.loads(template_text1, id=cls.template1.id)
-            jess_1 = pyjess.Jess([pyjess_template1])
+            jess_1 = pyjess.Jess([cls.template1])
 
         with files(test_data).joinpath("1AMY.pdb").open() as f:
             molecule = pyjess.Molecule.load(f)
@@ -30,32 +29,31 @@ class TestMatch(unittest.TestCase):
         query = jess_1.query(molecule, 2, 1.5, 1.5, max_candidates=10000, best_match=True)
         best_hits = list(query)
         
-        cls.match1 = jess_run.Match(hit=best_hits[0], template=cls.template1)
+        cls.match1 = jess_run.Match(hit=best_hits[0])
         cls.match1.complete = True  # this is false because we did not run the completeness check here. we manually set it to true
 
         with open(Path(matcher, 'jess_templates_20230210/3_residues/results/csa3d_0415/csa3d_0415.cluster_1_1_2.1be0_A124-A175-A125-A289-A260.template.pdb'), 'r') as f:
             template_text2 = f.read()
             cls.template2 = template.AnnotatedTemplate.annotated_loads(template_text2, str(0), warn=False)
-            pyjess_template2 = pyjess.Template.loads(template_text2, id=cls.template2.id)
-            jess_2 = pyjess.Jess([pyjess_template2])
+            jess_2 = pyjess.Jess([cls.template2])
 
         query = jess_2.query(molecule, 2, 1, 1, max_candidates=10000, best_match=True)
         best_hits = list(query)
         
-        cls.match2 = jess_run.Match(hit=best_hits[0], template=cls.template2)
+        cls.match2 = jess_run.Match(hit=best_hits[0])
 
     def test_match(self):
         self.assertEqual(self.match1.hit.molecule.id, '1AMY')
         self.assertEqual(self.match1.index, 0)
-        self.assertEqual(self.match1.template.id, self.template1.id)
-        self.assertEqual(self.match1.template.pdb_id, self.template1.pdb_id)
-        self.assertEqual(self.match1.template.effective_size, self.template1.effective_size)
-        self.assertEqual(self.match1.template.dimension, self.template1.dimension)
-        self.assertEqual(self.match1.template.mcsa_id, self.template1.mcsa_id)
-        self.assertEqual(self.match1.template.uniprot_id, self.template1.uniprot_id)
-        self.assertEqual(self.match1.template.ec, self.template1.ec)
-        self.assertEqual(self.match1.template.cath, self.template1.cath)
-        self.assertEqual(self.match1.template.multimeric, self.template1.multimeric)
+        self.assertEqual(self.match1.hit.template.id, self.template1.id)
+        self.assertEqual(self.match1.hit.template.pdb_id, self.template1.pdb_id)
+        self.assertEqual(self.match1.hit.template.effective_size, self.template1.effective_size)
+        self.assertEqual(self.match1.hit.template.dimension, self.template1.dimension)
+        self.assertEqual(self.match1.hit.template.mcsa_id, self.template1.mcsa_id)
+        self.assertEqual(self.match1.hit.template.uniprot_id, self.template1.uniprot_id)
+        self.assertEqual(self.match1.hit.template.ec, self.template1.ec)
+        self.assertEqual(self.match1.hit.template.cath, self.template1.cath)
+        self.assertEqual(self.match1.hit.template.multimeric, self.template1.multimeric)
         self.assertEqual(self.match1.multimeric, False)
         self.assertEqual(self.match1.query_atom_count, 3339)
         self.assertEqual(self.match1.query_residue_count, 558)
@@ -68,15 +66,15 @@ class TestMatch(unittest.TestCase):
         self.assertEqual(self.match1.complete, True)
         self.assertEqual(self.match1.matched_residues, [('GLU', 'A', '204'),('ASP', 'A', '87'),('ASP', 'A', '179'),('HIS', 'A', '288'),('ASP', 'A', '289')])
 
-        self.assertEqual(self.match2.template.id, self.template2.id)
-        self.assertEqual(self.match2.template.pdb_id, self.template2.pdb_id)
-        self.assertEqual(self.match2.template.effective_size, self.template2.effective_size)
-        self.assertEqual(self.match2.template.dimension, self.template2.dimension)
-        self.assertEqual(self.match2.template.mcsa_id, self.template2.mcsa_id)
-        self.assertEqual(self.match2.template.uniprot_id, self.template2.uniprot_id)
-        self.assertEqual(self.match2.template.ec, self.template2.ec)
-        self.assertEqual(self.match2.template.cath, self.template2.cath)
-        self.assertEqual(self.match2.template.multimeric, self.template2.multimeric)
+        self.assertEqual(self.match2.hit.template.id, self.template2.id)
+        self.assertEqual(self.match2.hit.template.pdb_id, self.template2.pdb_id)
+        self.assertEqual(self.match2.hit.template.effective_size, self.template2.effective_size)
+        self.assertEqual(self.match2.hit.template.dimension, self.template2.dimension)
+        self.assertEqual(self.match2.hit.template.mcsa_id, self.template2.mcsa_id)
+        self.assertEqual(self.match2.hit.template.uniprot_id, self.template2.uniprot_id)
+        self.assertEqual(self.match2.hit.template.ec, self.template2.ec)
+        self.assertEqual(self.match2.hit.template.cath, self.template2.cath)
+        self.assertEqual(self.match2.hit.template.multimeric, self.template2.multimeric)
         self.assertEqual(self.match2.multimeric, False)
         self.assertAlmostEqual(self.match2.hit.rmsd, 1.7353479120)
         self.assertAlmostEqual(self.match2.hit.log_evalue, 1.8517964201)
@@ -141,7 +139,7 @@ class Test_single_query_run(unittest.TestCase):
             template_no_remark = f.read()
         cls.unannotated_templates = [template.AnnotatedTemplate.annotated_loads(template_no_remark, str(index), warn=False)]
 
-        cls.bad_template_list = [template.AnnotatedTemplate.annotated_loads(template_text1, str(0), warn=False), template.AnnotatedTemplate.annotated_loads(template_text2, str(0), warn=False)]
+        cls.bad_template_list = [template.AnnotatedTemplate.annotated_loads(text=template_text1, internal_template_id=str(0), warn=False), template.AnnotatedTemplate.annotated_loads(text=template_text2, internal_template_id=str(0), warn=False)]
             
         with files(test_data).joinpath("1AMY.pdb").open() as f:
             cls.molecule = pyjess.Molecule.load(f)
@@ -151,28 +149,28 @@ class Test_single_query_run(unittest.TestCase):
         matches = jess_run.single_query_run(molecule=self.molecule, templates=self.template_list, rmsd_threshold=2, distance_cutoff=1.5, max_dynamic_distance=1.5)
         pdb_ids = []
         for match in matches:
-            pdb_ids.append(match.template.pdb_id)
+            pdb_ids.append(match.hit.template.pdb_id)
         pdb_ids.sort()
 
         self.assertEqual(len(matches), 5)
         self.assertEqual(pdb_ids, ['1uh3', '1uh3', '1uh3', '2cxg', '3gvr'])
 
         for match in matches:
-            if match.template.id == '0':
+            if match.hit.template.id == '0':
                 self.assertEqual(match.complete, True)
-                self.assertEqual(match.template.pdb_id, '1uh3')
-            elif match.template.id == '1':
+                self.assertEqual(match.hit.template.pdb_id, '1uh3')
+            elif match.hit.template.id == '1':
                 self.assertEqual(match.complete, True)
-                self.assertEqual(match.template.pdb_id, '2cxg')
-            elif match.template.id == '2':
+                self.assertEqual(match.hit.template.pdb_id, '2cxg')
+            elif match.hit.template.id == '2':
                 self.assertEqual(match.complete, False)
-                self.assertEqual(match.template.pdb_id, '3gvr')
-            elif match.template.id == '3':
+                self.assertEqual(match.hit.template.pdb_id, '3gvr')
+            elif match.hit.template.id == '3':
                 self.assertEqual(match.complete, True)
-                self.assertEqual(match.template.pdb_id, '1uh3')
-            elif match.template.id == '4':
+                self.assertEqual(match.hit.template.pdb_id, '1uh3')
+            elif match.hit.template.id == '4':
                 self.assertEqual(match.complete, True)
-                self.assertEqual(match.template.pdb_id, '1uh3')
+                self.assertEqual(match.hit.template.pdb_id, '1uh3')
 
         matches2 = jess_run.single_query_run(molecule=self.molecule, templates=self.unannotated_templates, rmsd_threshold=2, distance_cutoff=1.5, max_dynamic_distance=1.5)
         for match in matches2:
