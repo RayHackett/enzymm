@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import glob
 import warnings
 import re
@@ -11,6 +12,7 @@ from functools import cached_property
 from dataclasses import dataclass, field
 import io
 import math
+from multiprocessing.pool import ThreadPool
 
 import pyjess
 
@@ -610,25 +612,50 @@ def _get_paths_by_extension(directory_path: Path, extension: str) -> List[Path]:
     else:
         raise FileNotFoundError(f'No template files with the {extension} extension found in the {directory_path.resolve()} directory')
 
-def load_templates(template_dir: Path = Path(str(files(__package__).joinpath('jess_templates_20230210'))), warn: bool = True, verbose: bool = False) -> Iterator[AnnotatedTemplate]:
+def load_templates(template_dir: Path = Path(str(files(__package__).joinpath('jess_templates_20230210'))), warn: bool = True, verbose: bool = False, cpus: int = 0) -> Iterator[AnnotatedTemplate]:
     """Load templates from a given directory, recursively.
     """
     if not template_dir.exists():
         raise FileNotFoundError(template_dir)
     elif not template_dir.is_dir():
         raise NotADirectoryError(template_dir)
-
+    
     template_paths = _get_paths_by_extension(template_dir, '.pdb')
+
     if verbose:
         print(f'Loading Template files from {str(template_dir.resolve())}')
-    for template_index, template_path in enumerate(template_paths):
-        with template_path.open() as f:
-            try:
-                # TODO print a list of all templates loaded with index: template_path.
-                # Yield the AnnotatedTemplate and its filepath as a tuple
-                yield AnnotatedTemplate.annotated_load(file=f, warn=warn, internal_template_id=str(template_index)) # read atom lines using pyjess.TemplateAtoms and create AnnotatedTemplate as instance of pyjess.Template
-            except ValueError as exc:
-                raise ValueError(f'Passed Template file {template_path.resolve()} contained ATOM lines which are not in Jess Template format.') from exc
+
+    if cpus == 0:
+        cpus = -2 + cpus + (os.cpu_count() or 1)
+    elif cpus < 0:
+        cpus = (os.cpu_count() or 1)
+
+    def _load_and_annotate(template_path, warn, template_index):
+        try:
+            with template_path.open() as f:
+                return AnnotatedTemplate.annotated_load(file=f, warn=warn, internal_template_id=str(template_index))
+        except ValueError as exc:
+            raise ValueError(f'Passed Template file {template_path.resolve()} contained ATOM lines which are not in Jess Template format.') from exc
+
+    with ThreadPool(cpus) as pool:
+        args = [(path, warn, idx) for idx, path in enumerate(template_paths)]
+
+        try:
+            template_iterator = pool.starmap(_load_and_annotate, args)
+            for loaded_template in template_iterator:
+                yield loaded_template
+
+        except ValueError as exc:
+            raise exc
+
+    # non-parallel version
+    # for template_index, template_path in enumerate(template_paths):
+    #     with template_path.open() as f:
+    #         try:
+    #             # Yield the AnnotatedTemplate and its filepath as a tuple
+    #             yield AnnotatedTemplate.annotated_load(file=f, warn=warn, internal_template_id=str(template_index)) # read atom lines using pyjess.TemplateAtoms and create AnnotatedTemplate as instance of pyjess.Template
+    #         except ValueError as exc:
+    #             raise ValueError(f'Passed Template file {template_path.resolve()} contained ATOM lines which are not in Jess Template format.') from exc
 
 def check_template(template: AnnotatedTemplate, warn: bool = True) -> bool:
     # TODO improve this and write tests
