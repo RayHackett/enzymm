@@ -16,7 +16,7 @@ from multiprocessing.pool import ThreadPool
 
 import pyjess
 
-from .utils import chunks, ranked_argsort
+from .utils import chunks, ranked_argsort, DummyPool
 
 __all__ = [
     "Vec3",
@@ -79,23 +79,27 @@ class Vec3:
             return Vec3(self.x - other, self.y - other, self.z - other)
         raise TypeError(f'Expected int, float or Vec3, got {type(other).__name__}')
 
-    def angle_to(self, other: Vec3) -> float: # from https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python
+    # from https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python
+    def angle_to(self, other: Vec3) -> float: 
         """ Returns the angle in radians between vectors 'v1' and 'v2':
         """
         dot_product = self.normalize() @ other.normalize()
         if -1 <= dot_product <= 1:
             return math.acos(dot_product)
         else:
-            if math.isclose(dot_product,1, rel_tol=1e-5): # due to numerical errors two identical vectors may have a dot_product not exactly 1
+            # due to numerical errors two identical vectors may have a dot_product not exactly 1
+            if math.isclose(dot_product,1, rel_tol=1e-5): 
                 return 0
-            elif math.isclose(dot_product,-1, rel_tol=1e-5): # same but with opposite vectors
+            # same but with opposite vectors
+            elif math.isclose(dot_product,-1, rel_tol=1e-5):
                 return math.pi
             else:
                 raise ValueError(f'ArcCos is not defined outside [-1,1]. self.vec is {[self.x, self.y, self.z]}, other vec is {[other.x, other.y, other.z]}')
 
 @dataclass(init=False)
 class Residue:
-    """Class for storing Residues (defined as 3 atoms) belonging to a template and associated residue level information"""
+    """Class for storing Residues (defined as 3 atoms) belonging to a template
+    and associated residue level information"""
 
     _atoms: Tuple[pyjess.TemplateAtom, pyjess.TemplateAtom, pyjess.TemplateAtom]
     _vec: Vec3
@@ -171,7 +175,27 @@ class Residue:
     def allowed_residues(self) -> str:
         """`str`: Get the allowed residue types as string of single letter codes
         """
-        convert_to_single = {'ALA': 'A', 'CYS': 'C', 'ASP': 'D', 'GLU': 'E', 'PHE': 'F', 'GLY': 'G', 'HIS': 'H', 'ILE': 'I', 'LYS': 'K', 'LEU': 'L', 'MET': 'M', 'ASN': 'N', 'PRO': 'P', 'GLN': 'Q', 'ARG': 'R', 'SER': 'S', 'THR': 'T', 'VAL': 'V', 'TRP': 'W', 'TYR': 'Y', 'XXX': 'X'}
+        convert_to_single = {'ALA': 'A',
+                            'CYS': 'C',
+                            'ASP': 'D',
+                            'GLU': 'E',
+                            'PHE': 'F',
+                            'GLY': 'G',
+                            'HIS': 'H',
+                            'ILE': 'I',
+                            'LYS': 'K',
+                            'LEU': 'L',
+                            'MET': 'M',
+                            'ASN': 'N',
+                            'PRO': 'P',
+                            'GLN': 'Q',
+                            'ARG': 'R',
+                            'SER': 'S',
+                            'THR': 'T',
+                            'VAL': 'V',
+                            'TRP': 'W',
+                            'TYR': 'Y',
+                            'XXX': 'X'}
         return ''.join(set(convert_to_single[i] for i in self.atoms[0].residue_names))
 
     @property
@@ -206,7 +230,8 @@ class Residue:
 
     @property
     def orientation_vector_indices(self) -> Tuple[int, int]:
-        """`tuple`: Return the indices of the atoms between which the orientation vector was calculated according to the residue type
+        """`tuple`: Return the indices of the atoms 
+        between which the orientation vector was calculated according to the residue type
         """
         return self._indices
 
@@ -625,37 +650,31 @@ def load_templates(template_dir: Path = Path(str(files(__package__).joinpath('je
     if verbose:
         print(f'Loading Template files from {str(template_dir.resolve())}')
 
-    if cpus == 0:
-        cpus = -2 + cpus + (os.cpu_count() or 1)
-    elif cpus < 0:
-        cpus = (os.cpu_count() or 1)
-
+    
     def _load_and_annotate(template_path, warn, template_index):
         try:
             with template_path.open() as f:
-                return AnnotatedTemplate.annotated_load(file=f, warn=warn, internal_template_id=str(template_index))
+                return AnnotatedTemplate.annotated_load(file=f,
+                                                        warn=warn,
+                                                        internal_template_id=str(template_index)
+                                                        )
         except ValueError as exc:
             raise ValueError(f'Passed Template file {template_path.resolve()} contained ATOM lines which are not in Jess Template format.') from exc
 
-    with ThreadPool(cpus) as pool:
-        args = [(path, warn, idx) for idx, path in enumerate(template_paths)]
+    if cpus == 0:
+        cpus = os.cpu_count() or 1
+    elif cpus < 0:
+        cpus = max(1, (os.cpu_count() or 1) - cpus)
 
-        try:
-            template_iterator = pool.starmap(_load_and_annotate, args)
-            for loaded_template in template_iterator:
-                yield loaded_template
-
-        except ValueError as exc:
-            raise exc
-
-    # non-parallel version
-    # for template_index, template_path in enumerate(template_paths):
-    #     with template_path.open() as f:
-    #         try:
-    #             # Yield the AnnotatedTemplate and its filepath as a tuple
-    #             yield AnnotatedTemplate.annotated_load(file=f, warn=warn, internal_template_id=str(template_index)) # read atom lines using pyjess.TemplateAtoms and create AnnotatedTemplate as instance of pyjess.Template
-    #         except ValueError as exc:
-    #             raise ValueError(f'Passed Template file {template_path.resolve()} contained ATOM lines which are not in Jess Template format.') from exc
+    pool = DummyPool() if cpus == 1 else ThreadPool(cpus)
+    with pool:
+            args = [(path, warn, idx) for idx, path in enumerate(template_paths)]
+            try:
+                template_iterator = pool.starmap(_load_and_annotate, args)
+                for loaded_template in template_iterator:
+                    yield loaded_template
+            except ValueError as exc:
+                raise exc
 
 def check_template(template: AnnotatedTemplate, warn: bool = True) -> bool:
     # TODO improve this and write tests

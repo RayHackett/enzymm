@@ -17,7 +17,7 @@ import json
 import pyjess
 
 from .template import AnnotatedTemplate, Vec3, load_templates, check_template
-from .utils import chunks, ranked_argsort
+from .utils import chunks, ranked_argsort, DummyPool
 
 # Matcher goes Brrrrr
 from multiprocessing.pool import ThreadPool
@@ -25,9 +25,16 @@ import functools
 
 __all__ = [
     "Match",
-    "single_query_run",
     "Matcher",
 ]
+
+@dataclass(frozen=True)
+class LogisticRegressionModel:
+    """"Coeficients, Intercept and optimal Threshold for a Logistic Regression Model
+    trained on data for matches with a particular size at a particular pairwise distance"""
+    coefficents: List[float]
+    intercept: float
+    threshold: float
 
 @dataclass
 class Match:
@@ -36,7 +43,7 @@ class Match:
     complete: bool = field(default=False)
     pairwise_distance: float = field(default=0)
     index: int = field(default=0)
-    _logistic_regression_models: ClassVar[Dict[str, Dict[str, Dict[str, Dict[str, Dict[str, List[Dict[str, Union[float, List[float]]]]]]]]]]
+    _logistic_regression_models: ClassVar[Dict[str, Dict[str, List[LogisticRegressionModel]]]]
 
     def dumps(self, header:bool = False) -> str:
         buffer = io.StringIO()
@@ -53,10 +60,15 @@ class Match:
                 return f"ATOM  {atom.serial:>5} {atom.name:<4s}{atom.altloc if atom.altloc is not None else '':<1}{atom.residue_name:<3}{atom.chain_id:>2}{atom.residue_number:>4}{atom.insertion_code:1s}   {atom.x:>8.3f}{atom.y:>8.3f}{atom.z:>8.3f}{atom.occupancy:>6.2f}{atom.temperature_factor:>6.2f}      {atom.segment:<4s}{atom.element:>2s} \n"
 
         if include_query: # write the original query molecule too
-            file.write(f'REMARK MOLECULE_ID {self.hit.molecule.id}\n')
+            file.write(f'HEADER MOLECULE_ID {self.hit.molecule.id}\n')
             for atom in self.hit.molecule:
                 file.write(write_atom_line(atom))
             file.write('END\n\n')
+        
+        if self.predicted_correct:
+            file.write(f'HEADER CORRECT MATCH {self.hit.molecule.id} {self.index}\n')
+        else:
+            file.write(f'HEADER FALSE MATCH {self.hit.molecule.id} {self.index}\n')
 
         file.write(f'REMARK TEMPLATE_PDB {str(self.hit.template.pdb_id)}_{",".join(set(res.chain_id for res in self.hit.template.residues))}\n')
         if self.hit.template.cluster:
@@ -132,19 +144,24 @@ class Match:
                 str(self.predicted_correct),
                 (','.join('_'.join(t) for t in self.matched_residues))])
         
+    def get_identifying_attributes(self) -> Tuple[int, int, int]:
+        # return the tuple (hit.template.m-csa, hit.template.cluster.id, hit.template.dimension)
+        return self.hit.template.mcsa_id, self.hit.template.cluster.id, self.hit.template.dimension
+    
     @property
     def predicted_correct(self) -> bool:
-        if str(self.hit.template.effective_size) not in self._logistic_regression_models['match_size']: # Since no models for 5+ residue matches is provided, these are predicted as true
+
+        if str(self.hit.template.effective_size) not in self._logistic_regression_models: # Since no models for 5+ residue matches is provided, these are predicted as true
             return True
         else:
             try:
                 predictions = []
-                for model in self._logistic_regression_models['match_size'][str(self.hit.template.effective_size)]['pairwise_distance'][str(self.pairwise_distance)]['model_list']:
-                    value = 1/(1 + math.e ** -(model['intercept'] + model['coef'][0]*self.hit.rmsd + model['coef'][1]*self.orientation))
-                    predictions.append(value >= model['threshold'])
+                for model in self._logistic_regression_models[str(self.hit.template.effective_size)][str(self.pairwise_distance)]:
+                    value = 1/(1 + math.e ** -(model.intercept + model.coefficents[0]*self.hit.rmsd + model.coefficents[1]*self.orientation))
+                    predictions.append(value >= model.threshold)
 
                 # majority decision from all models
-                return bool(sum(predictions) >= round((len(self._logistic_regression_models['match_size'][str(self.hit.template.effective_size)]['pairwise_distance'][str(self.pairwise_distance)]['model_list'])/2),0))
+                return bool(sum(predictions) >= round((len(self._logistic_regression_models[str(self.hit.template.effective_size)][str(self.pairwise_distance)])/2),0))
             
             except KeyError as exc:
                 raise KeyError(f'Missing appropriate model parameters to predict correctness. Encountered either unexpected dictionary structure or no models for the pairwise distance {self.pairwise_distance} were provided') from exc
@@ -168,7 +185,10 @@ class Match:
 
     @property
     def matched_residues(self) -> List[Tuple[str, str, str]]:
-        return [ (atom_triplet[0].residue_name, atom_triplet[0].chain_id, str(atom_triplet[0].residue_number)) for atom_triplet in self.atom_triplets ]
+        return [(atom_triplet[0].residue_name,
+                atom_triplet[0].chain_id,
+                str(atom_triplet[0].residue_number)) for atom_triplet in self.atom_triplets
+                ]
 
     @property
     def multimeric(self) -> bool:
@@ -231,84 +251,49 @@ class Match:
         for atom in self.hit.molecule:
             all_residue_numbers.add(atom.residue_number)
         return len(all_residue_numbers)
-    
+
+# Load the logistic regression models from the json into a dictionary
 with files(__package__).joinpath('data', 'logistic_regression_models.json').open() as f: #type: ignore
-    Match._logistic_regression_models = json.load(f)
+    logistic_regression_models = {}
+    model_dict = json.load(f)
 
-def single_query_run(molecule: pyjess.Molecule, templates: List[AnnotatedTemplate], rmsd_threshold: float = 2.0, distance_cutoff: float = 1.5, max_dynamic_distance: float = 1.5, max_candidates: int = 10000) -> List[Match]:
-    """`list` of `Match`: Match the list of Templates to one Molecule (pyjess.Molecule) and caluclate completeness for each match (True if all members of a Template cluster match)"""
+    for template_size, pairwise_dict in model_dict['match_size'].items():
+        logistic_regression_models[template_size] = {}
+        for pairwide_distance, model_list in pairwise_dict['pairwise_distance'].items():
+            list_of_log_regression_models = []
+            for param_dict in model_list['model_list']:
+                list_of_log_regression_models.append(
+                    LogisticRegressionModel(
+                                        coefficents=param_dict['coef'],
+                                        intercept=param_dict['intercept'],
+                                        threshold=param_dict['threshold'])
+                                        )
+            logistic_regression_models[template_size][pairwide_distance] = list_of_log_regression_models
 
-    ids = [template.id for template in templates]
-    if len(ids) != len(set(ids)):
-        raise KeyError('Multiple Templates share the same id! Create and pass AnnoateTemplate objects with unique ids!')
-
-    # killswitch is controlled by max_candidates. Internal default is currently 1000
-    # killswitch serves to limit the iterations in cases where the template would be too general, and the program would run in an almost endless loop
-    jess = pyjess.Jess(templates) # Create a Jess instance and use it to query a molecule (a PDB structure) against the stored templates:
-    query = jess.query(molecule=molecule, rmsd_threshold=rmsd_threshold, distance_cutoff=distance_cutoff, max_dynamic_distance=max_dynamic_distance, max_candidates=max_candidates, best_match=True) # query is pyjess.Query object which is an iterator over pyjess.Hits
-
-    # A template is not encoded as coordinates, rather as a set of constraints. For example, it would not contain the exact positions of THR and ASN atoms, but instructions like "Cα of ASN should be X angstrom away from the Cα of THR plus the allowed distance."
-    # Multiple solutions = Matches to a template, satisfying all constraints may therefore exist
-    # Jess produces matches to templates by looking for any combination of atoms, residue_types, elements etc. and ANY positions which satisfy the constraints in the template
-    # thus the solutions that Jess finds are NOT identical to the template at all - rather they are all possible solutions to the set constraints. Solutions may completely differ from the template geometry or atom composition if allowed by the set constraints.
-    # by setting best_match=True we turn on filtering by rmsd to return only the best match for every molecule template pair. Currently I dont expose best_match to the user and assume it as default. This should be the only use case (I think)
-    # Thus we hope to return the one solution to the constraints which most closely resembles the original template - this is not guaranteed of course
-
-    matches: List[Match] = []
-    for hit in query: # hit is pyjess.Hit
-        matches.append(Match(hit=hit))
-
-    def _check_completeness(matches: List[Match]):
-        # only after all templates of a certain size have been scanned could we compute the complete tag
-        # This requries cluster and mcsa.id to be set! Otherwise I assume there is no cluster and therefore the match is complete by default!
-        groupable_matches = []
-        lone_matches = []
-
-        for match in matches:
-            if match.hit.template.mcsa_id is not None and match.hit.template.cluster is not None:
-                groupable_matches.append(match)
-            else:
-                lone_matches.append(match)
-
-        # Group hit objects by the triple (hit.template.m-csa, hit.template.cluster.id, hit.template.dimension)
-        def get_key(obj: Match) -> Tuple[int, int, int]:
-            return obj.hit.template.mcsa_id, obj.hit.template.cluster.id, obj.hit.template.dimension # type: ignore
-
-        grouped_matches = [list(g) for _, g in itertools.groupby(sorted(groupable_matches, key=get_key), get_key)]
-
-        for cluster_matches in grouped_matches:
-            # For each query check if all Templates assigned to the same cluster targeted that structure
-            #
-            # TODO report statistics on this: This percentage of queries had a complete active site as reported by the complete tag
-            # Filter this by template clusters with >1 member of course or report seperately by the number of clustermembers
-            # or say like: This template cluster was always complete while this template cluster was only complete X times out of Y Queries matched to one member
-            #
-            # check if all the cluster members up to and including cluster_size are present in the group,
-            indexed_possible_cluster_members = list(range(cluster_matches[0].hit.template.cluster.size)) # type: ignore
-            possible_cluster_members = [x+1 for x in indexed_possible_cluster_members]
-            
-            found_cluster_members = [match.hit.template.cluster.member for match in cluster_matches] # type: ignore
-            found_cluster_members.sort()
-
-            if found_cluster_members == possible_cluster_members:
-                for match in cluster_matches:
-                    match.complete = True
-
-        for match in lone_matches:
-            match.complete=True
-    
-    _check_completeness(matches)
-
-    def _add_distance_parameter(matches: List[Match]):
-        for match in matches:
-            match.pairwise_distance = distance_cutoff
-
-    _add_distance_parameter(matches)
-
-    return matches
+    Match._logistic_regression_models = logistic_regression_models
 
 class Matcher:
-    def __init__(self, templates: List[AnnotatedTemplate], jess_params: Dict[int, Dict[str, float]] = {}, conservation_cutoff: int = 0, warn: bool = False, verbose: bool = False, skip_smaller_hits: bool = False, match_small_templates: bool = False, cpus: int = 0, filter_matches: bool = True):
+
+    _DEFAULT_JESS_PARAMS = {
+        3: {'rmsd': 2, 'distance': 0.9, 'max_dynamic_distance': 0.9},
+        4: {'rmsd': 2, 'distance': 1.7, 'max_dynamic_distance': 1.7},
+        5: {'rmsd': 2, 'distance': 2.0, 'max_dynamic_distance': 2.0},
+        6: {'rmsd': 2, 'distance': 2.0, 'max_dynamic_distance': 2.0},
+        7: {'rmsd': 2, 'distance': 2.0, 'max_dynamic_distance': 2.0},
+        8: {'rmsd': 2, 'distance': 2.0, 'max_dynamic_distance': 2.0}
+    }
+
+    def __init__(self,
+                templates: List[AnnotatedTemplate],
+                jess_params: Optional[Dict[int, Dict[str, float]]] = None,
+                conservation_cutoff: int = 0,
+                warn: bool = False,
+                verbose: bool = False,
+                skip_smaller_hits: bool = False,
+                match_small_templates: bool = False,
+                cpus: int = 0,
+                filter_matches: bool = True
+                ):
 
         self.templates = templates
         self.cpus = cpus
@@ -318,11 +303,12 @@ class Matcher:
         self.skip_smaller_hits = skip_smaller_hits
         self.match_small_templates = match_small_templates
         self.filter_matches = filter_matches
+        self.jess_params = self._DEFAULT_JESS_PARAMS if jess_params is None else jess_params 
 
         if self.cpus == 0:
-            self.cpus = -2 + self.cpus + (os.cpu_count() or 1)
+            self.cpus = os.cpu_count() or 1
         elif self.cpus < 0:
-            self.cpus = (os.cpu_count() or 1)
+            self.cpus = max(1, (os.cpu_count() or 1) - self.cpus)
 
         self.verbose_print(f'PyJess Version: {pyjess.__version__}')
         self.verbose_print(f'Running on {self.cpus} Thread(s)')
@@ -331,18 +317,6 @@ class Matcher:
 
         if self.conservation_cutoff:
             self.verbose_print(f'Conservation Cutoff set to {self.conservation_cutoff}')
-
-        if jess_params:
-                self.jess_params = jess_params
-        else:
-            ####### Default Jess parameters by Size ##################################
-            self.jess_params = {
-                3: {'rmsd': 2, 'distance': 0.9, 'max_dynamic_distance': 0.9},
-                4: {'rmsd': 2, 'distance': 1.7, 'max_dynamic_distance': 1.7},
-                5: {'rmsd': 2, 'distance': 2.0, 'max_dynamic_distance': 2.0},
-                6: {'rmsd': 2, 'distance': 2.0, 'max_dynamic_distance': 2.0},
-                7: {'rmsd': 2, 'distance': 2.0, 'max_dynamic_distance': 2.0},
-                8: {'rmsd': 2, 'distance': 2.0, 'max_dynamic_distance': 2.0}}
 
         # check each template and if it passes add it to the dictionary of templates
         self.templates_by_effective_size: Dict[int, List[AnnotatedTemplate]] = collections.defaultdict(list) # Dictionary of List of AnnoatedTemplate objects grouped by Template.effective_size as keys
@@ -380,57 +354,186 @@ class Matcher:
         if self.verbose:
             print(*args)
 
+    def _get_jess_parameters(self, template_size: int) -> Tuple[float, float, float]:
+        if template_size < 3:
+            parameter_size = 3
+        elif template_size > 8:
+            parameter_size = 8
+        else:
+            parameter_size = template_size
+
+        rmsd = self.jess_params[parameter_size]['rmsd']
+        distance = self.jess_params[parameter_size]['distance']
+        max_dynamic_distance = self.jess_params[parameter_size]['max_dynamic_distance']
+
+        return rmsd, distance, max_dynamic_distance
+
+    @staticmethod
+    def _check_completeness(matches: List[Match]) -> List[Match]:
+        # only after all templates of a certain size have been scanned could we compute the complete tag
+        # This requries cluster and mcsa.id to be set! Otherwise I assume there is no cluster and therefore the match is complete by default!
+        groupable_matches = []
+        lone_matches = []
+
+        for match in matches:
+            if match.hit.template.mcsa_id is not None and match.hit.template.cluster is not None:
+                groupable_matches.append(match)
+            else:
+                lone_matches.append(match)
+
+        grouped_matches = [list(g) for _, g in itertools.groupby(sorted(groupable_matches, key=Match.get_identifying_attributes), Match.get_identifying_attributes)]
+
+        for cluster_matches in grouped_matches:
+            # For each query check if all Templates assigned to the same cluster targeted that structure
+            #
+            # TODO report statistics on this: This percentage of queries had a complete active site as reported by the complete tag
+            # Filter this by template clusters with >1 member of course or report seperately by the number of clustermembers
+            # or say like: This template cluster was always complete while this template cluster was only complete X times out of Y Queries matched to one member
+            #
+            # check if all the cluster members up to and including cluster_size are present in the group,
+            indexed_possible_cluster_members = list(range(cluster_matches[0].hit.template.cluster.size)) # type: ignore
+            possible_cluster_members = [x+1 for x in indexed_possible_cluster_members]
+            
+            found_cluster_members = [match.hit.template.cluster.member for match in cluster_matches] # type: ignore
+            found_cluster_members.sort()
+
+            if found_cluster_members == possible_cluster_members:
+                for match in cluster_matches:
+                    match.complete = True
+
+        for match in lone_matches:
+            match.complete=True
+
+        return matches
+
+    @staticmethod
+    def _run_jess(
+            molecule: pyjess.Molecule, 
+            templates: List[AnnotatedTemplate], 
+            rmsd_threshold: float = 2.0,
+            distance_cutoff: float = 1.5,
+            max_dynamic_distance: float = 1.5,
+            max_candidates: int = 10000
+            )-> List[Match]:
+        
+        """`list` of `Match`: Match the list of Templates to one Molecule (pyjess.Molecule)"""
+        
+        ids = [template.id for template in templates]
+        if len(ids) != len(set(ids)):
+            raise KeyError('Multiple Templates share the same id! Create and pass AnnoateTemplate objects with unique ids!')
+
+        # killswitch is controlled by max_candidates. Internal default is currently 1000
+        # killswitch serves to limit the iterations in cases where the template would be too general,
+        # and the program would run in an almost endless loop
+
+        jess = pyjess.Jess(templates) # Create a Jess instance and use it to query a molecule (a PDB structure) against the stored templates:
+        query = jess.query(
+            molecule=molecule, 
+            rmsd_threshold=rmsd_threshold,
+            distance_cutoff=distance_cutoff, 
+            max_dynamic_distance=max_dynamic_distance, max_candidates=max_candidates, 
+            best_match=True
+        ) # query is pyjess.Query object which is an iterator over pyjess.Hits
+
+        # A template is not encoded as coordinates, rather as a set of constraints.
+        # For example, it would not contain the exact positions of THR and ASN atoms,
+        # but instructions like
+        # "Cα of ASN should be X angstrom away from the Cα of THR plus the allowed distance."
+
+        # Multiple solutions = Matches to a template, satisfying all constraints may therefore exist
+        # Jess produces matches to templates by looking for any combination of atoms,
+        # residue_types, elements etc. and ANY positions which satisfy the constraints in the template
+
+        # thus the solutions that Jess finds are NOT identical to the template at all
+        # rather they are all possible solutions to the set constraints.
+        # Solutions may completely differ from the template geometry
+        # or atom composition if allowed by the set constraints.
+        # by setting best_match=True we turn on filtering by rmsd to return only the best match
+        # for every molecule template pair. Currently best_match is not exposed to the user.
+        # This should be the only use case (I think)
+
+        # Thus we hope to return the one solution to the constraints
+        # which most closely resembles the original template - this is not guaranteed of course
+
+        matches: List[Match] = []
+        for hit in query: # hit is pyjess.Hit
+            matches.append(Match(hit=hit, pairwise_distance = distance_cutoff))
+
+        return matches
+
+    def _single_query_run(self,
+                        molecule: pyjess.Molecule,
+                        templates: List[AnnotatedTemplate],
+                        rmsd_threshold: float = 2.0,
+                        distance_cutoff: float = 1.5,
+                        max_dynamic_distance: float = 1.5,
+                        max_candidates: int = 10000
+                        ) -> List[Match]:
+        
+        matches = self._run_jess(molecule=molecule,
+                        templates=templates,
+                        rmsd_threshold=rmsd_threshold,
+                        distance_cutoff=distance_cutoff,
+                        max_dynamic_distance=max_dynamic_distance,
+                        max_candidates=max_candidates
+                        )
+        self._check_completeness(matches)
+
+        return matches
+
     def run(self, molecules: List[pyjess.Molecule]) -> Dict[pyjess.Molecule, List[Match]]:
+
         processed_molecules = collections.defaultdict(list)
 
-        with ThreadPool(self.cpus) as pool:
-
+        pool = DummyPool() if self.cpus == 1 else ThreadPool(self.cpus)
+        with pool:
+    
             for template_size in self.template_effective_sizes:
+
+                if template_size < 3 and not self.match_small_templates:
+                    # skip the rest of the for-loop
+                    continue
+
                 templates = self.templates_by_effective_size[template_size]
+
+                rmsd, distance, max_dynamic_distance = self._get_jess_parameters(template_size)
                 
-                if template_size < 3:
-                    if not self.match_small_templates:
-                        continue # skip the rest of the for-loop
-                    parameter_size = 3
-
-                elif template_size > 8:
-                    parameter_size = 8
-
-                else:
-                    parameter_size = template_size
+                self.verbose_print(f'Now matching query structure(s) to template of size {template_size}')
+                self.verbose_print(f'jess parameters are: {rmsd} {distance} {max_dynamic_distance}')
 
                 ################# Running Jess ###################################
                 
-                self.verbose_print(f'Now matching query structure(s) to template of size {template_size}')
-                self.verbose_print(f'jess parameters are: {self.jess_params[parameter_size]}')
-
-                rmsd = self.jess_params[parameter_size]['rmsd']
-                distance = self.jess_params[parameter_size]['distance']
-                max_dynamic_distance = self.jess_params[parameter_size]['max_dynamic_distance']
-                
-                _single_query_run = functools.partial(single_query_run, templates=templates, rmsd_threshold=rmsd, distance_cutoff=distance, max_dynamic_distance=max_dynamic_distance)
-
                 if self.skip_smaller_hits: # only search the molecule if no larger hits have been found for it already
                     query_molecules = [ molecule for molecule in molecules if molecule not in processed_molecules ]
                 else:
                     query_molecules = molecules
 
-                total_matches = 0 # counter for all matches found over all molecules passed 
-                all_matches = pool.map(_single_query_run, query_molecules) # all_matches are a list of Match objects
-                for molecule, matches in zip(query_molecules, all_matches):
-                    if matches:
-                        if self.filter_matches:
-                            for match in matches:
-                                if match.predicted_correct:
-                                    total_matches += 1
-                                    processed_molecules[molecule].append(match)
-                        else:
-                            processed_molecules[molecule].extend(matches)
-                            total_matches += len(matches)
+                total_matches = 0  # counter for all matches found with a given template size over all molecules passed
+
+                _single_query_run = functools.partial(self._single_query_run, templates=templates, rmsd_threshold=rmsd, distance_cutoff=distance, max_dynamic_distance=max_dynamic_distance)
+
+                all_matches = zip(query_molecules, pool.map(_single_query_run, query_molecules))
 
                 self.verbose_print(f'{total_matches} matches were found for templates of effective size {template_size}')
+                
+                # if filter is true (default) then only matches with predicted_correct == True are added to processed molecules
+                if self.filter_matches:
+                    for molecule, matches in all_matches:
+                        for match in matches:
+                            if match.predicted_correct:
+                                total_matches += 1
+                                processed_molecules[molecule].append(match)
+
+                # all matches are added to processed_molecules
+                else:
+                    for molecule, matches in all_matches:
+                        processed_molecules[molecule].extend(matches)
+                        total_matches += len(matches)
 
         return processed_molecules
+
+    def run_single(self, molecule: pyjess.Molecule) -> List[Match]:
+        return self.run([molecule])[molecule]
 
 def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
 
@@ -458,7 +561,7 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
     parser.add_argument('-j', '--jess', nargs = 3, default=None, type=float, help='Fixed Jess parameters for all templates. Jess space seperated parameters rmsd, distance, max_dynamic_distance')
     parser.add_argument('-t', '--template-dir', type=Path, default=None, help='Path to directory containing jess templates. This directory will be recursively searched.')
     parser.add_argument('-c', '--conservation-cutoff', type=float, default=0, help='Atoms with a value in the B-factor column below this cutoff will be excluded form matching to the templates. Useful for predicted structures.')
-    parser.add_argument('-n', '--n-jobs', type=int, default=0, help='The number of threads to run in parallel. Pass 1 to run everything in the main thread, 0 to automatically select a suitable number, or any postive number. Negative numbers take all.')
+    parser.add_argument('-n', '--n-jobs', type=int, default=0, help='The number of threads to run in parallel. Pass 0 to select all. Negative numbers: leave this many threads free.')
     
     # Boolean optional arguments
     parser.add_argument('-v', '--verbose', default=False, action="store_true", help='If process information and time progress should be printed to the command line')
@@ -474,7 +577,7 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
     if not args.files:
         parser.error("No input files were passed. Use the -i and/or -l flags to pass input.")
 
-    jess_params = {}
+    jess_params = None
     if args.jess:
         jess_params_list = [i for i in args.jess]
         # jess parameters
@@ -506,8 +609,7 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
                 unique_id = stem
 
             molecule = pyjess.Molecule.load(str(molecule_path), id=unique_id) # by default it will stop at ENDMDL
-            if args.conservation_cutoff: # if the pyjess cutoff function changes to stop it from making a copy if conservation cutoff is 0 or false or something I can drop this
-                # TODO
+            if args.conservation_cutoff:
                 molecule.conserved(args.conservation_cutoff)
                 # molecule = molecule.conserved(args.conservation_cutoff)
                 # conserved is a method called on a molecule object that returns a filtered molecule
@@ -525,9 +627,16 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
         else:
             templates = list(load_templates(warn=args.warn, verbose=args.verbose, cpus=args.n_jobs))
 
-        print(len(templates))
         ############ Initialize Matcher object ################################
-        matcher = Matcher(templates=templates, jess_params=jess_params, conservation_cutoff=args.conservation_cutoff, warn=args.warn, verbose=args.verbose, skip_smaller_hits=args.skip_smaller_hits, match_small_templates=args.match_small_templates, cpus=args.n_jobs, filter_matches=args.filter_matches)
+        matcher = Matcher(
+            templates=templates,
+            jess_params=jess_params,
+            conservation_cutoff=args.conservation_cutoff,
+            warn=args.warn, verbose=args.verbose,
+            skip_smaller_hits=args.skip_smaller_hits,
+            match_small_templates=args.match_small_templates,
+            cpus=args.n_jobs,
+            filter_matches=args.filter_matches)
 
         ############ Call Matcher.run ##########################################
         processed_molecules = matcher.run(molecules = molecules)
@@ -553,7 +662,7 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
                     match.index = jndex+1 # 1 indexed matches per query
                     match.dump(tsvfile, header=i==0) # one line per match, write header only for the first match
 
-        def write_hits2_pdb(matches: List[Match], filename: str, outdir: Path):
+        def write_hits2pdb(matches: List[Match], filename: str, outdir: Path):
             outdir.mkdir(parents=True, exist_ok=True)
             # make sure molecule.id is unique!
             with open(Path(outdir, f'{filename}_matches.pdb'), 'w', encoding ="utf-8") as pdbfile:
@@ -561,12 +670,12 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
                     for i, match in enumerate(matches):
                         match.dump2pdb(pdbfile, include_query=i==0, transform=args.transform)
                 else:
-                    for i, match in enumerate(matches):
+                    for match in matches:
                         match.dump2pdb(pdbfile, transform=args.transform)
 
         if args.pdbs:
             for molecule, matches in processed_molecules.items():
-                write_hits2_pdb(matches=matches, filename=molecule.id, outdir=args.pdbs) # type: ignore
+                write_hits2pdb(matches=matches, filename=molecule.id, outdir=args.pdbs) # type: ignore
 
     except IsADirectoryError as exc:
         print("File is a directory:", exc.filename, file=stderr)
@@ -583,12 +692,4 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
     return 0
 
 if __name__ == "__main__":
-    import cProfile, pstats
-    profiler = cProfile.Profile()
-    profiler.enable()
-    main()
-    profiler.disable()
-    stats = pstats.Stats(profiler).sort_stats('cumtime')
-    profiler.dump_stats('cProfiler_stats')
-    stats.print_stats()
-    # sys.exit(main())
+    sys.exit(main())

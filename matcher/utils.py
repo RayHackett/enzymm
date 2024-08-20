@@ -48,6 +48,21 @@ class SetEncoder(json.JSONEncoder):
         if isinstance(obj, set): # add more object types with elif isinstance etc.
             return list(obj)
         return super().default(obj) # return parent class
+    
+# for running either single or multithread
+class DummyPool:
+
+    def map(self, function, iterable):
+        return list(map(function, iterable))
+    
+    def starmap(self, function, list_of_iterables):
+        return list(function(*args) for args in list_of_iterables)
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_value, exc_type, traceback):
+        return False
 
 X = TypeVar('X', str, int, float, bool)  # Add more types if needed
 def json_extract(obj: Any, key: X) -> List[X]:
