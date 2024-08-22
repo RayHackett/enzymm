@@ -722,8 +722,9 @@ class Matcher:
         return self.run([molecule])[molecule]
 
 
-def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
-
+def parse_args(argv: Optional[List[str]] = None) -> argparse.ArgumentParser:
+    """Parse Arguments with Argparse. Returns args object"""
+    
     class ReadListAction(argparse.Action):
         def __call__(self, parser, namespace, values, option_string=None):
             with values.open("r") as f:
@@ -854,6 +855,13 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
         parser.error(
             "No input files were passed. Use the -i and/or -l flags to pass input."
         )
+    
+    return args
+
+
+def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
+
+    args = parse_args(argv)
 
     jess_params = None
     if args.jess:

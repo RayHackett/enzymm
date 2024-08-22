@@ -38,7 +38,6 @@ __all__ = [
     "load_templates",
 ]
 
-
 @dataclass(frozen=True)
 class Vec3:
     """Class for storing 3D vectors in XYZ"""
@@ -498,6 +497,7 @@ class AnnotatedTemplate(pyjess.Template):
                 raise NotImplementedError(
                     "Still need to write a dump method for templates in PyJess"
                 )
+                # TODO
                 # atom.dump(file)
 
         file.write("END\n")
