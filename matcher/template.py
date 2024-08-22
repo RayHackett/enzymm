@@ -38,6 +38,7 @@ __all__ = [
     "load_templates",
 ]
 
+
 @dataclass(frozen=True)
 class Vec3:
     """Class for storing 3D vectors in XYZ"""

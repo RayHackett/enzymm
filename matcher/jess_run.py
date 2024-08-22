@@ -724,7 +724,7 @@ class Matcher:
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.ArgumentParser:
     """Parse Arguments with Argparse. Returns args object"""
-    
+
     class ReadListAction(argparse.Action):
         def __call__(self, parser, namespace, values, option_string=None):
             with values.open("r") as f:
@@ -855,7 +855,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.ArgumentParser:
         parser.error(
             "No input files were passed. Use the -i and/or -l flags to pass input."
         )
-    
+
     return args
 
 
