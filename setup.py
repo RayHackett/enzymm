@@ -14,7 +14,6 @@ setup(
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     install_requires=[
-        "pyjess>=0.2.1",
-        # List any other dependencies your module requires
+        "pyjess>=0.3.1",
     ],
 )

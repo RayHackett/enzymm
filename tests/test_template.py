@@ -1,39 +1,39 @@
 import unittest
-
+import matcher
 from matcher import template
 from pathlib import Path
 import math
 
+import pyjess
+
+import importlib.resources
 from importlib.resources import files
 from . import test_data
-
-matcher = Path(__package__).parent / "matcher/"
 
 
 class TestIntegration(unittest.TestCase):
 
     def test_load_templates(self):
-        with self.assertRaises(FileNotFoundError):
-            list(template.load_templates(Path("/some/bogus/folder"), warn=False))
+        with self.assertRaises(NotADirectoryError):
+            list(template.load_templates(Path("/some/bogus/folder")))
 
         with self.assertRaises(NotADirectoryError):
             list(
                 template.load_templates(
-                    Path(files(test_data).joinpath("bad_templates/pdb_id_none.pdb")),
-                    warn=False,
+                    files(test_data).joinpath("bad_templates/pdb_id_none.pdb")
                 )
             )
 
         with self.assertRaises(ValueError):
-            list(template.load_templates(Path(files(test_data)), warn=False))
+            list(template.load_templates(Path(files(test_data))))
 
         # End to End test loading all supplied templates
         self.assertEqual(
-            len(list(template.load_templates(warn=False))), 7611
+            len(list(template.load_templates(template_dir=None))), 7607
         )  # check if all the expected templates were found
 
     def test_get_template_paths(self):
-        data_path = Path(matcher / "data/")
+        data_path = importlib.resources.files(matcher).joinpath("data/")
         # check if all the required annotation files are there - This will run the entire script
         self.assertEqual(
             template._get_paths_by_extension(data_path, ".json"),
@@ -41,6 +41,7 @@ class TestIntegration(unittest.TestCase):
                 Path(data_path, "pdb_sifts.json"),
                 Path(data_path, "MCSA_EC_mapping.json"),
                 Path(data_path, "MCSA_CATH_mapping.json"),
+                Path(data_path, "logistic_regression_models.json"),
             ],
         )
 
@@ -177,23 +178,20 @@ class TestAnnotatedTemplate(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with open(
-            Path(
-                matcher,
+            importlib.resources.files(matcher).joinpath(
                 "jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb",
             ),
             "r",
         ) as f:
             cls.template_text1 = f.read()
         with open(
-            Path(
-                matcher,
+            importlib.resources.files(matcher).joinpath(
                 "jess_templates_20230210/4_residues/results/csa3d_0011/csa3d_0011.cluster_1_1_3.1qum_D145-D109-D37-D72-D69-D229-D182-D231-D261-D216-D179.template.pdb",
             ),
             "r",
         ) as f:
             cls.template_text2 = f.read()
-        with files(test_data).joinpath("bad_templates/empty_remark.pdb").open() as f:
-            cls.template_empty_remark = f.read()
+
         with files(test_data).joinpath("bad_templates/hetatm.pdb").open() as f:
             cls.template_hetatm = f.read()
         with files(test_data).joinpath(
@@ -221,14 +219,100 @@ class TestAnnotatedTemplate(unittest.TestCase):
         with files(test_data).joinpath("bad_templates/no_remark.pdb").open() as f:
             cls.template_no_remark = f.read()
 
+        magic_atom = pyjess.TemplateAtom(
+            chain_id="A",
+            residue_number=51,
+            residue_names=["ANY"],
+            atom_names=["C"],
+            distance_weight=1.5,
+            match_mode=1,
+            x=1.0,
+            y=0,
+            z=-99.5,
+        )
+
+        magic_atom2 = pyjess.TemplateAtom(
+            chain_id="A",
+            residue_number=51,
+            residue_names=["ANY"],
+            atom_names=["A"],
+            distance_weight=1.5,
+            match_mode=1,
+            x=1.5,
+            y=-1,
+            z=15,
+        )
+
+        magic_atom3 = pyjess.TemplateAtom(
+            chain_id="A",
+            residue_number=51,
+            residue_names=["ANY"],
+            atom_names=["O"],
+            distance_weight=1.5,
+            match_mode=1,
+            x=0,
+            y=-2.3,
+            z=-2.233,
+        )
+
+        cls.artifical_template1 = template.AnnotatedTemplate(
+            id="some_name",
+            pdb_id="Magic_ID",
+            template_id_string="A completely fake template",
+            cluster=template.Cluster(id=1, member=2, size=2),
+            uniprot_id="NotAUniProtID",
+            organism=None,
+            organism_id="a string??",
+            resolution=99,
+            experimental_method="pure creativity",
+            enzyme_discription="brain chemistry goes brr",
+            cath=["1.1.1.1"],
+            ec=["9.9.9.9"],
+            atoms=[
+                magic_atom,
+                magic_atom2,
+                magic_atom3,
+                magic_atom,
+                magic_atom2,
+                magic_atom3,
+            ],
+        )
+
+        cls.artifical_template2 = template.AnnotatedTemplate(
+            id="some_name",
+            pdb_id="Magic_ID_and_different_di",
+            template_id_string="A completely fake template",
+            cluster=template.Cluster(id=1, member=2, size=2),
+            uniprot_id="A different uniprot",
+            organism=None,
+            organism_id="a string??",
+            resolution=99,
+            experimental_method="pure creativity",
+            enzyme_discription="brain chemistry goes brr",
+            cath=["1.1.1.1"],
+            ec=["9.9.9.9"],
+            atoms=[
+                magic_atom,
+                magic_atom2,
+                magic_atom3,
+                magic_atom,
+                magic_atom2,
+                magic_atom3,
+            ],
+        )
+
+        cls.minimal_template = template.AnnotatedTemplate(
+            atoms=[magic_atom, magic_atom2, magic_atom3]
+        )
+
     def test_good_loads(self):
-        template1 = template.AnnotatedTemplate.annotated_loads(
-            self.template_text1, str(0), warn=True
+        template1 = template.AnnotatedTemplate.loads(self.template_text1, warn=False)
+        template1_with_id = template.AnnotatedTemplate.loads(
+            self.template_text1, id="another_id", warn=False
         )
-        template2 = template.AnnotatedTemplate.annotated_loads(
-            self.template_text2, str(1), warn=True
+        template2 = template.AnnotatedTemplate.loads(
+            self.template_text2, id="hello_world", warn=True
         )
-        self.assertEqual(template1.id, "0")
         self.assertEqual(template1.pdb_id, "1b74")
         self.assertEqual(
             template1.template_id_string, "1b74_A147-AA180-AA70-AA178-AA8-AA7"
@@ -258,8 +342,8 @@ class TestAnnotatedTemplate(unittest.TestCase):
         )  # could be more info added through sifts
         self.assertEqual(len(template1.residues), 6)
 
-        self.assertEqual(template2.id, "1")
         self.assertEqual(template2.pdb_id, "1qum")
+        self.assertEqual(template2.id, "hello_world")
         self.assertEqual(
             template2.template_id_string,
             "1qum_D145-D109-D37-D72-D69-D229-D182-D231-D261-D216-D179",
@@ -289,51 +373,55 @@ class TestAnnotatedTemplate(unittest.TestCase):
         )  # could be more info added through sifts
         self.assertEqual(len(template2.residues), 4)
 
+        # Test for template equality
+        self.assertEqual(template1, template1)
+        # Test with lots of None's
+        self.assertEqual(self.minimal_template, self.minimal_template)
+        # Changed only the internal id
+        self.assertNotEqual(template1, template1_with_id)
+        # completely different templates
+        self.assertNotEqual(template1, template2)
+        # changed only the uniprot id
+        self.assertNotEqual(
+            hash(self.artifical_template1), hash(self.artifical_template2)
+        )
+        self.assertNotEqual(self.artifical_template1, self.artifical_template2)
+
     def test_bad_loads(self):
-        with self.assertWarns(Warning):
-            template.AnnotatedTemplate.annotated_loads(
-                self.template_empty_remark, str(0), warn=True
-            )
         with self.assertRaises(ValueError):
-            template.AnnotatedTemplate.annotated_loads(
-                self.template_hetatm, str(0), warn=True
-            )
+            template.AnnotatedTemplate.loads(self.template_hetatm, warn=True)
         with self.assertRaises(IndexError):
-            template.AnnotatedTemplate.annotated_loads(
-                self.template_missing_cluster_annotation, str(0), warn=True
+            template.AnnotatedTemplate.loads(
+                self.template_missing_cluster_annotation, warn=True
             )
         with self.assertRaises(ValueError):
-            template.AnnotatedTemplate.annotated_loads(
-                self.template_malformed_residue_1, str(0), warn=True
+            template.AnnotatedTemplate.loads(
+                self.template_malformed_residue_1, warn=True
             )
         with self.assertRaises(ValueError):
-            template.AnnotatedTemplate.annotated_loads(
-                self.template_malformed_residue_2, str(0), warn=True
+            template.AnnotatedTemplate.loads(
+                self.template_malformed_residue_2, warn=True
             )
         with self.assertRaises(ValueError):
-            template.AnnotatedTemplate.annotated_loads(
-                self.template_malformed_residue_3, str(0), warn=True
+            template.AnnotatedTemplate.loads(
+                self.template_malformed_residue_3, warn=True
             )
 
         # These do not raise Warnings or errors
-        template.AnnotatedTemplate.annotated_loads(
-            self.template_no_remark, str(0), warn=True
-        )
-        template.AnnotatedTemplate.annotated_loads(
-            self.template_new_remark, str(0), warn=True
-        )
-        template.AnnotatedTemplate.annotated_loads(
-            self.template_pdb_id_none, str(0), warn=True
-        )
-        template.AnnotatedTemplate.annotated_loads(
-            self.not_a_template, str(0), warn=True
-        )
+        template.AnnotatedTemplate.loads(self.template_no_remark, warn=True)
+        template.AnnotatedTemplate.loads(self.template_new_remark, warn=True)
+        template.AnnotatedTemplate.loads(self.template_pdb_id_none, warn=True)
+        template.AnnotatedTemplate.loads(self.not_a_template, warn=True)
 
-    def test_dump(self):
-        pass  # TODO when atoms have dump method
+    # def test_dumps(self): # TODO
+    #     # tests both dump and dumps methods
+    #     template1 = template.AnnotatedTemplate.loads(
+    #         self.template_text1, warn=False
+    #     )
 
-    def test_dumps(self):
-        pass  # TODO when atoms have dump method
+    #     template1_dumpstring = template1.dumps()
+
+    #     self.assertEqual(self.template_text1, template1_dumpstring)
 
     def test_annotation_parsing(self):
         with self.assertRaises(ValueError):
@@ -393,14 +481,13 @@ class TestResidue(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with open(
-            Path(
-                matcher,
+            importlib.resources.files(matcher).joinpath(
                 "jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb",
             ),
             "r",
         ) as f:
-            template1 = template.AnnotatedTemplate.annotated_loads(
-                f.read(), str(0), warn=False
+            template1 = template.AnnotatedTemplate.loads(
+                f.read(),
             )
         cls.residue1 = template1.residues[0]
         cls.residue2 = template1.residues[1]
@@ -422,23 +509,17 @@ class TestResidue(unittest.TestCase):
 
     def test_unkown_resids(self):
         with self.assertRaises(KeyError):
-            template.AnnotatedTemplate.annotated_loads(
-                self.template_unkown_residue_text, str(0), warn=True
+            template.AnnotatedTemplate.loads(
+                self.template_unkown_residue_text, warn=True
             )
 
     def test_bad_atoms_in_orientation(self):
         with self.assertRaises(ValueError):
-            template.AnnotatedTemplate.annotated_loads(
-                self.bad_atom_names_1, str(0), warn=True
-            )
+            template.AnnotatedTemplate.loads(self.bad_atom_names_1, warn=True)
         with self.assertRaises(ValueError):
-            template.AnnotatedTemplate.annotated_loads(
-                self.bad_atom_names_2, str(0), warn=True
-            )
+            template.AnnotatedTemplate.loads(self.bad_atom_names_2, warn=True)
         with self.assertRaises(ValueError):
-            template.AnnotatedTemplate.annotated_loads(
-                self.bad_atom_names_3, str(0), warn=True
-            )
+            template.AnnotatedTemplate.loads(self.bad_atom_names_3, warn=True)
 
     def test_attributes(self):
         self.assertEqual(self.residue1.residue_name, "GLU")
@@ -475,8 +556,7 @@ class TestTemplate_Checking(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with open(
-            Path(
-                matcher,
+            importlib.resources.files(matcher).joinpath(
                 "jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb",
             ),
             "r",
@@ -484,8 +564,8 @@ class TestTemplate_Checking(unittest.TestCase):
             cls.template_text1 = f.read()
 
     def test_check_template(self):
-        template1 = template.AnnotatedTemplate.annotated_loads(
-            self.template_text1, str(0), warn=False
+        template1 = template.AnnotatedTemplate.loads(
+            self.template_text1,
         )
         self.assertEqual(template.check_template(template=template1, warn=False), True)
         self.assertEqual(template.check_template(template=template1, warn=True), True)

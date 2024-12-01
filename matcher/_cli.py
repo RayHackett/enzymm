@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import Optional, List, Dict, TYPE_CHECKING
+from typing import Optional, List, Dict
 from collections import defaultdict
 import warnings
 import sys
@@ -10,8 +10,7 @@ import pyjess
 from .template import load_templates
 from . import __version__
 
-if TYPE_CHECKING:
-    from .jess_run import Matcher, Match
+from .jess_run import Matcher, Match
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -116,11 +115,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Include the query structure together with the hits in the pdb output",
     )
     parser.add_argument(
-        "-f",
-        "--filter-matches",
-        default=True,
-        action="store_false",
-        help="If set, matches which logistic regression predicts as false based on RMSD and resdiue orientation will be retained. By default, matches predicted as false are removed",
+        "-u",
+        "--unfiltered",
+        default=False,
+        action="store_true",
+        help="If set, matches which logistic regression predicts as false based on RMSD and resdiue orientation will be retained. By default, matches predicted as false are removed.",
     )
     parser.add_argument(
         "--transform",
@@ -230,19 +229,14 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
         if not molecules and args.warn:
             warnings.warn("received no molecules from input")
 
-        if args.template_dir:
-            templates = list(
-                load_templates(
-                    template_dir=Path(args.template_dir),
-                    warn=args.warn,
-                    verbose=args.verbose,
-                    cpus=args.n_jobs,
-                )
+        templates = list(
+            load_templates(
+                template_dir=args.template_dir,
+                warn=args.warn,
+                verbose=args.verbose,
+                cpus=args.n_jobs,
             )
-        else:
-            templates = list(
-                load_templates(warn=args.warn, verbose=args.verbose, cpus=args.n_jobs)
-            )
+        )
 
         ############ Initialize Matcher object ################################
         matcher = Matcher(
@@ -254,7 +248,7 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
             skip_smaller_hits=args.skip_smaller_hits,
             match_small_templates=args.match_small_templates,
             cpus=args.n_jobs,
-            filter_matches=args.filter_matches,
+            filter_matches=not args.unfiltered,
         )
 
         ############ Call Matcher.run ##########################################
@@ -277,17 +271,17 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
         if args.verbose:
             print(f"Writing output to {out_tsv.resolve()}")
             print(
-                f"Matches predicted by logistic regression as false are {'not ' if args.filter_matches else ''}reported"
+                f"Matches predicted by logistic regression as false are {'' if args.unfiltered else 'not '}reported"
             )
 
         with open(out_tsv, "w", newline="", encoding="utf-8") as tsvfile:
-            tsvfile.write(f"# Version {__version__}")
+            tsvfile.write(f"# Version {__version__}\n")
             for index, (molecule, matches) in enumerate(processed_molecules.items()):
                 for jndex, match in enumerate(matches):
                     i = index + jndex
                     match.index = jndex + 1  # 1 indexed matches per query
                     match.dump(
-                        tsvfile, header=i == 0
+                        tsvfile, header=(i == 0)
                     )  # one line per match, write header only for the first match
 
         def write_hits2pdb(matches: List[Match], filename: str, outdir: Path):
@@ -301,7 +295,7 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
                 ):  # write the molecule structure to the top of the pdb output too
                     for i, match in enumerate(matches):
                         match.dump2pdb(
-                            pdbfile, include_query=i == 0, transform=args.transform
+                            pdbfile, include_query=(i == 0), transform=args.transform
                         )
                 else:
                     for match in matches:

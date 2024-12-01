@@ -9,7 +9,15 @@ import json
 
 
 def ranked_argsort(lst: List[int]) -> List[int]:
-    """Return a list of the same order in which the elements values correspond to their ranked values"""
+    """
+    Return a list of the same order in which the elements values correspond to their ranked values
+
+    Arguments:
+        lst: List on which to operate
+
+    Returns:
+        `List[int]`: List of value ranks of each element in order.
+    """
     unique_values = sorted(set(lst))
     ranks = {v: i + 1 for i, v in enumerate(unique_values)}
     return [ranks[i] for i in lst]
@@ -18,6 +26,17 @@ def ranked_argsort(lst: List[int]) -> List[int]:
 def request_url(
     url: str, acceptable_stati: List[int], timeout: int = 10, max_retries: int = 10
 ):
+    """
+    Fetch content from a url, while handling retries and url issues.
+
+    Arguments:
+        acceptable_stati: List of HTTP Status codes to accept. If Code is is accepted but not 200, return an empty string.
+        timeout: time to sleep between retries
+        max_retries: number of times to retry reaching a url
+
+    Returns:
+        `Response` object or empty string or prints a warning.
+    """
     # TODO figure out maxretries
 
     session = requests.Session()
@@ -50,6 +69,10 @@ def request_url(
 # this makes any set serializable. This allows me to write to json
 # consider: https://stackoverflow.com/questions/50916422/python-typeerror-object-of-type-int64-is-not-json-serializable
 class SetEncoder(json.JSONEncoder):
+    """
+    Class to transform sets into lists to enable json serialization
+    """
+
     def default(self, obj):
         if isinstance(obj, set):  # add more object types with elif isinstance etc.
             return list(obj)
@@ -58,6 +81,7 @@ class SetEncoder(json.JSONEncoder):
 
 # for running either single or multithread
 class DummyPool:
+    "Class to mimic a Threadpool. Used for single threaded runs."
 
     def map(self, function, iterable):
         return list(map(function, iterable))
@@ -76,7 +100,15 @@ X = TypeVar("X", str, int, float, bool)  # Add more types if needed
 
 
 def json_extract(obj: Any, key: X) -> List[X]:
-    """Recursively fetch values from nested dictionary"""
+    """
+    Recursively fetch values from nested dictionary.
+
+    Will also enter lists of dictionaries.
+
+    Arguments:
+        obj: Object instance from which to fetch values
+        key: String, Int, float or bool key for which associated values will be fetched
+    """
     arr: List[X] = []
 
     def extract(obj: Any, arr: List[X], key: X):
@@ -108,7 +140,13 @@ def chunks(iterable: Iterable[T], n: Literal[3]) -> Iterator[Tuple[T, T, T]]: ..
 
 
 def chunks(iterable: Iterable[T], n: int) -> Iterator[Tuple[T, ...]]:
-    """Yield successive n-sized chunks from iterable."""
+    """
+    Yield successive n-sized chunks from iterable.
+
+    Arguments:
+        iterable: Iterable to chunk
+        n: Number of elements in each chunk
+    """
     iterable = iter(iterable)
     while chunk := tuple(islice(iterable, n)):
         yield chunk

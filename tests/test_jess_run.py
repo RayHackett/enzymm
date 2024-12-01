@@ -1,16 +1,14 @@
-import errno
 import unittest
+import importlib.resources
 from importlib.resources import files
 from . import test_data
 
-from pathlib import Path
 import io
 import os
 
+import matcher
 from matcher import template, jess_run
 import pyjess
-
-matcher = Path(__package__).parent / "matcher/"
 
 
 class TestMatch(unittest.TestCase):
@@ -20,16 +18,13 @@ class TestMatch(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with open(
-            Path(
-                matcher,
+            importlib.resources.files(matcher).joinpath(
                 "jess_templates_20230210/5_residues/results/csa3d_0285/csa3d_0285.cluster_1_1_1.1uh3_A396-A262-A356-A471-A472.template.pdb",
             ),
             "r",
         ) as f:
             template_text1 = f.read()
-            cls.template1 = template.AnnotatedTemplate.annotated_loads(
-                template_text1, str(0), warn=False
-            )
+            cls.template1 = template.AnnotatedTemplate.loads(template_text1, warn=False)
             jess_1 = pyjess.Jess([cls.template1])
 
         with files(test_data).joinpath("1AMY.pdb").open() as f:
@@ -40,20 +35,18 @@ class TestMatch(unittest.TestCase):
         )
         best_hits = list(query)
 
-        cls.match1 = jess_run.Match(hit=best_hits[0])
-        cls.match1.complete = True  # this is false because we did not run the completeness check here. we manually set it to true
+        cls.match1 = jess_run.Match(
+            hit=best_hits[0], pairwise_distance=1.5, complete=True, index=0
+        )
 
         with open(
-            Path(
-                matcher,
+            importlib.resources.files(matcher).joinpath(
                 "jess_templates_20230210/3_residues/results/csa3d_0415/csa3d_0415.cluster_1_1_2.1be0_A124-A175-A125-A289-A260.template.pdb",
             ),
             "r",
         ) as f:
             template_text2 = f.read()
-            cls.template2 = template.AnnotatedTemplate.annotated_loads(
-                template_text2, str(0), warn=False
-            )
+            cls.template2 = template.AnnotatedTemplate.loads(template_text2, warn=False)
             jess_2 = pyjess.Jess([cls.template2])
 
         query = jess_2.query(molecule, 2, 1, 1, max_candidates=10000, best_match=True)
@@ -64,7 +57,6 @@ class TestMatch(unittest.TestCase):
     def test_match(self):
         self.assertEqual(self.match1.hit.molecule.id, "1AMY")
         self.assertEqual(self.match1.index, 0)
-        self.assertEqual(self.match1.hit.template.id, self.template1.id)
         self.assertEqual(self.match1.hit.template.pdb_id, self.template1.pdb_id)
         self.assertEqual(
             self.match1.hit.template.effective_size, self.template1.effective_size
@@ -117,8 +109,6 @@ class TestMatch(unittest.TestCase):
                 ("ASP", "A", "289"),
             ],
         )
-
-        self.assertEqual(self.match2.hit.template.id, self.template2.id)
         self.assertEqual(self.match2.hit.template.pdb_id, self.template2.pdb_id)
         self.assertEqual(
             self.match2.hit.template.effective_size, self.template2.effective_size
@@ -151,7 +141,7 @@ class TestMatch(unittest.TestCase):
             self.assertEqual(buffer.getvalue(), f.read())
 
     def test_match_dumps(self):
-        dumps_string = "query_id	match_index	template_pdb_id	template_pdb_chains	template_cluster_id	template_cluster_member	template_cluster_size	template_effective_size	template_dimension	template_mcsa_id	template_uniprot_id	template_ec	template_cath	template_multimeric	query_multimeric	query_atom_count	query_residue_count	rmsd	log_evalue	orientation	preserved_order	completeness	matched_residues\n1AMY	0	1uh3	A	1	1	1	5	5	285	Q60053	3.2.1.10,3.2.1.135	2.60.40.10,2.60.40.1180,3.20.20.80	False	False	3339	558	0.32093143180639955	-3.084244780540347	0.1532705432273403	True	True	GLU_A_204,ASP_A_87,ASP_A_179,HIS_A_288,ASP_A_289\n"
+        dumps_string = "query_id	pairwise_distance	match_index	template_pdb_id	template_pdb_chains	template_cluster_id	template_cluster_member	template_cluster_size	template_effective_size	template_dimension	template_mcsa_id	template_uniprot_id	template_ec	template_cath	template_multimeric	query_multimeric	query_atom_count	query_residue_count	rmsd	log_evalue	orientation	preserved_order	completeness	predicted_correct	matched_residues\n1AMY	1.5	0	1uh3	A	1	1	1	5	5	285	Q60053	3.2.1.10,3.2.1.135	2.60.40.10,2.60.40.1180,3.20.20.80	False	False	3339	558	0.32093143180639955	-3.084244780540347	0.1532705432273403	True	True	True	GLU_A_204,ASP_A_87,ASP_A_179,HIS_A_288,ASP_A_289\n"
         self.assertEqual(self.match1.dumps(header=True), dumps_string)
 
     def test_match_dump2pdb(self):
@@ -173,182 +163,58 @@ class TestMatch(unittest.TestCase):
             self.assertEqual(buffer.getvalue(), f.read())
 
 
-class Test_single_query_run(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        with open(
-            Path(
-                matcher,
-                "jess_templates_20230210/5_residues/results/csa3d_0285/csa3d_0285.cluster_1_1_1.1uh3_A396-A262-A356-A471-A472.template.pdb",
-            ),
-            "r",
-        ) as f:
-            template_text1 = f.read()
-
-        with open(
-            Path(
-                matcher,
-                "jess_templates_20230210/5_residues/results/csa3d_0045/csa3d_0045.cluster_1_1_1.2cxg_A227-A229-A257-A327-A328.template.pdb",
-            ),
-            "r",
-        ) as f:
-            template_text2 = f.read()
-
-        with open(
-            Path(
-                matcher,
-                "jess_templates_20230210/3_residues/results/csa3d_0914/csa3d_0914.cluster_4_2_2.3gvr_A41-A164-A37-A50-A86.template.pdb",
-            ),
-            "r",
-        ) as f:
-            template_text3 = f.read()
-
-        with open(
-            Path(
-                matcher,
-                "jess_templates_20230210/3_residues/results/csa3d_0285/csa3d_0285.cluster_1_1_2.1uh3_A396-A262-A356-A471-A472.template.pdb",
-            ),
-            "r",
-        ) as f:
-            template_text4 = f.read()
-
-        with open(
-            Path(
-                matcher,
-                "jess_templates_20230210/3_residues/results/csa3d_0285/csa3d_0285.cluster_1_2_2.1uh3_A396-A262-A356-A471-A472.template.pdb",
-            ),
-            "r",
-        ) as f:
-            template_text5 = f.read()
-
-        template_list = []
-        for index, txt in enumerate(
-            [
-                template_text1,
-                template_text2,
-                template_text3,
-                template_text4,
-                template_text5,
-            ]
-        ):
-            template_list.append(
-                template.AnnotatedTemplate.annotated_loads(txt, str(index), warn=False)
-            )
-        cls.template_list = template_list
-
-        with files(test_data).joinpath("bad_templates/no_remark.pdb").open() as f:
-            template_no_remark = f.read()
-        cls.unannotated_templates = [
-            template.AnnotatedTemplate.annotated_loads(
-                template_no_remark, str(index), warn=False
-            )
-        ]
-
-        cls.bad_template_list = [
-            template.AnnotatedTemplate.annotated_loads(
-                text=template_text1, internal_template_id=str(0), warn=False
-            ),
-            template.AnnotatedTemplate.annotated_loads(
-                text=template_text2, internal_template_id=str(0), warn=False
-            ),
-        ]
-
-        with files(test_data).joinpath("1AMY.pdb").open() as f:
-            cls.molecule = pyjess.Molecule.load(f)
-
-    def test_single_query_run_function(self):
-        # we only have to check that filtering works, completeness checking works and that templates are correctly mapped back again
-        matches = jess_run.single_query_run(
-            molecule=self.molecule,
-            templates=self.template_list,
-            rmsd_threshold=2,
-            distance_cutoff=1.5,
-            max_dynamic_distance=1.5,
-        )
-        pdb_ids = []
-        for match in matches:
-            pdb_ids.append(match.hit.template.pdb_id)
-        pdb_ids.sort()
-
-        self.assertEqual(len(matches), 5)
-        self.assertEqual(pdb_ids, ["1uh3", "1uh3", "1uh3", "2cxg", "3gvr"])
-
-        for match in matches:
-            if match.hit.template.id == "0":
-                self.assertEqual(match.complete, True)
-                self.assertEqual(match.hit.template.pdb_id, "1uh3")
-            elif match.hit.template.id == "1":
-                self.assertEqual(match.complete, True)
-                self.assertEqual(match.hit.template.pdb_id, "2cxg")
-            elif match.hit.template.id == "2":
-                self.assertEqual(match.complete, False)
-                self.assertEqual(match.hit.template.pdb_id, "3gvr")
-            elif match.hit.template.id == "3":
-                self.assertEqual(match.complete, True)
-                self.assertEqual(match.hit.template.pdb_id, "1uh3")
-            elif match.hit.template.id == "4":
-                self.assertEqual(match.complete, True)
-                self.assertEqual(match.hit.template.pdb_id, "1uh3")
-
-        matches2 = jess_run.single_query_run(
-            molecule=self.molecule,
-            templates=self.unannotated_templates,
-            rmsd_threshold=2,
-            distance_cutoff=1.5,
-            max_dynamic_distance=1.5,
-        )
-        for match in matches2:
-            self.assertEqual(match.complete, True)
-
-    def test_nonunique_template_id_error(self):
-        with self.assertRaises(KeyError):
-            jess_run.single_query_run(
-                molecule=self.molecule,
-                templates=self.bad_template_list,
-                rmsd_threshold=2,
-                distance_cutoff=1.5,
-                max_dynamic_distance=1.5,
-            )
-
-
 class TestMatcher(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+
+        template_files = [
+            "jess_templates_20230210/5_residues/results/csa3d_0285/csa3d_0285.cluster_1_1_1.1uh3_A396-A262-A356-A471-A472.template.pdb",
+            "jess_templates_20230210/5_residues/results/csa3d_0045/csa3d_0045.cluster_1_1_1.2cxg_A227-A229-A257-A327-A328.template.pdb",
+            "jess_templates_20230210/3_residues/results/csa3d_0285/csa3d_0285.cluster_1_1_2.1uh3_A396-A262-A356-A471-A472.template.pdb",
+            "jess_templates_20230210/3_residues/results/csa3d_0285/csa3d_0285.cluster_1_2_2.1uh3_A396-A262-A356-A471-A472.template.pdb",
+            "jess_templates_20230210/3_residues/results/csa3d_0421/csa3d_0421.cluster_1_1_3.1bf2_A229-A232-A230-A259-A375-A435-A510-A128.template.pdb",
+            "jess_templates_20230210/3_residues/results/csa3d_0896/csa3d_0896.cluster_2_1_2.2qy1_A135-A179-A137-A230-A175.template.pdb",
+        ]
+
+        template_texts = []
+        for path in template_files:
+            with open(importlib.resources.files(matcher).joinpath(path), "r") as f:
+                template_texts.append(f.read())
+
+        cls.template_list = []
+        for txt in template_texts:
+            cls.template_list.append(template.AnnotatedTemplate.loads(txt))
+
         res5_templates = list(
             template.load_templates(
-                template_dir=Path(
-                    matcher, "jess_templates_20230210/5_residues/results/csa3d_0285/"
+                template_dir=importlib.resources.files(matcher).joinpath(
+                    "jess_templates_20230210/5_residues/results/csa3d_0285/"
                 ),
-                warn=False,
-                verbose=False,
             )
         )
         res4_templates = list(
             template.load_templates(
-                template_dir=Path(
-                    matcher, "jess_templates_20230210/4_residues/results/csa3d_0285"
+                template_dir=importlib.resources.files(matcher).joinpath(
+                    "jess_templates_20230210/4_residues/results/csa3d_0285"
                 ),
-                warn=False,
-                verbose=False,
             )
         )
         res3_templates = list(
             template.load_templates(
-                template_dir=Path(
-                    matcher, "jess_templates_20230210/3_residues/results/csa3d_0344"
+                template_dir=importlib.resources.files(matcher).joinpath(
+                    "jess_templates_20230210/3_residues/results/csa3d_0344"
                 ),
-                warn=False,
-                verbose=False,
             )
         )
 
-        selected_templates = res5_templates + res4_templates
-        with_smaller_templates = selected_templates + res3_templates
+        res5_and_res4_templates = res5_templates + res4_templates
+        with_smaller_templates = res5_and_res4_templates + res3_templates
+
         cls.template_matcher = jess_run.Matcher(
-            templates=selected_templates, cpus=2, warn=True
+            templates=res5_and_res4_templates, cpus=2, warn=True
         )
         cls.template_matcher2 = jess_run.Matcher(
-            templates=selected_templates, skip_smaller_hits=True
+            templates=res5_and_res4_templates, skip_smaller_hits=True
         )
         with cls.assertWarns(cls, Warning):
             cls.template_matcher3 = jess_run.Matcher(
@@ -358,8 +224,35 @@ class TestMatcher(unittest.TestCase):
                 cpus=-1,
             )
 
+        cls.unfiltered_matcher = jess_run.Matcher(
+            templates=cls.template_list,
+            jess_params={
+                3: {"rmsd": 2, "distance": 1.2, "max_dynamic_distance": 1.2},
+                4: {"rmsd": 2, "distance": 1.7, "max_dynamic_distance": 1.7},
+                5: {"rmsd": 2, "distance": 2.0, "max_dynamic_distance": 2.0},
+                6: {"rmsd": 2, "distance": 2.0, "max_dynamic_distance": 2.0},
+                7: {"rmsd": 2, "distance": 2.0, "max_dynamic_distance": 2.0},
+                8: {"rmsd": 2, "distance": 2.0, "max_dynamic_distance": 2.0},
+            },
+            filter_matches=False,
+        )
+
+        cls.filtered_matcher = jess_run.Matcher(
+            templates=cls.template_list,
+            jess_params={
+                3: {"rmsd": 2, "distance": 1.2, "max_dynamic_distance": 1.2},
+                4: {"rmsd": 2, "distance": 1.7, "max_dynamic_distance": 1.7},
+                5: {"rmsd": 2, "distance": 2.0, "max_dynamic_distance": 2.0},
+                6: {"rmsd": 2, "distance": 2.0, "max_dynamic_distance": 2.0},
+                7: {"rmsd": 2, "distance": 2.0, "max_dynamic_distance": 2.0},
+                8: {"rmsd": 2, "distance": 2.0, "max_dynamic_distance": 2.0},
+            },
+            filter_matches=True,
+        )
+
         with files(test_data).joinpath("1AMY.pdb").open() as f:
             cls.molecule = pyjess.Molecule.load(f)
+
         with files(test_data).joinpath("AF-P0DUB6-F1-model_v4.pdb").open() as f:
             cls.molecule2 = pyjess.Molecule.load(f)
             cls.molecule3 = cls.molecule2.conserved(80)
@@ -374,11 +267,18 @@ class TestMatcher(unittest.TestCase):
             8: {"rmsd": 2, "distance": 2.0, "max_dynamic_distance": 2.0},
         }
 
+        # Testing jess param defaults are stored correctly
         self.assertEqual(self.template_matcher.jess_params, jess_params)
-        self.assertEqual(self.template_matcher.cpus, 2)
+        # Testing if template effective size is detected correctly
         self.assertEqual(self.template_matcher.template_effective_sizes, [5, 4])
-        self.assertEqual(self.template_matcher2.cpus, (os.cpu_count() or 1) - 2)
-        self.assertEqual(self.template_matcher3.cpus, (os.cpu_count() or 1))
+        # Test if cpu counts work correctly
+        self.assertEqual(self.template_matcher.cpus, 2)
+        self.assertEqual(self.template_matcher2.cpus, (os.cpu_count() or 1))
+        self.assertEqual(self.template_matcher3.cpus, (os.cpu_count() or 1) - 1)
+
+        # check for duplicated templates in Matcher
+        with self.assertRaises(ValueError):
+            jess_run.Matcher(templates=self.template_list + self.template_list)
 
     def test_Matcher_run(self):
         processed_molecules_1 = self.template_matcher.run(
@@ -407,79 +307,47 @@ class TestMatcher(unittest.TestCase):
             len(processed_molecules_3[self.molecule]), 3
         )  # match-small-templates
 
+    def test_Matcher_single_run(self):
+        # we only have to check that filtering works,
+        unfiltered_matches = self.unfiltered_matcher.run_single(molecule=self.molecule)
 
-# TODO test conservation
+        filtered_matches = self.filtered_matcher.run_single(molecule=self.molecule)
 
+        unfiltered_pdb_ids = []
+        for match in unfiltered_matches:
+            unfiltered_pdb_ids.append(match.hit.template.pdb_id)
 
-class Test_main(unittest.TestCase):
+        filtered_pdb_ids = []
+        for match in filtered_matches:
+            filtered_pdb_ids.append(match.hit.template.pdb_id)
 
-    @classmethod
-    def setUpClass(cls):
-        molecule_path = str(Path(files(test_data).joinpath("1AMY.pdb")).resolve())
-
-        list_path = str(Path(files(test_data).joinpath("input_list.txt")).resolve())
-        list_path2 = str(Path(files(test_data).joinpath("input_dir.txt")).resolve())
-
-        selected_template_dir = str(
-            Path(
-                matcher, "jess_templates_20230210/5_residues/results/csa3d_0285/"
-            ).resolve()
+        self.assertEqual(len(filtered_matches), 5)
+        self.assertEqual(
+            sorted(filtered_pdb_ids), ["1bf2", "1uh3", "1uh3", "1uh3", "2cxg"]
+        )
+        self.assertEqual(len(unfiltered_matches), 6)
+        self.assertEqual(
+            sorted(unfiltered_pdb_ids), ["1bf2", "1uh3", "1uh3", "1uh3", "2cxg", "2qy1"]
         )
 
-        cls.arguments_normal = [
-            "-i",
-            molecule_path,
-            "-t",
-            selected_template_dir,
-            "-o",
-            "temp_result.tsv",
-        ]
-        cls.arguments_list = [
-            "-l",
-            list_path,
-            "-t",
-            selected_template_dir,
-            "-o",
-            "temp_result.tsv",
-            "-j",
-            "5",
-            "1.1",
-            "1.5",
-            "-c",
-            "2",
-        ]
-        cls.arguments_both = [
-            "-i",
-            molecule_path,
-            "-l",
-            list_path,
-            "-t",
-            selected_template_dir,
-            "-o",
-            "temp_result.tsv",
-        ]
-
-        cls.bad_argument_1 = [
-            "-l",
-            molecule_path,
-            "-o",
-            "temp_result.tsv",
-        ]  # not a file in list file
-        cls.bad_argument_2 = [
-            "-l",
-            list_path2,
-            "-o",
-            "temp_result.tsv",
-        ]  # passing a dir in list file
-
-        # TODO either remove the temp_result.tsv file or avoid writing it? I cant see how that oculd work though
-
-    def test_default_main(self):
-        self.assertEqual(jess_run.main(self.arguments_normal), 0)
-        self.assertEqual(jess_run.main(self.arguments_list), 0)
-        self.assertEqual(jess_run.main(self.arguments_both), 0)
-
-        retcode = jess_run.main(self.bad_argument_1, stderr=io.StringIO())
-        self.assertEqual(retcode, errno.ENOENT)
-        retcode2 = jess_run.main(self.bad_argument_2, stderr=io.StringIO())
-        self.assertEqual(retcode2, errno.EISDIR)
+        for match in unfiltered_matches:
+            if match.index == 1:
+                self.assertEqual(match.complete, True)
+                self.assertEqual(match.hit.template.pdb_id, "1uh3")
+            elif match.index == 2:
+                self.assertEqual(match.complete, True)
+                self.assertEqual(match.hit.template.pdb_id, "2cxg")
+            elif match.index == 3:
+                self.assertEqual(match.complete, False),
+                self.assertEqual(match.hit.template.pdb_id, "2qy1")
+            elif match.index == 4:
+                self.assertEqual(match.complete, True)
+                self.assertEqual(match.hit.template.pdb_id, "1uh3")
+            elif match.index == 5:
+                self.assertEqual(match.complete, True)
+                self.assertEqual(match.hit.template.pdb_id, "1uh3")
+            elif match.index == 6:
+                self.assertEqual(match.complete, False)
+                self.assertEqual(match.hit.template.pdb_id, "1bf2")
+            else:
+                ValueError("Shouldn't get here in the tests")

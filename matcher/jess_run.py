@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import collections
-from pathlib import Path
-from typing import List, Tuple, Dict, Optional, IO, ClassVar
+from typing import List, Tuple, Dict, Optional, IO, ClassVar, Iterator
 from functools import cached_property
 from dataclasses import dataclass, field
 from importlib.resources import files
@@ -13,16 +12,19 @@ import itertools
 import io
 import os
 import json
+import rich
+from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
 
 import pyjess
 
-from .template import AnnotatedTemplate, Vec3, load_templates, check_template
+from .template import AnnotatedTemplate, Vec3, check_template
 from .utils import chunks, ranked_argsort, DummyPool
 
 from multiprocessing.pool import ThreadPool
 import functools
 
 __all__ = [
+    "LogisticRegressionModel",
     "Match",
     "Matcher",
 ]
@@ -30,8 +32,17 @@ __all__ = [
 
 @dataclass(frozen=True)
 class LogisticRegressionModel:
-    """ "Coeficients, Intercept and optimal Threshold for a Logistic Regression Model
-    trained on data for matches with a particular size at a particular pairwise distance
+    """
+    Class for storing a Logistc Regression Model for predicting if a match is correct.
+
+    f(Xn) = 1/(1+e^-(beta0 + beta1*x1 + beta2*x2 + ...))
+
+    Trained on data for matches with a particular size at a particular pairwise distance
+
+    Attributes:
+        coeficients: `list` of `floats` beta coefficients
+        intercept: `float` beta0 intercept
+        threshold: `float` optimal threshold for this model
     """
 
     coefficents: List[float]
@@ -41,10 +52,17 @@ class LogisticRegressionModel:
 
 @dataclass
 class Match:
-    """Class for storing annotated Jess hits.
+    """
+    Class for storing annotated PyJess hits.
 
-    This class is a wrapper around `pyjess.Hit` and the original Template object
+    This class is a wrapper around `pyjess.Hit` and the original template object
     that was used for the query.
+
+    Attributes:
+        hit: `~pyjess.Hit` instance
+        complete: `bool` If the query matched all other templates within the same cluster
+        pairwise_distance: `float` Pairwise distance at which this match was found
+        index: `int` internal index of this match. Default 0
 
     """
 
@@ -57,6 +75,12 @@ class Match:
     ]
 
     def dumps(self, header: bool = False) -> str:
+        """
+        Dump `Match` to a string. Calls `Match.dump()`
+
+        Arguments:
+            header: if a header line should be dumped to the string too.
+        """
         buffer = io.StringIO()
         self.dump(buffer, header=header)
         return (
@@ -66,6 +90,20 @@ class Match:
     def dump2pdb(
         self, file: IO[str], include_query: bool = False, transform: bool = False
     ):
+        """
+        Dump the 3D coordinates of the `Match` to a '.pdb' file.
+
+        Arguments:
+            file: file type object to write to
+            include_query: `bool` If the full query molecule should be written too.
+            transform: `bool` If the matched atoms should be written to the template reference frame.
+
+        Note:
+            The query is never transformed to the target reference frame.
+
+        Note:
+            By default, atoms are written in the coordinate reference frame of the query.
+        """
 
         def write_atom_line(atom: pyjess.Atom) -> str:
             one_char_elements = {
@@ -95,10 +133,9 @@ class Match:
                 file.write(write_atom_line(atom))
             file.write("END\n\n")
 
-        if self.predicted_correct:
-            file.write(f"HEADER CORRECT MATCH {self.hit.molecule.id} {self.index}\n")
-        else:
-            file.write(f"HEADER FALSE MATCH {self.hit.molecule.id} {self.index}\n")
+        file.write(
+            f"HEADER {self.predicted_correct} MATCH {self.hit.molecule.id} {self.index}\n"
+        )
 
         file.write(
             f'REMARK TEMPLATE_PDB {str(self.hit.template.pdb_id)}_{",".join(set(res.chain_id for res in self.hit.template.residues))}\n'
@@ -129,12 +166,22 @@ class Match:
         file.write("END\n\n")
 
     def dump(self, file: IO[str], header: bool = False):
+        """
+        Dump the information associated with a `Match` to a '.tsv' like line.
+
+        Arguments:
+            file: `file-like` object to write to
+            header: `bool` If a header line should be written too
+
+        Note:
+            Coordinate information is not written.
+        """
         writer = csv.writer(
             file, dialect="excel-tab", delimiter="\t", lineterminator="\n"
         )
         # aliases for improved readability
         template = self.hit.template
-        cluster = self.hit.cluster
+        cluster = self.hit.template.cluster
 
         if header:
             writer.writerow(
@@ -202,6 +249,9 @@ class Match:
         )
 
     def get_identifying_attributes(self) -> Tuple[int, int, int]:
+        """
+        `tuple` of (M-CSA id, cluster id and template dimension).`
+        """
         # return the tuple (hit.template.m-csa, hit.template.cluster.id, hit.template.dimension)
         template = self.hit.template
         return (
@@ -212,7 +262,7 @@ class Match:
 
     @property
     def predicted_correct(self) -> bool:
-        """`bool`: Whether the prediction is correct."""
+        """`bool`: If the match is predicted as correct based on logistic regression models."""
         if (
             str(self.hit.template.effective_size)
             not in self._logistic_regression_models
@@ -262,6 +312,9 @@ class Match:
 
     @cached_property
     def atom_triplets(self) -> List[Tuple[pyjess.Atom, pyjess.Atom, pyjess.Atom]]:
+        """
+        `list`: of `~pyjess.Atom` triplets belonging to the same matched query residue.
+        """
         # list with matched residues
         # # Hit.atoms is a list of matched atoms with all info on residue numbers and residue chain ids and atom types, this should conserve order if Hit.atoms is a list!!!
         atom_triplets = []
@@ -286,6 +339,10 @@ class Match:
 
     @property
     def matched_residues(self) -> List[Tuple[str, str, str]]:
+        """
+        `list`:  with information on all matched query residues.
+        Elements have are `tuple` (`~pyjess.Atom.residue_name`, `~pyjess.Atom.chain_id`, `~pyjessAtom.residue_number`)
+        """
         return [
             (
                 atom_triplet[0].residue_name,
@@ -297,7 +354,9 @@ class Match:
 
     @property
     def multimeric(self) -> bool:
-        """`bool`: Boolean if the atoms in the hit stem from multiple protein chains"""
+        """
+        `bool`: If the matched atoms in the query stem from multiple protein chains
+        """
         # note that these are pyjess atom objects!
         return not all(
             atom.chain_id == self.hit.atoms()[0].chain_id for atom in self.hit.atoms()
@@ -305,8 +364,14 @@ class Match:
 
     @property
     def preserved_resid_order(self) -> bool:
-        """`bool`: Boolean if the residues in the template and in the matched query structure have the same relative order.
-        This is a good filtering parameter but excludes hits on examples of convergent evolution or circular permutations
+        """
+        `bool`: If the residues in the template and in the matched query structure have the same relative order.
+
+        Note:
+            This is a good filtering parameter but excludes hits on examples of convergent evolution or circular permutations
+
+        Note:
+            Will always return `False` if either template or query is multimeric
         """
         if self.hit.template.multimeric or self.multimeric:
             return False
@@ -324,6 +389,9 @@ class Match:
 
     @cached_property
     def match_vector_list(cls) -> List[Vec3]:
+        """
+        `list` of `Vec3`: of orientation vectors for each matched residue in the query
+        """
         # !!! atom coordinates must be in template coordinate system!
         vector_list = []
         for residue_index, residue in enumerate(cls.hit.template.residues):
@@ -350,10 +418,17 @@ class Match:
 
     @property
     def template_vector_list(self) -> List[Vec3]:
+        """
+        `list` of `Vec3`: of orientation vectors for each residue in the template
+        """
         return [res.orientation_vector for res in self.hit.template.residues]
 
     @property
     def orientation(self) -> float:  # average angle
+        """
+        `float`: The arithmetic mean of per-residue orientation angles
+        for matched pairs of template and query residues
+        """
         if len(self.template_vector_list) != len(self.match_vector_list):
             raise ValueError(
                 "Vector lists for Template and matching Query structure had different lengths."
@@ -369,10 +444,16 @@ class Match:
 
     @property
     def query_atom_count(self) -> int:
+        """
+        `int`: The number of atoms in the query molecule
+        """
         return len(self.hit.molecule)
 
     @property
     def query_residue_count(self) -> int:
+        """
+        `int`: The number of residues in the query molecule
+        """
         all_residue_numbers = set()
         for atom in self.hit.molecule:
             all_residue_numbers.add(atom.residue_number)
@@ -381,7 +462,7 @@ class Match:
 
 # Load the logistic regression models from the json into a dictionary
 with files(__package__).joinpath("data", "logistic_regression_models.json").open() as f:  # type: ignore
-    logistic_regression_models = {}
+    logistic_regression_models: Dict[str, Dict[str, List[LogisticRegressionModel]]] = {}
     model_dict = json.load(f)
 
     for template_size, pairwise_dict in model_dict["match_size"].items():
@@ -404,6 +485,9 @@ with files(__package__).joinpath("data", "logistic_regression_models.json").open
 
 
 class Matcher:
+    """
+    Class from which a query `~pyjess.Molecule` is matched to a `list` of `AnnotatedTemplate`.
+    """
 
     _DEFAULT_JESS_PARAMS = {
         3: {"rmsd": 2, "distance": 0.9, "max_dynamic_distance": 0.9},
@@ -426,6 +510,31 @@ class Matcher:
         cpus: int = 0,
         filter_matches: bool = True,
     ):
+        """
+        Initialize a `Matcher` instance
+
+        Arguments:
+            templates: `list` of `AnnotatedTemplates` to match
+            jess_params: `dict` Dictionary of PyJess parameters to apply. Will superseed defaults.
+            conservation_cutoff: `float` Atoms below this cutoff will not be matched. Default 0.
+            warn: `bool` If warnings about issues during matching should be printed. Default `False`
+            verbose: `bool` If progress statements on matching should be printed. Default `False`
+            skip_smaller_hits: `bool` Continue searching the query against smaller templates, after a match against any larger one was found. Default `False`
+            match_small_templates: `bool` If matches for Templates with fewer than 3 side-chain residues should be reported. Default `False`
+            cpus: `int` The number of cpus for multithreading. If 0 (default), use all. If <0 leave this number of threads free.
+            filter_matches: `bool` If matches should be filtered by wether they are predicted to be correct. Default `True`
+
+        Note:
+            Default jess parameters depend on the size of the template:
+            _DEFAULT_JESS_PARAMS = {
+                3: {"rmsd": 2, "distance": 0.9, "max_dynamic_distance": 0.9},
+                4: {"rmsd": 2, "distance": 1.7, "max_dynamic_distance": 1.7},
+                5: {"rmsd": 2, "distance": 2.0, "max_dynamic_distance": 2.0},
+                6: {"rmsd": 2, "distance": 2.0, "max_dynamic_distance": 2.0},
+                7: {"rmsd": 2, "distance": 2.0, "max_dynamic_distance": 2.0},
+                8: {"rmsd": 2, "distance": 2.0, "max_dynamic_distance": 2.0},
+            }
+        """
 
         self.templates = templates
         self.cpus = cpus
@@ -439,10 +548,27 @@ class Matcher:
             self._DEFAULT_JESS_PARAMS if jess_params is None else jess_params
         )
 
+        # # optional code to find duplicates
+        # def find_duplicates(objects):
+        #     d = collections.defaultdict(list)
+        #     for obj in objects:
+        #         d[obj].append(obj)
+
+        #     for k,v in d.items():
+        #         if len(v) > 1:
+        #             for dup in v:
+        #                 print(dup.__dict__)
+        #             break
+
+        unique_templates = set(self.templates)
+        if len(unique_templates) < len(self.templates):
+            # find_duplicates(self.templates)
+            raise ValueError("Duplicate templates were found.")
+
         if self.cpus == 0:
             self.cpus = os.cpu_count() or 1
         elif self.cpus < 0:
-            self.cpus = max(1, (os.cpu_count() or 1) - self.cpus)
+            self.cpus = max(1, (os.cpu_count() or 1) + self.cpus)
 
         self.verbose_print(f"PyJess Version: {pyjess.__version__}")
         self.verbose_print(f"Running on {self.cpus} Thread(s)")
@@ -503,6 +629,9 @@ class Matcher:
                 self.verbose_print([st.id for st in small_templates])
 
     def verbose_print(self, *args):
+        """
+        Make a print statement only in verbose mode
+        """
         if self.verbose:
             print(*args)
 
@@ -576,13 +705,7 @@ class Matcher:
         max_dynamic_distance: float = 1.5,
         max_candidates: int = 10000,
     ) -> List[Match]:
-        """`list` of `Match`: Match the list of Templates to one Molecule (pyjess.Molecule)"""
-
-        ids = [template.id for template in templates]
-        if len(ids) != len(set(ids)):
-            raise KeyError(
-                "Multiple Templates share the same id! Create and pass AnnoateTemplate objects with unique ids!"
-            )
+        """`list` of `Match`: Match the `list` of `AnnotatedTemplate` to one `~pyjess.Molecule`"""
 
         # killswitch is controlled by max_candidates. Internal default is currently 1000
         # killswitch serves to limit the iterations in cases where the template would be too general,
@@ -648,13 +771,73 @@ class Matcher:
 
         return matches
 
+    def _filter_matches(
+        self,
+        all_matches: Iterator[Tuple[pyjess.Molecule, List[Match]]],
+        processed_molecules: Dict[pyjess.Molecule, List[Match]],
+        description: str,
+        total_size: int,
+    ):
+
+        # counter for all matches found for a given tempate size
+        total_matches = 0
+
+        with Progress(
+            SpinnerColumn(),
+            *Progress.get_default_columns(),
+            TimeElapsedColumn(),
+        ) as progress:
+
+            # keep only matches predicted as correct
+            if self.filter_matches:
+                for molecule, matches in progress.track(
+                    all_matches, total=total_size, description=description
+                ):
+                    for match in matches:
+                        if match.predicted_correct:
+                            total_matches += 1
+                            processed_molecules[molecule].append(match)
+
+            # all matches are added to processed_molecules
+            else:
+                for molecule, matches in progress.track(
+                    all_matches, total=total_size, description=description
+                ):
+                    processed_molecules[molecule].extend(matches)
+                    total_matches += len(matches)
+
+        self.verbose_print(
+            f"{total_matches} matches were found for templates of effective size {template_size}"
+        )
+
+        return processed_molecules
+
     def run(
         self, molecules: List[pyjess.Molecule]
     ) -> Dict[pyjess.Molecule, List[Match]]:
+        """
+        Run the matcher against a `list` of query `~pyjess.Molecule` to search.
 
-        processed_molecules = collections.defaultdict(list)
+        Arguments:
+            molecules: `list` of `~pyjess.Molecule` to search
 
-        pool = DummyPool() if self.cpus == 1 else ThreadPool(self.cpus)
+        Note:
+            Will first search against larger and then progressively smaller templates
+
+        Note:
+            Templates with fewer than 3 residues are skipped
+
+        Returns:
+            `dict` of `~pyjess.Molecule` --> `list` of `Match`: Dictionary of query molecules as keys and all found matches as values.
+        """
+
+        processed_molecules: Dict[pyjess.Molecule, List[Match]] = (
+            collections.defaultdict(list)
+        )
+
+        pool: DummyPool | ThreadPool = (
+            DummyPool() if self.cpus == 1 else ThreadPool(self.cpus)
+        )
         with pool:
 
             for template_size in self.template_effective_sizes:
@@ -689,8 +872,6 @@ class Matcher:
                 else:
                     query_molecules = molecules
 
-                total_matches = 0  # counter for all matches found with a given template size over all molecules passed
-
                 _single_query_run = functools.partial(
                     self._single_query_run,
                     templates=templates,
@@ -703,25 +884,23 @@ class Matcher:
                     query_molecules, pool.map(_single_query_run, query_molecules)
                 )
 
-                self.verbose_print(
-                    f"{total_matches} matches were found for templates of effective size {template_size}"
+                processed_molecules = self._filter_matches(
+                    all_matches=all_matches,
+                    processed_molecules=processed_molecules,
+                    total_size=len(query_molecules),
+                    description=f"Searching molecules with {template_size}-residue templates",
                 )
-
-                # if filter is true (default) then only matches with predicted_correct == True are added to processed molecules
-                if self.filter_matches:
-                    for molecule, matches in all_matches:
-                        for match in matches:
-                            if match.predicted_correct:
-                                total_matches += 1
-                                processed_molecules[molecule].append(match)
-
-                # all matches are added to processed_molecules
-                else:
-                    for molecule, matches in all_matches:
-                        processed_molecules[molecule].extend(matches)
-                        total_matches += len(matches)
 
         return processed_molecules
 
     def run_single(self, molecule: pyjess.Molecule) -> List[Match]:
+        """
+        Run the matcher against a single query `~pyjess.Molecule`.
+
+        Argument:
+            molecule: `~pyjess.Molecule` to search
+
+        Returns;
+            `list`: of `Match` found for the query `~pyjess.Molecule`
+        """
         return self.run([molecule])[molecule]

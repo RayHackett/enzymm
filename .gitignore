@@ -1,6 +1,7 @@
 __pycache__/
 .mypy_cache
 .ipynb_checkpoints/
+_build/
 
 # C extensions
 *.so
