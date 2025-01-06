@@ -513,7 +513,6 @@ class AnnotatedTemplate(pyjess.Template):
                 )
             residues.append(Residue(atom_triplet))
 
-        self.atoms = tuple(atoms)
         self.residues = tuple(residues)
         self.pdb_id = pdb_id
         self.mcsa_id = mcsa_id
@@ -531,7 +530,8 @@ class AnnotatedTemplate(pyjess.Template):
         self.cath = sorted({*cath, *self._add_cath_annotations()})
 
     def _state(self) -> Tuple:
-        states = (
+        return (
+            tuple(self),
             self.id,
             self.pdb_id,
             self.mcsa_id,
@@ -545,9 +545,12 @@ class AnnotatedTemplate(pyjess.Template):
             self.experimental_method,
             self.enzyme_discription,
             self.represented_sites,
-            self.atoms,
+            tuple(self.ec),
+            tuple(self.cath),
         )
-        return tuple(state for state in states if state is not None)
+
+    def __copy__(self) -> AnnotatedTemplate:
+        return self.copy()
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, AnnotatedTemplate):
@@ -658,6 +661,25 @@ class AnnotatedTemplate(pyjess.Template):
             atoms=atoms,
             id=id,
             **metadata,  # type: ignore # unpack everything parsed into metadata
+        )
+
+    def copy(self) -> AnnotatedTemplate:
+        return type(self)(
+            tuple(self),
+            self.id,
+            pdb_id=self.pdb_id,
+            template_id_string=self.template_id_string,
+            mcsa_id=self.mcsa_id,
+            cluster=self.cluster,
+            uniprot_id=self.uniprot_id,
+            organism=self.organism,
+            organism_id=self.organism_id,
+            resolution=self.resolution,
+            experimental_method=self.experimental_method,
+            enzyme_discription=self.enzyme_discription,
+            represented_sites=self.represented_sites,
+            ec=self.ec,
+            cath=self.cath,
         )
 
     def dumps(self) -> str:

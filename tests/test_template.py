@@ -257,10 +257,10 @@ class TestAnnotatedTemplate(unittest.TestCase):
 
         cls.artifical_template1 = template.AnnotatedTemplate(
             id="some_name",
-            pdb_id="Magic_ID",
+            # pdb_id="Magic_ID",
             template_id_string="A completely fake template",
             cluster=template.Cluster(id=1, member=2, size=2),
-            uniprot_id="NotAUniProtID",
+            # uniprot_id="NotAUniProtID",
             organism=None,
             organism_id="a string??",
             resolution=99,
@@ -272,18 +272,18 @@ class TestAnnotatedTemplate(unittest.TestCase):
                 magic_atom,
                 magic_atom2,
                 magic_atom3,
-                magic_atom,
-                magic_atom2,
-                magic_atom3,
+                # magic_atom,
+                # magic_atom2,
+                # magic_atom3,
             ],
         )
 
         cls.artifical_template2 = template.AnnotatedTemplate(
             id="some_name",
-            pdb_id="Magic_ID_and_different_di",
+            # pdb_id="Magic_ID_and_different_di",
             template_id_string="A completely fake template",
             cluster=template.Cluster(id=1, member=2, size=2),
-            uniprot_id="A different uniprot",
+            # uniprot_id="A different uniprot",
             organism=None,
             organism_id="a string??",
             resolution=99,
@@ -305,87 +305,134 @@ class TestAnnotatedTemplate(unittest.TestCase):
             atoms=[magic_atom, magic_atom2, magic_atom3]
         )
 
-    def test_good_loads(self):
-        template1 = template.AnnotatedTemplate.loads(self.template_text1, warn=False)
-        template1_with_id = template.AnnotatedTemplate.loads(
-            self.template_text1, id="another_id", warn=False
-        )
-        template2 = template.AnnotatedTemplate.loads(
-            self.template_text2, id="hello_world", warn=True
-        )
-        self.assertEqual(template1.pdb_id, "1b74")
-        self.assertEqual(
-            template1.template_id_string, "1b74_A147-AA180-AA70-AA178-AA8-AA7"
-        )
-        self.assertEqual(template1.mcsa_id, 1)
-        self.assertEqual(template1.cluster.id, 1)
-        self.assertEqual(template1.cluster.member, 1)
-        self.assertEqual(template1.cluster.size, 1)
-        self.assertEqual(template1.uniprot_id, "P56868")
-        self.assertEqual(template1.organism, "Aquifex pyrophilus")
-        self.assertEqual(template1.organism_id, "2714")
-        self.assertEqual(template1.resolution, 2.3)
-        self.assertEqual(template1.experimental_method, "X-ray diffraction")
-        self.assertEqual(
-            template1.ec, ["5.1.1.3"]
-        )  # could be more info added through sifts
-        self.assertEqual(template1.represented_sites, 2)
-        self.assertEqual(
-            template1.enzyme_discription, "GLUTAMATE RACEMASE (E.C.5.1.1.3)"
-        )
-        self.assertEqual(template1.effective_size, 6)
-        self.assertEqual(template1.dimension, 6)
-        self.assertEqual(template1.multimeric, True)
-        self.assertEqual(template1.relative_order, [0])
-        self.assertEqual(
-            template1.cath, ["3.40.50.1860"]
-        )  # could be more info added through sifts
-        self.assertEqual(len(template1.residues), 6)
+        cls.template1 = template.AnnotatedTemplate.loads(cls.template_text1, warn=False)
 
-        self.assertEqual(template2.pdb_id, "1qum")
-        self.assertEqual(template2.id, "hello_world")
+        cls.template1_with_id = template.AnnotatedTemplate.loads(
+            cls.template_text1, id="another_id", warn=False
+        )
+        cls.template2 = template.AnnotatedTemplate.loads(
+            cls.template_text2, id="hello_world", warn=True
+        )
+
+    def test_good_loads(self):
+
+        self.assertEqual(self.template1.pdb_id, "1b74")
         self.assertEqual(
-            template2.template_id_string,
+            self.template1.template_id_string, "1b74_A147-AA180-AA70-AA178-AA8-AA7"
+        )
+        self.assertEqual(self.template1.mcsa_id, 1)
+        self.assertEqual(self.template1.cluster.id, 1)
+        self.assertEqual(self.template1.cluster.member, 1)
+        self.assertEqual(self.template1.cluster.size, 1)
+        self.assertEqual(self.template1.uniprot_id, "P56868")
+        self.assertEqual(self.template1.organism, "Aquifex pyrophilus")
+        self.assertEqual(self.template1.organism_id, "2714")
+        self.assertEqual(self.template1.resolution, 2.3)
+        self.assertEqual(self.template1.experimental_method, "X-ray diffraction")
+        self.assertEqual(
+            self.template1.ec, ["5.1.1.3"]
+        )  # could be more info added through sifts
+        self.assertEqual(self.template1.represented_sites, 2)
+        self.assertEqual(
+            self.template1.enzyme_discription, "GLUTAMATE RACEMASE (E.C.5.1.1.3)"
+        )
+        self.assertEqual(self.template1.effective_size, 6)
+        self.assertEqual(self.template1.dimension, 6)
+        self.assertEqual(self.template1.multimeric, True)
+        self.assertEqual(self.template1.relative_order, [0])
+        self.assertEqual(
+            self.template1.cath, ["3.40.50.1860"]
+        )  # could be more info added through sifts
+        self.assertEqual(len(self.template1.residues), 6)
+
+        self.assertEqual(self.template2.pdb_id, "1qum")
+        self.assertEqual(self.template2.id, "hello_world")
+        self.assertEqual(
+            self.template2.template_id_string,
             "1qum_D145-D109-D37-D72-D69-D229-D182-D231-D261-D216-D179",
         )
-        self.assertEqual(template2.mcsa_id, 11)
-        self.assertEqual(template2.cluster.id, 1)
-        self.assertEqual(template2.cluster.member, 1)
-        self.assertEqual(template2.cluster.size, 3)
-        self.assertEqual(template2.uniprot_id, None)
-        self.assertEqual(template2.organism, "Escherichia coli")
-        self.assertEqual(template2.organism_id, "562")
-        self.assertEqual(template2.resolution, 1.55)
-        self.assertEqual(template2.experimental_method, "X-ray diffraction")
+        self.assertEqual(self.template2.mcsa_id, 11)
+        self.assertEqual(self.template2.cluster.id, 1)
+        self.assertEqual(self.template2.cluster.member, 1)
+        self.assertEqual(self.template2.cluster.size, 3)
+        self.assertEqual(self.template2.uniprot_id, None)
+        self.assertEqual(self.template2.organism, "Escherichia coli")
+        self.assertEqual(self.template2.organism_id, "562")
+        self.assertEqual(self.template2.resolution, 1.55)
+        self.assertEqual(self.template2.experimental_method, "X-ray diffraction")
         self.assertEqual(
-            template2.ec, ["3.1.21.2"]
+            self.template2.ec, ["3.1.21.2"]
         )  # could be more info added through sifts
-        self.assertEqual(template2.represented_sites, 1)
+        self.assertEqual(self.template2.represented_sites, 1)
         self.assertEqual(
-            template2.enzyme_discription, "ENDONUCLEASE IV (E.C.3.1.21.2)/DNA"
+            self.template2.enzyme_discription, "ENDONUCLEASE IV (E.C.3.1.21.2)/DNA"
         )
-        self.assertEqual(template2.dimension, 4)
-        self.assertEqual(template2.effective_size, 4)
-        self.assertEqual(template2.multimeric, False)
-        self.assertEqual(template2.relative_order, [2, 1, 4, 3])
+        self.assertEqual(self.template2.dimension, 4)
+        self.assertEqual(self.template2.effective_size, 4)
+        self.assertEqual(self.template2.multimeric, False)
+        self.assertEqual(self.template2.relative_order, [2, 1, 4, 3])
         self.assertEqual(
-            template2.cath, ["3.20.20.150"]
+            self.template2.cath, ["3.20.20.150"]
         )  # could be more info added through sifts
-        self.assertEqual(len(template2.residues), 4)
+        self.assertEqual(len(self.template2.residues), 4)
 
-        # Test for template equality
-        self.assertEqual(template1, template1)
+    def test_copy(self):
+        template1_copy = self.template1.copy()
+        self.assertEqual(self.template1, self.template1)
+        self.assertEqual(
+            list(self.template1), list(template1_copy)
+        )  # testing atoms copy
+        self.assertEqual(self.template1.id, template1_copy.id)
+        self.assertEqual(self.template1.pdb_id, template1_copy.pdb_id)
+        self.assertEqual(self.template1.mcsa_id, template1_copy.mcsa_id)
+        self.assertEqual(
+            self.template1.template_id_string, template1_copy.template_id_string
+        )
+        self.assertEqual(self.template1.cluster, template1_copy.cluster)
+        self.assertEqual(self.template1.effective_size, template1_copy.effective_size)
+        self.assertEqual(self.template1.uniprot_id, template1_copy.uniprot_id)
+        self.assertEqual(self.template1.organism, template1_copy.organism)
+        self.assertEqual(self.template1.organism_id, template1_copy.organism_id)
+        self.assertEqual(self.template1.resolution, template1_copy.resolution)
+        self.assertEqual(
+            self.template1.experimental_method, template1_copy.experimental_method
+        )
+        self.assertEqual(
+            self.template1.enzyme_discription, template1_copy.enzyme_discription
+        )
+        self.assertEqual(
+            self.template1.represented_sites, template1_copy.represented_sites
+        )
+        self.assertEqual(self.template1.ec, template1_copy.ec)
+        self.assertEqual(self.template1.cath, template1_copy.cath)
+        self.assertEqual(self.template1, template1_copy)
         # Test with lots of None's
-        self.assertEqual(self.minimal_template, self.minimal_template)
+        self.assertEqual(self.minimal_template, self.minimal_template.copy())
+
+    def test_artifical_template_copy(self):
+        self.assertEqual(self.artifical_template1, self.artifical_template1.copy())
+
+    def test_template_non_equality(self):
+        # Test for template equality
+        self.assertEqual(hash(self.template1), hash(self.template1.copy()))
         # Changed only the internal id
-        self.assertNotEqual(template1, template1_with_id)
+        self.assertNotEqual(self.template1, self.template1_with_id)
         # completely different templates
-        self.assertNotEqual(template1, template2)
+        self.assertNotEqual(self.template1, self.template2)
+
+    def test_artifical_template_non_equality(self):
         # changed only the uniprot id
+        if self.artifical_template1 == self.artifical_template2:
+            print("WTF thez are equal")
         self.assertNotEqual(
             hash(self.artifical_template1), hash(self.artifical_template2)
         )
+        self.assertFalse(self.artifical_template1 == self.artifical_template2)
+        self.assertTrue(self.artifical_template1 != self.artifical_template2)
         self.assertNotEqual(self.artifical_template1, self.artifical_template2)
+        self.assertNotEqual(
+            hash(self.artifical_template1), hash(self.artifical_template2)
+        )
 
     def test_bad_loads(self):
         with self.assertRaises(ValueError):

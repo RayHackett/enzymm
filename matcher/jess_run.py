@@ -509,6 +509,7 @@ class Matcher:
         match_small_templates: bool = False,
         cpus: int = 0,
         filter_matches: bool = True,
+        console: rich.console.Console | None = None,
     ):
         """
         Initialize a `Matcher` instance
@@ -547,6 +548,7 @@ class Matcher:
         self.jess_params = (
             self._DEFAULT_JESS_PARAMS if jess_params is None else jess_params
         )
+        self.console = rich.console.Console(quiet=True) if console is None else console
 
         # # optional code to find duplicates
         # def find_duplicates(objects):
@@ -786,6 +788,7 @@ class Matcher:
             SpinnerColumn(),
             *Progress.get_default_columns(),
             TimeElapsedColumn(),
+            console=self.console,
         ) as progress:
 
             # keep only matches predicted as correct

@@ -7,6 +7,7 @@ from collections import defaultdict
 import warnings
 import sys
 import pyjess
+import rich.console
 from .template import load_templates
 from . import __version__
 
@@ -249,6 +250,7 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
             match_small_templates=args.match_small_templates,
             cpus=args.n_jobs,
             filter_matches=not args.unfiltered,
+            console=rich.console.Console(stderr=stderr),
         )
 
         ############ Call Matcher.run ##########################################
