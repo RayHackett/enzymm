@@ -755,9 +755,9 @@ class Matcher:
         self,
         molecule: pyjess.Molecule,
         templates: List[AnnotatedTemplate],
-        rmsd_threshold: float = 2.0,
-        distance_cutoff: float = 1.5,
-        max_dynamic_distance: float = 1.5,
+        rmsd_threshold: float,
+        distance_cutoff: float,
+        max_dynamic_distance: float,
         max_candidates: int = 10000,
     ) -> List[Match]:
 
@@ -809,9 +809,7 @@ class Matcher:
                     processed_molecules[molecule].extend(matches)
                     total_matches += len(matches)
 
-        self.verbose_print(
-            f"{total_matches} matches were found for templates of effective size {template_size}"
-        )
+        self.verbose_print(f"{total_matches} matches found!")
 
         return processed_molecules
 
