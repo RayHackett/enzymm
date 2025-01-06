@@ -35,15 +35,16 @@ class TestIntegration(unittest.TestCase):
     def test_get_template_paths(self):
         data_path = importlib.resources.files(matcher).joinpath("data/")
         # check if all the required annotation files are there - This will run the entire script
-        self.assertEqual(
-            template._get_paths_by_extension(data_path, ".json"),
+        found_paths = sorted(template._get_paths_by_extension(data_path, ".json"))
+        expected_paths = sorted(
             [
                 Path(data_path, "pdb_sifts.json"),
                 Path(data_path, "MCSA_EC_mapping.json"),
                 Path(data_path, "MCSA_CATH_mapping.json"),
                 Path(data_path, "logistic_regression_models.json"),
-            ],
+            ]
         )
+        self.assertEqual(found_paths, expected_paths)
 
     def test__get_paths_by_extension(self):
         with self.assertRaises(FileNotFoundError):
