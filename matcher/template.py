@@ -19,11 +19,10 @@ from typing import (
     TextIO,
     Iterator,
     Iterable,
-    ClassVar,
     ContextManager,
 )
 from functools import cached_property
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import io
 import math
 from multiprocessing.pool import ThreadPool
@@ -31,6 +30,8 @@ from multiprocessing.pool import ThreadPool
 import pyjess
 
 from .utils import chunks, ranked_argsort, DummyPool
+from matcher.mcsa_info import load_mcsa_catalytic_residue_homologs_info
+from matcher.mcsa_info import ReferenceCatalyticResidue
 
 __all__ = [
     "Vec3",
@@ -181,7 +182,7 @@ class Vec3:
                 )
 
 
-@dataclass(init=False)
+@dataclass(frozen=True, init=False)
 class Residue:
     """
     Class for storing template residues (defined as 3 atoms) with relevant information.
@@ -205,12 +206,14 @@ class Residue:
             `Residue`
         """
 
-        self._vec, self._indices = self.calc_residue_orientation(atoms)
-        self._atoms = atoms
+        vec, indices = self.calc_residue_orientation(atoms)
+        object.__setattr__(self, "_atoms", atoms)
+        object.__setattr__(self, "_vec", vec)
+        object.__setattr__(self, "_indices", indices)
 
-    @classmethod
+    @staticmethod
     def calc_residue_orientation(
-        cls, atoms: Tuple[pyjess.TemplateAtom, pyjess.TemplateAtom, pyjess.TemplateAtom]
+        atoms: Tuple[pyjess.TemplateAtom, pyjess.TemplateAtom, pyjess.TemplateAtom]
     ) -> Tuple[Vec3, Tuple[int, int]]:
         """
         Method to calculate the residue orientation depending on the residue type.
@@ -300,6 +303,30 @@ class Residue:
                 first_atom_index,
                 second_atom_index,
             )
+
+    @classmethod
+    def construct_residues_from_atoms(
+        cls, atoms: Iterable[pyjess.Atom]
+    ) -> List[Residue]:
+
+        residues = []
+        for atom_triplet in chunks(atoms, 3):  # yield chunks of 3 atom lines each
+            if len(atom_triplet) != 3:
+                raise ValueError(
+                    f"Failed to construct residues. Got only {len(atom_triplet)} ATOM lines"
+                )
+            # check if all three atoms belong to the same residue by adding a tuple of their residue defining properties to a set
+            unique_residues = {
+                (atom.residue_names[0], atom.chain_id, atom.residue_number)
+                for atom in atom_triplet
+            }
+            if len(unique_residues) != 1:
+                raise ValueError(
+                    f"Failed to construct residues. Atoms of different match_mode, chains, residue types or residue numbers {unique_residues} found in Atom triplet"
+                )
+            residues.append(Residue(atom_triplet))
+
+        return residues
 
     @property
     def atoms(
@@ -397,6 +424,16 @@ class Residue:
 
 
 @dataclass(frozen=True)
+class AnnotatedResidue(Residue):
+    is_mutated: bool
+    is_metal_ligand: bool
+    roles: Tuple[str]  # TODO save only the emo identifier mb
+    reference_idx: int
+    has_ptm: bool
+    # TODO does this need function_location_abv
+
+
+@dataclass(frozen=True)
 class Cluster:
     """
     Class for storing template cluster information.
@@ -416,39 +453,17 @@ class Cluster:
             raise ValueError("Cluster member cannot be greater than cluster size")
 
 
-class AnnotatedTemplate(pyjess.Template):
+class Template(pyjess.Template):
     """
     Class for storing templates and associated information.
 
     Inherits and extends from `pyjess.Template`
     """
 
-    residues: Iterable[Residue] = ()
-
-    _CATH_MAPPING: ClassVar[Dict[str, List[str]]]
-    _EC_MAPPING: ClassVar[Dict[str, str]]
-    _PDB_SIFTS: ClassVar[Dict[str, Dict[str, List[str]]]]
-
-    pdb_id: Optional[str] = field(default=None)
-    template_id_string: Optional[str] = field(default=None)
-    mcsa_id: Optional[int] = field(default=None)
-    cluster: Optional[Cluster] = field(default=None)
-    uniprot_id: Optional[str] = field(default=None)
-    organism: Optional[str] = field(default=None)
-    # TODO this is to avoid a bug when I get a list of organism_id's like 5,6
-    organism_id: Optional[str] = field(default=None)
-    resolution: Optional[float] = field(default=None)
-    experimental_method: Optional[str] = field(default=None)
-    enzyme_discription: Optional[str] = field(default=None)
-    represented_sites: Optional[int] = field(default=None)
-    ec: List[str] = field(default_factory=list)
-    cath: List[str] = field(default_factory=list)
-
     def __init__(
         self,
-        atoms: Sequence[pyjess.TemplateAtom],
-        id: str | None = None,
-        *,
+        residues: Sequence[Residue],
+        id: Optional[str] = None,
         pdb_id: Optional[str] = None,
         template_id_string: Optional[str] = None,
         mcsa_id: Optional[int] = None,
@@ -464,19 +479,11 @@ class AnnotatedTemplate(pyjess.Template):
         cath: Iterable[str] = (),
     ):
         """
-        Initialize an annotated template.
-
-        Arguments:
-            atoms: `sequence` of `~pyjess.TemplateAtom` instances
-            id: `str` Internal Template ID string. Default `None`
-
-        Note:
-            It is recommended not to pass an id string.
-            If id is `None`, the id string will be set to:
-            {`~AnnotatedTemplate.effective_size`}-Residues_{~`AnnotatedTemplate.template_id_string`}_Cluster_{`Cluster.id`}-{`Cluster.member`}-{`Cluster.size`}
-            This identifier string should be unique.
+        Initialize a template.
 
         Keyword Arguments:
+            residues: `sequence` of `~Residue` instances
+            id: `str` Internal Template ID string. Default `None`
             pdb_id: `str` The PDB ID of the template
             template_id_string: `str` String in the ID line of a template
             mcsa_id: `int` The M-CSA entry index form which the template was generated
@@ -491,27 +498,35 @@ class AnnotatedTemplate(pyjess.Template):
             ec: `list` of EC numbers associated with Enzymes this template represents
             cath: `list` of CATH numbers associated with Enzymes this template represents
 
-        Returns:
-            `AnnotatedTemplate`
-        """
-        super().__init__(atoms, id=id)
+        NOTE:
+            It is recommended not to pass an id string.
+            If id is `None`, the id string will be set to:
+            {`~Template.effective_size`}-Residues_{~`Template.template_id_string`}_Cluster_{`Cluster.id`}-{`Cluster.member`}-{`Cluster.size`}
+            This identifier string should be unique.
 
-        residues = []
-        for atom_triplet in chunks(atoms, 3):  # yield chunks of 3 atom lines each
-            if len(atom_triplet) != 3:
+        NOTE:
+            residues can be constructed from a list of ~pyjess.TemplateAtoms via the
+            staticmethod ~Residue.construct_residues_from_atoms(atoms=atoms)
+
+        Returns:
+            `Template`
+        """
+        if len(residues) == 0:
+            raise ValueError(
+                "Tried creating an `Template` from an empty list of residues!"
+            )
+
+        for residue in residues:
+            if not isinstance(residue, type(residues[0])):
                 raise ValueError(
-                    f"Failed to construct residues. Got only {len(atom_triplet)} ATOM lines"
+                    f"Tried creating a `Template` from different types of `Residue` objects. Got {type(residue) and type(residues[0])}"
                 )
-            # check if all three atoms belong to the same residue by adding a tuple of their residue defining properties to a set
-            unique_residues = {
-                (atom.residue_names[0], atom.chain_id, atom.residue_number)
-                for atom in atom_triplet
-            }
-            if len(unique_residues) != 1:
-                raise ValueError(
-                    f"Failed to construct residues. Atoms of different match_mode, chains, residue types or residue numbers {unique_residues} found in Atom triplet"
-                )
-            residues.append(Residue(atom_triplet))
+
+        atoms = []
+        for residue in residues:
+            atoms.extend(residue._atoms)
+
+        super().__init__(atoms, id=id)
 
         self.residues = tuple(residues)
         self.pdb_id = pdb_id
@@ -526,12 +541,12 @@ class AnnotatedTemplate(pyjess.Template):
         self.enzyme_discription = enzyme_discription
         self.represented_sites = represented_sites
         self.enzyme_discription = enzyme_discription
-        self.ec = sorted({*ec, *self._add_ec_annotations()})
-        self.cath = sorted({*cath, *self._add_cath_annotations()})
+        self.ec = tuple(sorted({*ec, *self._add_ec_annotations()}))
+        self.cath = tuple(sorted({*cath, *self._add_cath_annotations()}))
 
     def _state(self) -> Tuple:
         return (
-            tuple(self),
+            tuple(self.residues),
             self.id,
             self.pdb_id,
             self.mcsa_id,
@@ -545,22 +560,22 @@ class AnnotatedTemplate(pyjess.Template):
             self.experimental_method,
             self.enzyme_discription,
             self.represented_sites,
-            tuple(self.ec),
-            tuple(self.cath),
+            self.ec,
+            self.cath,
         )
 
-    def __copy__(self) -> AnnotatedTemplate:
+    def __copy__(self) -> Template:
         return self.copy()
 
     def __eq__(self, other: object) -> bool:
-        if isinstance(other, AnnotatedTemplate):
+        if isinstance(other, Template):
             self_state = self._state()
             other_state = other._state()
             return self_state == other_state
         return NotImplemented
 
     def __ne__(self, other):
-        if isinstance(other, AnnotatedTemplate):
+        if isinstance(other, Template):
             return not self.__eq__(other)
         return NotImplemented
 
@@ -569,18 +584,22 @@ class AnnotatedTemplate(pyjess.Template):
 
     @classmethod  # reading from text
     def loads(
-        cls, text: str, id: str | None = None, warn: bool = False
-    ) -> AnnotatedTemplate:
+        cls,
+        text: str,
+        id: str | None = None,
+        warn: bool = False,
+        with_annotations: bool = True,
+    ) -> Template:
         """
-        Load Annotated Template from `str`. Calls `AnnotatedTemplate.load()`
+        Load Template from `str`. Calls `Template.load()`
 
         Arguments:
-            text: `str` of Annotated Template to load
+            text: `str` of Template to load
             id: `str` or `None` Internal pyjess string which will superseed the ID string parsed from the template file. Default `None`
             warn: `bool` If warnings should be printed. Default `False`
 
         Returns:
-            `AnnotatedTemplate`
+            `Template`
         """
         return cls.load(io.StringIO(text), id=id, warn=warn)
 
@@ -590,9 +609,9 @@ class AnnotatedTemplate(pyjess.Template):
         file: TextIO | Iterator[str] | str | os.PathLike[str],
         id: str | None = None,
         warn: bool = False,
-    ) -> AnnotatedTemplate:
+    ) -> Template:
         """
-        Overloaded load to parse a `pyjess.Template` and its associated info into an `AnnotatedTemplate` object
+        Overloaded load to parse a `pyjess.Template` and its associated info into an `Template` object
 
         Arguments:
             file: `file-like` object or `str` or `path-like` from which to load
@@ -600,7 +619,7 @@ class AnnotatedTemplate(pyjess.Template):
             warn: `bool` If warnings should be printed. Default `False`
 
         Returns:
-            `AnnotatedTemplate`
+            `Template`
         """
         atoms = []
         metadata: dict[str, object] = {"ec": list(), "cath": list()}
@@ -621,8 +640,11 @@ class AnnotatedTemplate(pyjess.Template):
             "REPRESENTING": cls._parse_represented_sites,
         }
 
-        # Note that currently mutliple templates per file are not supported by this parser function.
-        # Note this parser does not check for the existance of a header like REMARK TEMPLATE
+        # NOTE
+        # currently mutliple templates per file are not supported by this parser function.
+
+        # NOTE
+        # this parser does not check for the existance of a header like REMARK TEMPLATE
 
         try:
             context: ContextManager[TextIO] = open(os.fspath(file))  # type: ignore
@@ -630,7 +652,7 @@ class AnnotatedTemplate(pyjess.Template):
             context = contextlib.nullcontext(file)  # type: ignore
 
         with context as f:
-            atom_lines = []
+            seen_lines = set()
             for line in filter(str.strip, f):
                 tokens = line.split()
                 if tokens[0] == "REMARK":
@@ -646,9 +668,9 @@ class AnnotatedTemplate(pyjess.Template):
                             continue
                         parser(tokens, metadata, warn=warn)
                 elif tokens[0] == "ATOM":
-                    if line in atom_lines:
+                    if line in seen_lines:
                         raise ValueError("Duplicate Atom lines passed!")
-                    atom_lines.append(line)
+                    seen_lines.add(line)
                     atoms.append(pyjess.TemplateAtom.loads(line))
                 elif tokens[0] == "HETATM":
                     raise ValueError(
@@ -657,16 +679,18 @@ class AnnotatedTemplate(pyjess.Template):
                 else:
                     continue
 
-        return AnnotatedTemplate(
-            atoms=atoms,
+        residues = Residue.construct_residues_from_atoms(atoms=atoms)
+
+        return Template(
+            residues=residues,
             id=id,
             **metadata,  # type: ignore # unpack everything parsed into metadata
         )
 
-    def copy(self) -> AnnotatedTemplate:
+    def copy(self) -> Template:
         return type(self)(
-            tuple(self),
-            self.id,
+            residues=self.residues,
+            id=self.id,
             pdb_id=self.pdb_id,
             template_id_string=self.template_id_string,
             mcsa_id=self.mcsa_id,
@@ -786,6 +810,11 @@ class AnnotatedTemplate(pyjess.Template):
         return not all(
             res.chain_id == list(self.residues)[0].chain_id for res in self.residues
         )
+
+    # TODO add annotation for homo-meric or hetero-meric!
+    # these would have to be m-csa derived. in the entry json,
+    # such catalytic sites are labeled under reaction as polymeric.
+    # homoeric multimeric sites are not labeled polymeric
 
     @cached_property
     def relative_order(
@@ -987,24 +1016,432 @@ class AnnotatedTemplate(pyjess.Template):
             ) from exc
 
 
+class AnnotatedTemplate(Template):
+    """
+    Class for storing templates and associated information plus additional information on catalytic properties of the template.
+
+    Inherits and extends from `Template`
+    """
+
+    def __init__(
+        self,
+        residues: Sequence[AnnotatedResidue],
+        pdb_id: str,
+        mcsa_id: int,
+        number_of_mutated_residues: int,
+        number_of_metal_ligands: Tuple[int, int],
+        number_of_ptm_residues: Tuple[int, int],
+        number_of_side_chain_residues: Tuple[int, int],
+        total_reference_residues: int,
+        id: str | None = None,
+        template_id_string: Optional[str] = None,
+        cluster: Optional[Cluster] = None,
+        uniprot_id: Optional[str] = None,
+        organism: Optional[str] = None,
+        organism_id: Optional[str] = None,
+        resolution: Optional[float] = None,
+        experimental_method: Optional[str] = None,
+        enzyme_discription: Optional[str] = None,
+        represented_sites: Optional[int] = None,
+        ec: Iterable[str] = (),
+        cath: Iterable[str] = (),
+    ):
+        """
+        Initialize an annotated template with descriptions of catalytic activity from the M-CSA.
+
+        Keyword Arguments:
+            residues: `sequence` of `~Residue` instances
+            id: `str` Internal Template ID string. Default `None`
+            pdb_id: `str` The PDB ID of the template
+            template_id_string: `str` String in the ID line of a template
+            mcsa_id: `int` The M-CSA entry index form which the template was generated
+            cluster: `Cluster` Instance of the template
+            uniprot_id: `str` UniProt Identifier of the Protein from which the template was generated
+            organism: `str` Organism name of the Protein from which the template was generated
+            organism_id: `str` Taxnomomic Identifier of the Organism of the Protein from which the template was generated
+            resolution: `float` Resolution of the Protein Structure from which the template was generated
+            experimental_method: `str` Experimental method by which the Protein Structure of the template was resolved
+            enzyme_discription: `str` Text Discription of the Protein from which the template was generated
+            represented_sites: `int` The number of Enzymes which this template is representative for
+            ec: `list` of EC numbers associated with Enzymes this template represents
+            cath: `list` of CATH numbers associated with Enzymes this template represents
+            number_of_mutated_residues: `int` The number of side chain specific residues which have been mutated relative to the reference
+            number_of_metal_ligands: `tuple(`int`, `int`)` Number of metal chelating residues in the template and the reference
+            number_of_ptm_residues: `tuple(`int`, `int`)` Number of post translationally modified residues in the template and the reference
+            number_of_side_chain_residues: `tuple(`int`, `int`)` Number of side chain interacting residues in the template and the reference
+            total_reference_residues: `int` Total number of residues (main and side chain) in the reference structure
+
+        NOTE:
+            In order for a template file to be loaded as an AnnotatedTemplate,
+            it must need both an M-CSA id and a pdb_id.
+            This pdb_id must be found in the PDB-homologs of the M-CSA!
+
+        NOTE:
+            It is recommended not to pass an id string.
+            If id is `None`, the id string will be set to:
+            {`~Template.effective_size`}-Residues_{~`Template.template_id_string`}_Cluster_{`Cluster.id`}-{`Cluster.member`}-{`Cluster.size`}
+            This identifier string should be unique.
+
+        Returns:
+            `AnnotatedTemplate`
+        """
+        super().__init__(
+            residues=residues,
+            pdb_id=pdb_id,
+            mcsa_id=mcsa_id,
+            id=id,
+            template_id_string=template_id_string,
+            cluster=cluster,
+            uniprot_id=uniprot_id,
+            organism=organism,
+            organism_id=organism_id,
+            resolution=resolution,
+            experimental_method=experimental_method,
+            enzyme_discription=enzyme_discription,
+            represented_sites=represented_sites,
+            ec=ec,
+            cath=cath,
+        )
+
+        # Now add in all the special information
+        self.residues = residues
+        self.number_of_mutated_residues = number_of_mutated_residues
+        self.number_of_metal_ligands = number_of_metal_ligands
+        self.number_of_ptm_residues = number_of_ptm_residues
+        self.number_of_side_chain_residues = number_of_side_chain_residues
+        self.total_reference_residues = total_reference_residues
+
+    def _state(self) -> Tuple:
+        atoms = []
+        for residue in self.residues:
+            atoms.extend(residue._atoms)
+
+        residues = Residue.construct_residues_from_atoms(atoms=atoms)
+        # We use reuglar unanntoated residues to get the state!
+        return (
+            tuple(residues),
+            self.id,
+            self.pdb_id,
+            self.mcsa_id,
+            self.template_id_string,
+            self.cluster,
+            self.effective_size,
+            self.uniprot_id,
+            self.organism,
+            self.organism_id,
+            self.resolution,
+            self.experimental_method,
+            self.enzyme_discription,
+            self.represented_sites,
+            self.ec,
+            self.cath,
+        )
+
+    def __copy__(self) -> AnnotatedTemplate:
+        return self.copy()
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, AnnotatedTemplate):
+            self_state = self._state()
+            other_state = other._state()
+            return self_state == other_state
+        return NotImplemented
+
+    def __ne__(self, other):
+        if isinstance(other, AnnotatedTemplate):
+            return not self.__eq__(other)
+        return NotImplemented
+
+    def __hash__(self) -> int:
+        return hash((type(self), self._state()))
+
+    def copy(self) -> AnnotatedTemplate:
+        return type(self)(
+            residues=self.residues,
+            id=self.id,
+            pdb_id=self.pdb_id,
+            template_id_string=self.template_id_string,
+            mcsa_id=self.mcsa_id,
+            cluster=self.cluster,
+            uniprot_id=self.uniprot_id,
+            organism=self.organism,
+            organism_id=self.organism_id,
+            resolution=self.resolution,
+            experimental_method=self.experimental_method,
+            enzyme_discription=self.enzyme_discription,
+            represented_sites=self.represented_sites,
+            ec=self.ec,
+            cath=self.cath,
+            number_of_mutated_residues=self.number_of_mutated_residues,
+            number_of_metal_ligands=self.number_of_metal_ligands,
+            number_of_ptm_residues=self.number_of_ptm_residues,
+            number_of_side_chain_residues=self.number_of_side_chain_residues,
+            total_reference_residues=self.total_reference_residues,
+        )
+
+    @classmethod  # reading from text
+    def loads(
+        cls,
+        text: str,
+        id: str | None = None,
+        warn: bool = False,
+        with_annotations: bool = True,
+    ) -> Template | AnnotatedTemplate:
+        """
+        Load Template from `str`. Calls `Template.load()`
+
+        Arguments:
+            text: `str` of Template to load
+            id: `str` or `None` Internal pyjess string which will superseed the ID string parsed from the template file. Default `None`
+            warn: `bool` If warnings should be printed. Default `False`
+            with_annotations: `bool` If True (default) M-CSA derived templates with a PDB-id and M-CSA id will be annotated with extra information.
+
+        Returns:
+            `Template|AnnotatedTemplate`
+        """
+        return cls.load(
+            io.StringIO(text), id=id, warn=warn, with_annotations=with_annotations
+        )
+
+    @classmethod  # reading from TextIO
+    def load(
+        cls,
+        file: TextIO | Iterator[str] | str | os.PathLike[str],
+        id: str | None = None,
+        warn: bool = False,
+        with_annotations: bool = True,
+    ) -> Template | AnnotatedTemplate:
+        """
+        Overloaded load to parse a `pyjess.Template` and its associated info into an `Template` object
+
+        Arguments:
+            file: `file-like` object or `str` or `path-like` from which to load
+            id: `str` or `None` Internal pyjess string which will superseed the ID string parsed from the template file. Default `None`
+            warn: `bool` If warnings should be printed. Default `False`
+            with_annotations: `bool` If True (default) M-CSA derived templates with a PDB-id and M-CSA id will be annotated with extra information.
+
+        Returns:
+            `Template`|`AnnotatedTemplate`
+        """
+
+        template = Template.load(
+            file=file,
+            id=id,
+            warn=warn,
+        )
+
+        if (
+            with_annotations
+            and template.pdb_id is not None
+            and template.mcsa_id is not None
+        ):
+            annotated_residues, ann_dict = cls.derive_mcsa_annotations(template)
+
+            return AnnotatedTemplate(
+                residues=annotated_residues,
+                id=template.id,
+                pdb_id=template.pdb_id,
+                mcsa_id=template.mcsa_id,
+                template_id_string=template.template_id_string,
+                cluster=template.cluster,
+                uniprot_id=template.uniprot_id,
+                organism=template.organism,
+                organism_id=template.organism_id,
+                resolution=template.resolution,
+                experimental_method=template.experimental_method,
+                enzyme_discription=template.enzyme_discription,
+                represented_sites=template.represented_sites,
+                ec=template.ec,
+                cath=template.cath,
+                number_of_mutated_residues=ann_dict["number_of_mutated_residues"],
+                number_of_metal_ligands=ann_dict["number_of_metal_ligands"],
+                number_of_ptm_residues=ann_dict["number_of_ptm_residues"],
+                number_of_side_chain_residues=ann_dict["number_of_side_chain_residues"],
+                total_reference_residues=ann_dict["total_reference_residues"],
+            )
+
+        else:
+            return template
+
+    @staticmethod
+    def derive_mcsa_annotations(
+        template: Template,
+    ) -> Tuple[List[AnnotatedResidue], Dict[str, Any]]:
+
+        # NOTE
+        # be careful how to interpret and handle this data.
+        # Some templates are build from the reference pdb structure in the entry
+        # Others, are built from a non-reference structure
+        # Further, there are multimeric mcsa catalytic sites composed of:
+        #   homo-mers (Example M-CSA 1, 4, ...)
+        #   hetero-mers (Example M-CSA 5, 10, 11, ...)
+
+        # NOTE
+        # This only works if the template comes from the M-CSA (with id) and PDB id
+
+        reference_homologs = set()
+        annotated_residues = []
+        for residue in template.residues:
+            ################### get reference residue ##################################
+            try:
+                template_pdbchain = catalytic_residue_homologs[template.mcsa_id][
+                    template.pdb_id + residue.chain_id
+                ]
+            except KeyError:
+                try:
+                    template_pdbchain = catalytic_residue_homologs[template.mcsa_id][
+                        template.pdb_id + residue.chain_id[0]
+                    ]
+                    # print(f"Only found a template pdb for {template.pdb_id} with pdbchain {residue.chain_id[0]} instead of {residue.chain_id}")
+                    # these are all homo-mers except for 1olx
+                    # but which is correctly assigned here too
+                except KeyError:
+                    raise KeyError(
+                        f"Failed to find template pdb in catalytic residue homologs for M-CSA id {template.mcsa_id} and pdbchain {template.pdb_id+residue.chain_id}"
+                    ) from None
+
+            match_found = False
+            for index, hom_residue in template_pdbchain.residues.items():
+                # TODO check if it would even make a difference
+                # TODO Ask ioannis about this: Should I check auth_resid or resid first?
+                if residue.residue_number == hom_residue.auth_resid:
+                    match_found = True
+                    break
+                elif residue.residue_number == hom_residue.resid:
+                    match_found = True
+                    break
+
+            if not match_found:
+                raise ValueError(
+                    f"Missing a comparison residue for M-CSA id {template.mcsa_id} and pdbchain {template.pdb_id+residue.chain_id} for residue {residue.residue_name, residue.residue_number}"
+                ) from None
+
+            # after the for loop breaks, index contains the residue index
+            # and hom_residue contains the corresponding residue annotations
+            if isinstance(hom_residue, ReferenceCatalyticResidue):
+                reference_pdb = template_pdbchain
+                ref_residue = hom_residue
+            else:
+                _, ref_pdbchain, _ = hom_residue.reference
+                reference_pdb = catalytic_residue_homologs[template.mcsa_id][
+                    ref_pdbchain
+                ]
+                ref_residue = reference_pdb.residues[index]
+
+            reference_homologs.add(reference_pdb)
+
+            ############################################################################
+
+            # We check mutation only if
+            # the type of the template residue matters
+            # and it is interacting via its sidechain
+            is_mutated = False
+            if (
+                residue.residue_name not in ["ANY", "PTM"]
+                and residue.match_mode < 100
+                and ref_residue.function_location_abv is not None
+            ):
+                is_mutated = residue.residue_name != ref_residue.code
+
+            annotated_residues.append(
+                AnnotatedResidue(
+                    _atoms=residue._atoms,
+                    _vec=residue._vec,
+                    _indices=residue._indices,
+                    reference_idx=index,
+                    is_metal_ligand="metal ligand" in ref_residue.roles_summary,
+                    is_mutated=is_mutated,
+                    has_ptm=bool(ref_residue.ptm),
+                    roles=tuple(ref_residue.roles),
+                )
+            )
+
+        ######################### Template level counts ################################
+        # for templates where all the residues have annotations
+        # we loop again over these residues to get template level counts
+        number_side_chain_residues = 0
+        number_metal_ligands = 0
+        number_ptm = 0
+        number_mutated = 0
+
+        for residue in annotated_residues:
+            # TODO i dont know if this is equivalent to ref_residue.function_location_abv
+            if residue.match_mode < 100:
+                number_side_chain_residues += 1
+            if residue.is_metal_ligand:
+                number_metal_ligands += 1
+            if residue.has_ptm:
+                number_ptm += 1
+            if residue.is_mutated:
+                number_mutated += 1
+
+        ################################################################################
+
+        ############### Reference Homolog counts #######################################
+        number_reference_residues = 0
+        number_side_chain_reference_residues = 0
+        number_metal_ligands_reference = 0
+        number_ptm_reference = 0
+        for reference_pdb in reference_homologs:
+            for residue_id, residue in reference_pdb.residues.items():
+                if isinstance(residue, ReferenceCatalyticResidue):
+                    # skip if the residue doesnt exist in the reference
+                    if residue.code is None:
+                        continue
+                    number_reference_residues += 1
+                    # function_location_abv is only set if it is NOT a side chain interaction
+                    if not residue.function_location_abv:
+                        number_side_chain_reference_residues += 1
+                    if "metal ligand" in residue.roles_summary:
+                        number_metal_ligands_reference += 1
+                    if residue.ptm:
+                        number_ptm_reference += 1
+
+        ######################## assing Template properties/attributes #################
+
+        return annotated_residues, {
+            # number of mutated residues in the template versus the reference.
+            "number_of_mutated_residues": number_mutated,
+            # tuple(template, reference)
+            "number_of_metal_ligands": (
+                number_metal_ligands,
+                number_metal_ligands_reference,
+            ),
+            # tuple(template, reference)
+            "number_of_ptm_residues": (number_ptm, number_ptm_reference),
+            # Side chain residues and ANY and PTM are discarded
+            # tuple(template, reference)
+            "number_of_side_chain_residues": (
+                number_side_chain_residues,
+                number_side_chain_reference_residues,
+            ),
+            # total number of residues in the reference pdb structure
+            "total_reference_residues": number_reference_residues,
+        }
+
+
 # Populate the mapping of MCSA IDs to CATH numbers so that it can be accessed
 # by individual templates in the `Template.cath` property.
 # Source: M-CSA which provides cath annotations for either residue homologs or for m-csa entries
 with files(__package__).joinpath("data", "MCSA_CATH_mapping.json").open() as f:  # type: ignore
-    AnnotatedTemplate._CATH_MAPPING = json.load(f)
+    Template._CATH_MAPPING = json.load(f)
 
 with files(__package__).joinpath("data", "MCSA_EC_mapping.json").open() as f:  # type: ignore
-    AnnotatedTemplate._EC_MAPPING = json.load(f)
+    Template._EC_MAPPING = json.load(f)
+
+# Source: CATH, EC and InterPro from PDB-SIFTS through mapping to the pdbchain
+with files(__package__).joinpath("data", "pdb_sifts.json").open() as f:  # type: ignore
+    Template._PDB_SIFTS = json.load(f)
+
+catalytic_residue_homologs = load_mcsa_catalytic_residue_homologs_info(
+    Path(files(__package__).joinpath("data"))
+)
 
 # global MCSA_interpro_dict
 # # dictonariy mapping M-CSA entries to Interpro Identifiers
 # # Interpro Acceccesions at the Domain, Family and Superfamily level
 # # are searched for the reference sequences of each M-CSA entry.
 # # Note that an M-CSA entry may have multiple reference sequences
-
-# Source: CATH, EC and InterPro from PDB-SIFTS through mapping to the pdbchain
-with files(__package__).joinpath("data", "pdb_sifts.json").open() as f:  # type: ignore
-    AnnotatedTemplate._PDB_SIFTS = json.load(f)
 
 # TODO
 # # add a list of cofactors associated with each EC number from Neeras List
@@ -1034,7 +1471,8 @@ def load_templates(
     warn: bool = False,
     verbose: bool = False,
     cpus: int = 0,
-) -> Iterator[AnnotatedTemplate]:
+    with_annotations: bool = True,
+) -> Iterator[Template | AnnotatedTemplate]:
     """
     Load templates from a given directory, recursively.
 
@@ -1043,9 +1481,10 @@ def load_templates(
         warn: `bool` If warnings about annoation issues in templates should be printed. Default `False`
         verbose: `bool` If loading should be verbose. Default `False`
         cpus: `int` The number of CPU threads to use. If 0 (default), use all threads. If <0, leave this number of threads free.
+        with_annotations: `bool` If True (default) M-CSA derived templates with a PDB-id and M-CSA id will be annotated with extra information.
 
     Yields:
-        `AnnotatedTemplate`
+        `Template`|`AnnotatedTemplate`
     """
     if template_dir is None:
         template_dir = Path(str(files(__package__).joinpath("jess_templates_20230210")))
@@ -1061,10 +1500,14 @@ def load_templates(
 
     template_paths = _get_paths_by_extension(template_dir, ".pdb")
 
-    def _load_and_annotate(template_path, warn):
+    def _load_and_annotate(
+        template_path: List[Path], warn: bool, with_annotations: bool
+    ):
         try:
             with template_path.open() as f:
-                return AnnotatedTemplate.load(file=f, warn=warn)
+                return AnnotatedTemplate.load(
+                    file=f, warn=warn, with_annotations=with_annotations
+                )
         except ValueError as exc:
             raise ValueError(
                 f"Passed Template file {template_path.resolve()} contained ATOM lines which are not in Jess Template format."
@@ -1081,7 +1524,7 @@ def load_templates(
 
     pool: DummyPool | ThreadPool = DummyPool() if cpus == 1 else ThreadPool(cpus)
     with pool:
-        args = [(path, warn) for path in template_paths]
+        args = [(path, warn, with_annotations) for path in template_paths]
         try:
             template_iterator = pool.starmap(_load_and_annotate, args)
             for loaded_template in template_iterator:
@@ -1090,7 +1533,8 @@ def load_templates(
             raise exc
 
 
-def check_template(template: AnnotatedTemplate, warn: bool = True) -> bool:
+# TODO adapt this too for AnnotatedTemplate objects
+def check_template(template: Template, warn: bool = True) -> bool:
     # TODO improve this and write tests
     if warn:
         checker = True
@@ -1107,12 +1551,12 @@ def check_template(template: AnnotatedTemplate, warn: bool = True) -> bool:
         if template.pdb_id:
             # check overlap between sifts mapping and CATH, EC annotations
             # Source: pdb to sifts mapping which maps CATH to pdb chain IDs and UniProt IDs, sifts also provides UniProt to EC mapping
-            # Since AnnotatedTemplates may contain residues from multiple chains
+            # Since Template may contain residues from multiple chains
             pdbchains = set()
             for res in template.residues:
                 pdbchains.add(template.pdb_id + res.chain_id)
 
-            # Iterating of all pdbchains which were part of the AnnotatedTemplate
+            # Iterating of all pdbchains which were part of the Template
             for pdbchain in pdbchains:
                 # also include EC annotations from PDB-SIFTS
                 subdict = template._PDB_SIFTS.get(pdbchain, None)

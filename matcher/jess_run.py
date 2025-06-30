@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import collections
+from multiprocessing.pool import ThreadPool
+import functools
 from typing import List, Tuple, Dict, Optional, IO, ClassVar, Iterator
 from functools import cached_property
 from dataclasses import dataclass, field
 from importlib.resources import files
+from pathlib import Path
 import math
 import warnings
 import csv
@@ -12,16 +15,14 @@ import itertools
 import io
 import os
 import json
+
 import rich
 from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
 
 import pyjess
 
-from .template import AnnotatedTemplate, Vec3, check_template
+from .template import Template, AnnotatedTemplate, Vec3, check_template
 from .utils import chunks, ranked_argsort, DummyPool
-
-from multiprocessing.pool import ThreadPool
-import functools
 
 __all__ = [
     "LogisticRegressionModel",
@@ -105,6 +106,9 @@ class Match:
             By default, atoms are written in the coordinate reference frame of the query.
         """
 
+        # TODO option to include template atoms too.
+        # if NOT transform, rotate the template atoms into the query reference frame.
+
         def write_atom_line(atom: pyjess.Atom) -> str:
             one_char_elements = {
                 "H",
@@ -128,13 +132,13 @@ class Match:
                 return f"ATOM  {atom.serial:>5} {atom.name:<4s}{atom.altloc if atom.altloc is not None else '':<1}{atom.residue_name:<3}{atom.chain_id:>2}{atom.residue_number:>4}{atom.insertion_code:1s}   {atom.x:>8.3f}{atom.y:>8.3f}{atom.z:>8.3f}{atom.occupancy:>6.2f}{atom.temperature_factor:>6.2f}      {atom.segment:<4s}{atom.element:>2s} \n"
 
         if include_query:  # write the original query molecule too
-            file.write(f"HEADER MOLECULE_ID {self.hit.molecule.id}\n")
-            for atom in self.hit.molecule:
+            file.write(f"HEADER MOLECULE_ID {self.hit.molecule().id}\n")
+            for atom in self.hit.molecule(transform=transform):
                 file.write(write_atom_line(atom))
             file.write("END\n\n")
 
         file.write(
-            f"HEADER {self.predicted_correct} MATCH {self.hit.molecule.id} {self.index}\n"
+            f"HEADER {self.predicted_correct} MATCH {self.hit.molecule().id} {self.index}\n"
         )
 
         file.write(
@@ -151,7 +155,7 @@ class Match:
             )
         if template.represented_sites:
             file.write(f"REMARK TEMPLATE RESIDUES {template.template_id_string}\n")
-        file.write(f"REMARK MOLECULE_ID {str(self.hit.molecule.id)}\n")
+        file.write(f"REMARK MOLECULE_ID {str(self.hit.molecule().id)}\n")
         file.write(f"REMARK MATCH INDEX {self.index}\n")
 
         if transform:
@@ -211,42 +215,57 @@ class Match:
                     "completeness",
                     "predicted_correct",
                     "matched_residues",
+                    "number_of_mutated_residues",
+                    "number_of_side_chain_residues_(template,reference)",
+                    "number_of_metal_ligands_(template,reference)",
+                    "number_of_ptm_residues_(template, reference)",
+                    "total_reference_residues",
                 ]
             )
 
-        writer.writerow(
-            [
-                str(self.hit.molecule.id),
-                str(self.pairwise_distance),
-                str(self.index),
-                str(template.pdb_id if template.pdb_id else ""),
-                (",".join(set(res.chain_id for res in template.residues))),
-                str(cluster.id if cluster else ""),
-                str(
-                    self.hit.template.cluster.member
-                    if self.hit.template.cluster
-                    else ""
-                ),
-                str(cluster.size if cluster else ""),
-                str(template.effective_size),
-                str(template.dimension),
-                str(template.mcsa_id if template.mcsa_id else ""),
-                str(template.uniprot_id if template.uniprot_id else ""),
-                ",".join(template.ec if template.ec is not None else ""),
-                ",".join(template.cath if template.cath else ""),
-                str(template.multimeric),
-                str(self.multimeric),
-                str(self.query_atom_count),
-                str(self.query_residue_count),
-                str(self.hit.rmsd),
-                str(self.hit.log_evalue),
-                str(self.orientation),
-                str(self.preserved_resid_order),
-                str(self.complete),
-                str(self.predicted_correct),
-                (",".join("_".join(t) for t in self.matched_residues)),
-            ]
-        )
+        content = [
+            str(self.hit.molecule().id),
+            str(self.pairwise_distance),
+            str(self.index),
+            str(template.pdb_id if template.pdb_id else ""),
+            (",".join(set(res.chain_id for res in template.residues))),
+            str(cluster.id if cluster else ""),
+            str(self.hit.template.cluster.member if self.hit.template.cluster else ""),
+            str(cluster.size if cluster else ""),
+            str(template.effective_size),
+            str(template.dimension),
+            str(template.mcsa_id if template.mcsa_id else ""),
+            str(template.uniprot_id if template.uniprot_id else ""),
+            ",".join(template.ec if template.ec is not None else ""),
+            ",".join(template.cath if template.cath else ""),
+            str(template.multimeric),
+            str(self.multimeric),
+            str(self.query_atom_count),
+            str(self.query_residue_count),
+            str(self.hit.rmsd),
+            str(self.hit.log_evalue),
+            str(self.orientation),
+            str(self.preserved_resid_order),
+            str(self.complete),
+            str(self.predicted_correct),
+            (",".join("_".join(t) for t in self.matched_residues)),
+        ]
+
+        # check if the template was annotated with M-CSA information
+        if isinstance(template, AnnotatedTemplate):
+            content.extend(
+                [
+                    str(template.number_of_mutated_residues),
+                    ",".join(str(i) for i in template.number_of_side_chain_residues),
+                    ",".join(str(i) for i in template.number_of_metal_ligands),
+                    ",".join(str(i) for i in template.number_of_ptm_residues),
+                    str(template.total_reference_residues),
+                ]
+            )
+        else:
+            content.extend(["", "", "", "", "", ""])
+
+        writer.writerow(content)
 
     def get_identifying_attributes(self) -> Tuple[int, int, int]:
         """
@@ -447,7 +466,7 @@ class Match:
         """
         `int`: The number of atoms in the query molecule
         """
-        return len(self.hit.molecule)
+        return len(self.hit.molecule())
 
     @property
     def query_residue_count(self) -> int:
@@ -455,7 +474,7 @@ class Match:
         `int`: The number of residues in the query molecule
         """
         all_residue_numbers = set()
-        for atom in self.hit.molecule:
+        for atom in self.hit.molecule():
             all_residue_numbers.add(atom.residue_number)
         return len(all_residue_numbers)
 
@@ -484,9 +503,45 @@ with files(__package__).joinpath("data", "logistic_regression_models.json").open
     Match._logistic_regression_models = logistic_regression_models
 
 
+def load_molecules(
+    molecule_paths: List[Path], conservation_cutoff: float = 0, warn: bool = False
+) -> List[pyjess.Molecule]:
+    """Load query molecules"""
+    molecules = []
+    stem_counter: Dict[str, int] = collections.defaultdict(int)
+    for molecule_path in molecule_paths:
+        stem = Path(molecule_path).stem
+        stem_counter[stem] += 1
+        if stem_counter[stem] > 1:
+            # In case the same stem occurs multiple times, create a unique ID using the stem and a running number starting from 2
+            unique_id = f"{stem}_{stem_counter[stem]}"
+        else:
+            unique_id = stem
+
+        molecule = pyjess.Molecule.load(
+            str(molecule_path), id=unique_id
+        )  # by default it will stop at ENDMDL
+        if conservation_cutoff:
+            molecule.conserved(conservation_cutoff)
+            # molecule = molecule.conserved(args.conservation_cutoff)
+            # conserved is a method called on a molecule object that returns a filtered molecule
+            # atoms with a temperature-factor BELOW the conservation cutoff will be excluded
+        if molecule:
+            molecules.append(
+                molecule
+            )  # load a molecule and filter it by conservation_cutoff
+        elif warn:
+            warnings.warn(f"received an empty molecule from {molecule_path}")
+
+    if not molecules and warn:
+        warnings.warn("received no molecules from input")
+
+    return molecules
+
+
 class Matcher:
     """
-    Class from which a query `~pyjess.Molecule` is matched to a `list` of `AnnotatedTemplate`.
+    Class from which a query `~pyjess.Molecule` is matched to a `list` of `Template`.
     """
 
     _DEFAULT_JESS_PARAMS = {
@@ -500,7 +555,7 @@ class Matcher:
 
     def __init__(
         self,
-        templates: List[AnnotatedTemplate],
+        templates: List[Template],
         jess_params: Optional[Dict[int, Dict[str, float]]] = None,
         conservation_cutoff: int = 0,
         warn: bool = False,
@@ -515,7 +570,7 @@ class Matcher:
         Initialize a `Matcher` instance
 
         Arguments:
-            templates: `list` of `AnnotatedTemplates` to match
+            templates: `list` of `Template` to match
             jess_params: `dict` Dictionary of PyJess parameters to apply. Will superseed defaults.
             conservation_cutoff: `float` Atoms below this cutoff will not be matched. Default 0.
             warn: `bool` If warnings about issues during matching should be printed. Default `False`
@@ -583,7 +638,7 @@ class Matcher:
             self.verbose_print(f"Conservation Cutoff set to {self.conservation_cutoff}")
 
         # check each template and if it passes add it to the dictionary of templates
-        self.templates_by_effective_size: Dict[int, List[AnnotatedTemplate]] = (
+        self.templates_by_effective_size: Dict[int, List[Template]] = (
             collections.defaultdict(list)
         )  # Dictionary of List of AnnoatedTemplate objects grouped by Template.effective_size as keys
         for template in templates:
@@ -701,13 +756,13 @@ class Matcher:
     @staticmethod
     def _run_jess(
         molecule: pyjess.Molecule,
-        templates: List[AnnotatedTemplate],
+        templates: List[Template],
         rmsd_threshold: float = 2.0,
         distance_cutoff: float = 1.5,
         max_dynamic_distance: float = 1.5,
         max_candidates: int = 10000,
     ) -> List[Match]:
-        """`list` of `Match`: Match the `list` of `AnnotatedTemplate` to one `~pyjess.Molecule`"""
+        """`list` of `Match`: Match the `list` of `Template` to one `~pyjess.Molecule`"""
 
         # killswitch is controlled by max_candidates. Internal default is currently 1000
         # killswitch serves to limit the iterations in cases where the template would be too general,
@@ -754,7 +809,7 @@ class Matcher:
     def _single_query_run(
         self,
         molecule: pyjess.Molecule,
-        templates: List[AnnotatedTemplate],
+        templates: List[Template],
         rmsd_threshold: float,
         distance_cutoff: float,
         max_dynamic_distance: float,

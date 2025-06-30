@@ -34,7 +34,6 @@ class TestIntegration(unittest.TestCase):
 
     def test_get_template_paths(self):
         data_path = importlib.resources.files(matcher).joinpath("data/")
-        # check if all the required annotation files are there - This will run the entire script
         found_paths = sorted(template._get_paths_by_extension(data_path, ".json"))
         expected_paths = sorted(
             [
@@ -42,6 +41,7 @@ class TestIntegration(unittest.TestCase):
                 Path(data_path, "MCSA_EC_mapping.json"),
                 Path(data_path, "MCSA_CATH_mapping.json"),
                 Path(data_path, "logistic_regression_models.json"),
+                Path(data_path, "catalytic_residue_homologs_information.json"),
             ]
         )
         self.assertEqual(found_paths, expected_paths)
@@ -174,7 +174,7 @@ class TestCluster(unittest.TestCase):
         self.assertEqual(self.cluster1.member, 1)
 
 
-class TestAnnotatedTemplate(unittest.TestCase):
+class TestTemplate(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -256,7 +256,7 @@ class TestAnnotatedTemplate(unittest.TestCase):
             z=-2.233,
         )
 
-        cls.artifical_template1 = template.AnnotatedTemplate(
+        cls.artifical_template1 = template.Template(
             id="some_name",
             # pdb_id="Magic_ID",
             template_id_string="A completely fake template",
@@ -269,17 +269,12 @@ class TestAnnotatedTemplate(unittest.TestCase):
             enzyme_discription="brain chemistry goes brr",
             cath=["1.1.1.1"],
             ec=["9.9.9.9"],
-            atoms=[
-                magic_atom,
-                magic_atom2,
-                magic_atom3,
-                # magic_atom,
-                # magic_atom2,
-                # magic_atom3,
-            ],
+            residues=template.Residue.construct_residues_from_atoms(
+                atoms=[magic_atom, magic_atom2, magic_atom3]
+            ),
         )
 
-        cls.artifical_template2 = template.AnnotatedTemplate(
+        cls.artifical_template2 = template.Template(
             id="some_name",
             # pdb_id="Magic_ID_and_different_di",
             template_id_string="A completely fake template",
@@ -292,26 +287,30 @@ class TestAnnotatedTemplate(unittest.TestCase):
             enzyme_discription="brain chemistry goes brr",
             cath=["1.1.1.1"],
             ec=["9.9.9.9"],
-            atoms=[
-                magic_atom,
-                magic_atom2,
-                magic_atom3,
-                magic_atom,
-                magic_atom2,
-                magic_atom3,
-            ],
+            residues=template.Residue.construct_residues_from_atoms(
+                atoms=[
+                    magic_atom,
+                    magic_atom2,
+                    magic_atom3,
+                    magic_atom,
+                    magic_atom2,
+                    magic_atom3,
+                ]
+            ),
         )
 
-        cls.minimal_template = template.AnnotatedTemplate(
-            atoms=[magic_atom, magic_atom2, magic_atom3]
+        cls.minimal_template = template.Template(
+            residues=template.Residue.construct_residues_from_atoms(
+                atoms=[magic_atom, magic_atom2, magic_atom3]
+            )
         )
 
-        cls.template1 = template.AnnotatedTemplate.loads(cls.template_text1, warn=False)
+        cls.template1 = template.Template.loads(cls.template_text1, warn=False)
 
-        cls.template1_with_id = template.AnnotatedTemplate.loads(
+        cls.template1_with_id = template.Template.loads(
             cls.template_text1, id="another_id", warn=False
         )
-        cls.template2 = template.AnnotatedTemplate.loads(
+        cls.template2 = template.Template.loads(
             cls.template_text2, id="hello_world", warn=True
         )
 
@@ -331,7 +330,7 @@ class TestAnnotatedTemplate(unittest.TestCase):
         self.assertEqual(self.template1.resolution, 2.3)
         self.assertEqual(self.template1.experimental_method, "X-ray diffraction")
         self.assertEqual(
-            self.template1.ec, ["5.1.1.3"]
+            self.template1.ec, tuple(["5.1.1.3"])
         )  # could be more info added through sifts
         self.assertEqual(self.template1.represented_sites, 2)
         self.assertEqual(
@@ -342,7 +341,7 @@ class TestAnnotatedTemplate(unittest.TestCase):
         self.assertEqual(self.template1.multimeric, True)
         self.assertEqual(self.template1.relative_order, [0])
         self.assertEqual(
-            self.template1.cath, ["3.40.50.1860"]
+            self.template1.cath, tuple(["3.40.50.1860"])
         )  # could be more info added through sifts
         self.assertEqual(len(self.template1.residues), 6)
 
@@ -362,7 +361,7 @@ class TestAnnotatedTemplate(unittest.TestCase):
         self.assertEqual(self.template2.resolution, 1.55)
         self.assertEqual(self.template2.experimental_method, "X-ray diffraction")
         self.assertEqual(
-            self.template2.ec, ["3.1.21.2"]
+            self.template2.ec, tuple(["3.1.21.2"])
         )  # could be more info added through sifts
         self.assertEqual(self.template2.represented_sites, 1)
         self.assertEqual(
@@ -373,7 +372,7 @@ class TestAnnotatedTemplate(unittest.TestCase):
         self.assertEqual(self.template2.multimeric, False)
         self.assertEqual(self.template2.relative_order, [2, 1, 4, 3])
         self.assertEqual(
-            self.template2.cath, ["3.20.20.150"]
+            self.template2.cath, tuple(["3.20.20.150"])
         )  # could be more info added through sifts
         self.assertEqual(len(self.template2.residues), 4)
 
@@ -423,8 +422,6 @@ class TestAnnotatedTemplate(unittest.TestCase):
 
     def test_artifical_template_non_equality(self):
         # changed only the uniprot id
-        if self.artifical_template1 == self.artifical_template2:
-            print("WTF thez are equal")
         self.assertNotEqual(
             hash(self.artifical_template1), hash(self.artifical_template2)
         )
@@ -434,6 +431,143 @@ class TestAnnotatedTemplate(unittest.TestCase):
         self.assertNotEqual(
             hash(self.artifical_template1), hash(self.artifical_template2)
         )
+
+    def test_bad_loads(self):
+        with self.assertRaises(ValueError):
+            template.Template.loads(self.template_hetatm, warn=True)
+        with self.assertRaises(IndexError):
+            template.Template.loads(self.template_missing_cluster_annotation, warn=True)
+        with self.assertRaises(ValueError):
+            template.Template.loads(self.template_malformed_residue_1, warn=True)
+        with self.assertRaises(ValueError):
+            template.Template.loads(self.template_malformed_residue_2, warn=True)
+        with self.assertRaises(ValueError):
+            template.Template.loads(self.template_malformed_residue_3, warn=True)
+        with self.assertRaises(ValueError):
+            template.Template.loads(self.not_a_template, warn=True)
+
+        # These do not raise Warnings or errors
+        template.Template.loads(self.template_no_remark, warn=True)
+        template.Template.loads(self.template_new_remark, warn=True)
+        template.Template.loads(self.template_pdb_id_none, warn=True)
+
+    # def test_dumps(self): # TODO
+    #     # tests both dump and dumps methods
+    #     template1 = template.Template.loads(
+    #         self.template_text1, warn=False
+    #     )
+
+    #     template1_dumpstring = template1.dumps()
+
+    #     self.assertEqual(self.template_text1, template1_dumpstring)
+
+    def test_annotation_parsing(self):
+        with self.assertRaises(ValueError):
+            template.Template._parse_pdb_id(tokens=[0, 1, "abcde"], metadata={})
+        with self.assertRaises(ValueError):
+            template.Template._parse_uniprot_id(tokens=[0, 1, "abcde"], metadata={})
+        with self.assertRaises(ValueError):
+            template.Template._parse_mcsa_id(tokens=[0, 1, "abcde"], metadata={})
+        with self.assertRaises(ValueError):
+            template.Template._parse_cluster(tokens=[0, 1, "abcde"], metadata={})
+        with self.assertRaises(ValueError):
+            template.Template._parse_cluster(tokens=[0, 1, "ab_cd_e"], metadata={})
+        with self.assertRaises(ValueError):
+            template.Template._parse_resolution(tokens=[0, 1, "abcde"], metadata={})
+        with self.assertRaises(ValueError):
+            template.Template._parse_ec(tokens=[0, 1, "1.1.1"], metadata={"ec": []})
+        with self.assertRaises(ValueError):
+            template.Template._parse_ec(tokens=[0, 1, "8.1.1.1"], metadata={"ec": []})
+        with self.assertWarns(Warning):
+            template.Template._parse_ec(tokens=[0, 1, "1.1.1.n1"], metadata={"ec": []})
+        with self.assertRaises(ValueError):
+            template.Template._parse_cath(
+                tokens=[0, 1, "1.1.1.n1"], metadata={"cath": []}
+            )
+        template.Template._parse_cath(tokens=[0, 1, "1.1.1.1"], metadata={"cath": []})
+        template.Template._parse_cath(
+            tokens=[0, 1, "1.1.1800.1"], metadata={"cath": []}
+        )
+        with self.assertRaises(ValueError):
+            template.Template._parse_represented_sites(
+                tokens=[0, 1, "abcde"], metadata={}
+            )
+
+
+class TestAnnotatedTemplate(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        with open(
+            importlib.resources.files(matcher).joinpath(
+                "jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb",
+            ),
+            "r",
+        ) as f:
+            cls.template_text1 = f.read()
+        with open(
+            importlib.resources.files(matcher).joinpath(
+                "jess_templates_20230210/4_residues/results/csa3d_0011/csa3d_0011.cluster_1_1_3.1qum_D145-D109-D37-D72-D69-D229-D182-D231-D261-D216-D179.template.pdb",
+            ),
+            "r",
+        ) as f:
+            cls.template_text2 = f.read()
+
+        with files(test_data).joinpath("bad_templates/hetatm.pdb").open() as f:
+            cls.template_hetatm = f.read()
+        with files(test_data).joinpath(
+            "bad_templates/malformed_residues_1.pdb"
+        ).open() as f:
+            cls.template_malformed_residue_1 = f.read()
+        with files(test_data).joinpath(
+            "bad_templates/malformed_residues_2.pdb"
+        ).open() as f:
+            cls.template_malformed_residue_2 = f.read()
+        with files(test_data).joinpath(
+            "bad_templates/malformed_residues_3.pdb"
+        ).open() as f:
+            cls.template_malformed_residue_3 = f.read()
+        with files(test_data).joinpath(
+            "bad_templates/missing_cluster_annotation.pdb"
+        ).open() as f:
+            cls.template_missing_cluster_annotation = f.read()
+        with files(test_data).joinpath("bad_templates/new_remark.pdb").open() as f:
+            cls.template_new_remark = f.read()
+        with files(test_data).joinpath("bad_templates/pdb_id_none.pdb").open() as f:
+            cls.template_pdb_id_none = f.read()
+        with files(test_data).joinpath("bad_templates/not_a_template.pdb").open() as f:
+            cls.not_a_template = f.read()
+        with files(test_data).joinpath("bad_templates/no_remark.pdb").open() as f:
+            cls.template_no_remark = f.read()
+
+        cls.template1 = template.AnnotatedTemplate.loads(cls.template_text1, warn=False)
+
+        cls.template1_with_id = template.AnnotatedTemplate.loads(
+            cls.template_text1, id="another_id", warn=False
+        )
+        cls.template2 = template.AnnotatedTemplate.loads(
+            cls.template_text2, id="hello_world", warn=True
+        )
+
+    # TODO test the anntoations added via annotated load fn
+    def test_good_loads(self):
+        pass
+
+    def test_copy(self):
+        template1_copy = self.template1.copy()
+        self.assertEqual(self.template1, self.template1)
+        self.assertEqual(
+            list(self.template1), list(template1_copy)
+        )  # testing atoms copy
+        self.assertEqual(self.template1, template1_copy)
+
+    def test_template_non_equality(self):
+        # Test for template equality
+        self.assertEqual(hash(self.template1), hash(self.template1.copy()))
+        # Changed only the internal id
+        self.assertNotEqual(self.template1, self.template1_with_id)
+        # completely different templates
+        self.assertNotEqual(self.template1, self.template2)
 
     def test_bad_loads(self):
         with self.assertRaises(ValueError):
@@ -454,74 +588,13 @@ class TestAnnotatedTemplate(unittest.TestCase):
             template.AnnotatedTemplate.loads(
                 self.template_malformed_residue_3, warn=True
             )
+        with self.assertRaises(ValueError):
+            template.AnnotatedTemplate.loads(self.not_a_template, warn=True)
 
         # These do not raise Warnings or errors
         template.AnnotatedTemplate.loads(self.template_no_remark, warn=True)
         template.AnnotatedTemplate.loads(self.template_new_remark, warn=True)
         template.AnnotatedTemplate.loads(self.template_pdb_id_none, warn=True)
-        template.AnnotatedTemplate.loads(self.not_a_template, warn=True)
-
-    # def test_dumps(self): # TODO
-    #     # tests both dump and dumps methods
-    #     template1 = template.AnnotatedTemplate.loads(
-    #         self.template_text1, warn=False
-    #     )
-
-    #     template1_dumpstring = template1.dumps()
-
-    #     self.assertEqual(self.template_text1, template1_dumpstring)
-
-    def test_annotation_parsing(self):
-        with self.assertRaises(ValueError):
-            template.AnnotatedTemplate._parse_pdb_id(
-                tokens=[0, 1, "abcde"], metadata={}
-            )
-        with self.assertRaises(ValueError):
-            template.AnnotatedTemplate._parse_uniprot_id(
-                tokens=[0, 1, "abcde"], metadata={}
-            )
-        with self.assertRaises(ValueError):
-            template.AnnotatedTemplate._parse_mcsa_id(
-                tokens=[0, 1, "abcde"], metadata={}
-            )
-        with self.assertRaises(ValueError):
-            template.AnnotatedTemplate._parse_cluster(
-                tokens=[0, 1, "abcde"], metadata={}
-            )
-        with self.assertRaises(ValueError):
-            template.AnnotatedTemplate._parse_cluster(
-                tokens=[0, 1, "ab_cd_e"], metadata={}
-            )
-        with self.assertRaises(ValueError):
-            template.AnnotatedTemplate._parse_resolution(
-                tokens=[0, 1, "abcde"], metadata={}
-            )
-        with self.assertRaises(ValueError):
-            template.AnnotatedTemplate._parse_ec(
-                tokens=[0, 1, "1.1.1"], metadata={"ec": []}
-            )
-        with self.assertRaises(ValueError):
-            template.AnnotatedTemplate._parse_ec(
-                tokens=[0, 1, "8.1.1.1"], metadata={"ec": []}
-            )
-        with self.assertWarns(Warning):
-            template.AnnotatedTemplate._parse_ec(
-                tokens=[0, 1, "1.1.1.n1"], metadata={"ec": []}
-            )
-        with self.assertRaises(ValueError):
-            template.AnnotatedTemplate._parse_cath(
-                tokens=[0, 1, "1.1.1.n1"], metadata={"cath": []}
-            )
-        template.AnnotatedTemplate._parse_cath(
-            tokens=[0, 1, "1.1.1.1"], metadata={"cath": []}
-        )
-        template.AnnotatedTemplate._parse_cath(
-            tokens=[0, 1, "1.1.1800.1"], metadata={"cath": []}
-        )
-        with self.assertRaises(ValueError):
-            template.AnnotatedTemplate._parse_represented_sites(
-                tokens=[0, 1, "abcde"], metadata={}
-            )
 
 
 class TestResidue(unittest.TestCase):
@@ -534,7 +607,7 @@ class TestResidue(unittest.TestCase):
             ),
             "r",
         ) as f:
-            template1 = template.AnnotatedTemplate.loads(
+            template1 = template.Template.loads(
                 f.read(),
             )
         cls.residue1 = template1.residues[0]
@@ -557,17 +630,15 @@ class TestResidue(unittest.TestCase):
 
     def test_unkown_resids(self):
         with self.assertRaises(KeyError):
-            template.AnnotatedTemplate.loads(
-                self.template_unkown_residue_text, warn=True
-            )
+            template.Template.loads(self.template_unkown_residue_text, warn=True)
 
     def test_bad_atoms_in_orientation(self):
         with self.assertRaises(ValueError):
-            template.AnnotatedTemplate.loads(self.bad_atom_names_1, warn=True)
+            template.Template.loads(self.bad_atom_names_1, warn=True)
         with self.assertRaises(ValueError):
-            template.AnnotatedTemplate.loads(self.bad_atom_names_2, warn=True)
+            template.Template.loads(self.bad_atom_names_2, warn=True)
         with self.assertRaises(ValueError):
-            template.AnnotatedTemplate.loads(self.bad_atom_names_3, warn=True)
+            template.Template.loads(self.bad_atom_names_3, warn=True)
 
     def test_attributes(self):
         self.assertEqual(self.residue1.residue_name, "GLU")
@@ -599,6 +670,9 @@ class TestResidue(unittest.TestCase):
         )  # from atom 0 to atom 1
 
 
+# TODO test annotated Residue class
+
+
 class TestTemplate_Checking(unittest.TestCase):
     # TODO improve this function and write more tests!
     @classmethod
@@ -612,7 +686,7 @@ class TestTemplate_Checking(unittest.TestCase):
             cls.template_text1 = f.read()
 
     def test_check_template(self):
-        template1 = template.AnnotatedTemplate.loads(
+        template1 = template.Template.loads(
             self.template_text1,
         )
         self.assertEqual(template.check_template(template=template1, warn=False), True)

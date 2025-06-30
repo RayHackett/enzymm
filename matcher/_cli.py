@@ -2,16 +2,15 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import Optional, List, Dict
-from collections import defaultdict
+from typing import Optional, List
 import warnings
 import sys
-import pyjess
+
 import rich.console
+
 from .template import load_templates
 from . import __version__
-
-from .jess_run import Matcher, Match
+from .jess_run import Matcher, Match, load_molecules
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -140,6 +139,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="If set, templates with less then 3 defined sidechain residues will still be matched.",
     )
+    parser.add_argument(
+        "--skip-annotation",
+        default=False,
+        action="store_true",
+        help="If set, M-CSA derived templates will NOT be annotated with extra information.",
+    )
     return parser
 
 
@@ -199,36 +204,11 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
         }
 
     try:
-
-        ######## Loading all query molecules #############################
-        molecules: List[pyjess.Molecule] = []
-        stem_counter: Dict[str, int] = defaultdict(int)
-        for molecule_path in args.files:
-            stem = Path(molecule_path).stem
-            stem_counter[stem] += 1
-            if stem_counter[stem] > 1:
-                # In case the same stem occurs multiple times, create a unique ID using the stem and a running number starting from 2
-                unique_id = f"{stem}_{stem_counter[stem]}"
-            else:
-                unique_id = stem
-
-            molecule = pyjess.Molecule.load(
-                str(molecule_path), id=unique_id
-            )  # by default it will stop at ENDMDL
-            if args.conservation_cutoff:
-                molecule.conserved(args.conservation_cutoff)
-                # molecule = molecule.conserved(args.conservation_cutoff)
-                # conserved is a method called on a molecule object that returns a filtered molecule
-                # atoms with a temperature-factor BELOW the conservation cutoff will be excluded
-            if molecule:
-                molecules.append(
-                    molecule
-                )  # load a molecule and filter it by conservation_cutoff
-            elif args.warn:
-                warnings.warn(f"received an empty molecule from {molecule_path}")
-
-        if not molecules and args.warn:
-            warnings.warn("received no molecules from input")
+        molecules = load_molecules(
+            molecule_paths=args.files,
+            conservation_cutoff=args.conservation_cutoff,
+            warn=args.warn,
+        )
 
         templates = list(
             load_templates(
@@ -236,6 +216,7 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
                 warn=args.warn,
                 verbose=args.verbose,
                 cpus=args.n_jobs,
+                with_annotations=not args.skip_annotation,
             )
         )
 
@@ -288,7 +269,7 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
 
         def write_hits2pdb(matches: List[Match], filename: str, outdir: Path):
             outdir.mkdir(parents=True, exist_ok=True)
-            # make sure molecule.id is unique!
+            # make sure molecule().id is unique!
             with open(
                 Path(outdir, f"{filename}_matches.pdb"), "w", encoding="utf-8"
             ) as pdbfile:
@@ -299,6 +280,9 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
                         match.dump2pdb(
                             pdbfile, include_query=(i == 0), transform=args.transform
                         )
+                        # TODO print warning saying that setting the args.transform
+                        # option doesnt make sense when
+                        # searching with multiple templates
                 else:
                     for match in matches:
                         match.dump2pdb(pdbfile, transform=args.transform)
