@@ -1514,8 +1514,8 @@ def load_templates(
                 f"Passed Template file {template_path.resolve()} contained issues with some residues."
             ) from exc
 
-    if cpus < 0:
-        cpus = len(os.sched_getaffinity(0)) + cpus
+    if cpus <= 0:
+        cpus = max(1, len(os.sched_getaffinity(0)) + cpus)
 
     pool: DummyPool | ThreadPool = DummyPool() if cpus == 1 else ThreadPool(cpus)
     with pool:

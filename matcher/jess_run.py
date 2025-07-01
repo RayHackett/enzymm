@@ -624,8 +624,8 @@ class Matcher:
             # find_duplicates(self.templates)
             raise ValueError("Duplicate templates were found.")
 
-        if self.cpus < 0:
-            self.cpus = len(os.sched_getaffinity(0)) + cpus
+        if self.cpus <= 0:
+            self.cpus = max(1, len(os.sched_getaffinity(0)) + self.cpus)
 
         self.verbose_print(f"PyJess Version: {pyjess.__version__}")
         self.verbose_print(f"Running on {self.cpus} Thread(s)")

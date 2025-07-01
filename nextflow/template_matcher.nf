@@ -52,11 +52,26 @@ workflow {
     
     ch_tsv_files = matching(ch_files)
 
+    ch_tsv_files
+        .collect()
+        .set { ch_all_tsvs }
+
     /*
      * concatendate the tsv files keeping the header from the first
      * and print the resulting file contents when complete.
     */
+
+    ch_all_tsvs.view { tsvs ->
+        if (tsvs.size() == 1) {
+            println "Only one TSV file; renaming to ${params.output}"
+            tsvs[0].moveTo(params.output)
+        } else {
+            concatenate_tsvs(tsvs)
+        }
+    }
+
     concatenate_tsvs(ch_tsv_files)
+        .view { f -> f.moveTo(params.output) }
 }
 
 process matching {
@@ -65,7 +80,6 @@ process matching {
     path input_file
 
     output:
-    // path("./results/*.pdb")
     path "output.tsv"
 
     script:
@@ -83,7 +97,7 @@ process concatenate_tsvs {
     path tsv_files
 
     output:
-    path(params.output)
+    path "merged.tsv"
 
     // head -n 1 ${tsv_files[0]} > ${params.output} takes the header from the first tsv
     // for f in ${tsv_files[@]} loops over tsv files. @ expands the channel to an array
@@ -93,10 +107,9 @@ process concatenate_tsvs {
     """
     # Use the header from the first file, then skip headers in the rest
     first_file=\$(echo ${tsv_files} | cut -d' ' -f1)
-    head -n 1 "\$first_file" > "${params.output}"
+    head -n 1 "\$first_file" > merged.tsv
     for f in ${tsv_files}; do
-        tail -n +2 "\$f" >> ${params.output}
+        tail -n +2 "\$f" >> merged.tsv
     done
-    echo "Collected template matching results to ${params.output}"
     """
 }
