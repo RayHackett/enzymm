@@ -47,10 +47,10 @@ workflow {
 
     /*
      * Execute matching process for each chunk emitted by the 'ch_fasta' channel
-     * Collect all the tsv files into a channel
      * emit all the tsv files generated
      */
-    matching(ch_files) | collect() | set { ch_tsv_files }
+    
+    ch_tsv_files = matching(ch_files)
 
     /*
      * concatendate the tsv files keeping the header from the first
@@ -72,7 +72,7 @@ process matching {
     """
     echo $SLURM_JOB_ID
     export PYTHONPATH='/exports/archive/lucid-grpzeller-primary/hackett/template_matching/'
-    python -m matcher.jess_run -l ${input_file} -o output.tsv ${jess_params}${matcher_params}
+    python -m matcher -l ${input_file} -o output.tsv ${jess_params}${matcher_params}
     """
 }
 

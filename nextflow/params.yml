@@ -1,7 +1,7 @@
 ### Required params
 input: "/exports/archive/lucid-grpzeller-primary/hackett/EBI_Project/results/2024-04-01/fetched_pdbs.list" # required, path-string
 output: "/exports/archive/lucid-grpzeller-primary/hackett/EBI_Project/data/2024-04-23/results.tsv" # required, path-string
-batch_size: 250 # required, integer
+batch_size: 1000 # required, integer
 
 ### Optional params
 template_folder: "" # optional, path-string
