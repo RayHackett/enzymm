@@ -1467,7 +1467,7 @@ def load_templates(
     template_dir: Path | None,
     warn: bool = False,
     verbose: bool = False,
-    cpus: int = 0,
+    cpus: int = len(os.sched_getaffinity(0)),
     with_annotations: bool = True,
 ) -> Iterator[Template | AnnotatedTemplate]:
     """
@@ -1477,7 +1477,7 @@ def load_templates(
         template_dir: `~pathlib.Path` | `None` Directory which to search recursively for files with the '.pdb' extension. If `None`, defaults to templates included in this library.
         warn: `bool` If warnings about annoation issues in templates should be printed. Default `False`
         verbose: `bool` If loading should be verbose. Default `False`
-        cpus: `int` The number of CPU threads to use. If 0 (default), use all threads. If <0, leave this number of threads free.
+        cpus: `int` The number of CPU threads to use. If (default), use all threads. If <0, leave this number of threads free.
         with_annotations: `bool` If True (default) M-CSA derived templates with a PDB-id and M-CSA id will be annotated with extra information.
 
     Yields:
@@ -1514,10 +1514,8 @@ def load_templates(
                 f"Passed Template file {template_path.resolve()} contained issues with some residues."
             ) from exc
 
-    if cpus == 0:
-        cpus = os.cpu_count() or 1
-    elif cpus < 0:
-        cpus = max(1, (os.cpu_count() or 1) + cpus)
+    if cpus < 0:
+        cpus = len(os.sched_getaffinity(0)) + cpus
 
     pool: DummyPool | ThreadPool = DummyPool() if cpus == 1 else ThreadPool(cpus)
     with pool:

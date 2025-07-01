@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional, List
 import warnings
 import sys
+import os
 
 import rich.console
 
@@ -88,7 +89,7 @@ def build_parser() -> argparse.ArgumentParser:
         "-n",
         "--n-jobs",
         type=int,
-        default=0,
+        default=len(os.sched_getaffinity(0)),
         help="The number of threads to run in parallel. Pass 0 to select all. Negative numbers: leave this many threads free.",
     )
 
