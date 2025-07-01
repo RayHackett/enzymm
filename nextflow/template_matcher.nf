@@ -7,8 +7,8 @@ nextflow.enable.dsl=2
 // params.batch_size
 
 //////// Optional parameters
-// params.template_folder
-params.template_folder = params.template_folder ? " -t ${params.template_folder}" : ""
+def matcher_params = ""
+matcher_params += params.template_folder ? " -t ${params.template_folder}" : ""
 
 ///////// Jess control parameters
 if (params.rmsd && params.distance && params.max_dynamic_distance){
@@ -17,29 +17,18 @@ if (params.rmsd && params.distance && params.max_dynamic_distance){
     jess_params = ""
 }
 
-// params.conservation_cutoff
-conservation_cutoff = params.conservation_cutoff ? "-c ${params.conservation_cutoff}" : ""
-
 ///////// optional control parameters
-// params.warn
-warn = params.warn ? " -w" : ""
-// params.verbose
-verbose = params.verbose ? " -v" : ""
-// params.match_smaller_templates
-match_small_templates = params.match_small_templates ? " --match-small-templates" : ""
-// params.skip_smaller_hits
-skip_smaller_hits = params.skip_smaller_hits ? " -skip-smaller-hits" : ""
-// params.skip_annotation
-skip_annotation = params.skip_annotation ? " --skip-annotation": ""
-// params.unfiltered
-unfiltered = params.unfiltered ? " --unfiltered" : ""
-
-optional_param_flags = warn + verbose + match_small_templates + skip_smaller_hits + skip_annotation
-
+matcher_params += params.conservation_cutoff ? " -c ${params.conservation_cutoff}" : ""
+matcher_params += params.warn ? " -w" : ""
+matcher_params += params.verbose ? " -v" : ""
+matcher_params += params.match_small_templates ? " --match-small-templates" : ""
+matcher_params += params.skip_smaller_hits ? " -skip-smaller-hits" : ""
+matcher_params += params.skip_annotation ? " --skip-annotation": ""
+matcher_params += params.unfiltered ? " --unfiltered" : ""
+matcher_params += params.n_cpus ? " -n ${params.n_cpus}" : ""
 
 // profile options: local or cluster
 // USEAGE: nextflow run template_matcher.nf -profile <profile>
-
 
 workflow {
     /*
@@ -77,8 +66,9 @@ process matching {
 
     script:
     """
+    echo $SLURM_JOB_ID
     export PYTHONPATH='/exports/archive/lucid-grpzeller-primary/hackett/template_matching/'
-    python -m matcher.jess_run -l ${input_file} -o output.tsv ${params.template_folder}${jess_params}${conservation_cutoff}${optional_param_flags}
+    python -m matcher.jess_run -l ${input_file} -o output.tsv ${jess_params}${matcher_params}
     """
 }
 
