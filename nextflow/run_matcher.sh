@@ -1,3 +1,4 @@
+#!/bin/sh
 #SBATCH -t 24:00:00
 #SBATCH -e Swissprot_%a_%j.err
 #SBATCH -o Swissprot_%a_%j.out
@@ -15,8 +16,8 @@ PROFILE="cluster_lumc" # local or cluster_lumc or cluster_embl
 PROJECT="template_matching/Human_Swissprot"
 
 if [ ${PROFILE} == "cluster_lumc" ]; then
-    WORKFLOW="/exports/archive/lucid-grpzeller-primary/hackett/template_matching/nextflowtemplate_matcher.nf"
-    CONFIG="/exports/archive/lucid-grpzeller-primary/hackett/template_matching/nextflowmatcher.config"
+    WORKFLOW="/exports/archive/lucid-grpzeller-primary/hackett/template_matching/nextflow/template_matcher.nf"
+    CONFIG="/exports/archive/lucid-grpzeller-primary/hackett/template_matching/nextflow/matcher.config"
     module load bioinformatics/tools/Nextflow/22.10.6 # LUMC cluster
     WORKDIR=/exports/lucid-grpzeller-work/rehackett/${PROJECT}/
     PARAMS="params_lumc.yml"
