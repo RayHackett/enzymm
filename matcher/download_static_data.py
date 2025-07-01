@@ -590,7 +590,7 @@ def download_mcsa_homolog_info(outdir: Path):
             json.dump(serializable, f, indent=4, sort_keys=True)
 
 
-def download_static_data(outdir: Path = Path("./new_data")):
+def download_static_data(outdir: Path = Path("./data")):
     get_mcsa_ec(outdir)
     get_mcsa_cath(outdir)
     check_other_files(outdir)

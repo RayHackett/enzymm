@@ -33,13 +33,6 @@ from .utils import chunks, ranked_argsort, DummyPool
 from matcher.mcsa_info import load_mcsa_catalytic_residue_homologs_info
 from matcher.mcsa_info import ReferenceCatalyticResidue
 
-__all__ = [
-    "Vec3",
-    "Residue",
-    "AnnotatedTemplate",
-    "load_templates",
-]
-
 
 @dataclass(frozen=True)
 class Vec3:
@@ -490,10 +483,10 @@ class Template(pyjess.Template):
             cluster: `Cluster` Instance of the template
             uniprot_id: `str` UniProt Identifier of the Protein from which the template was generated
             organism: `str` Organism name of the Protein from which the template was generated
-            organism_id: `str` Taxnomomic Identifier of the Organism of the Protein from which the template was generated
+            organism_id: `str` Taxonomic Identifier of the Organism of the Protein from which the template was generated
             resolution: `float` Resolution of the Protein Structure from which the template was generated
             experimental_method: `str` Experimental method by which the Protein Structure of the template was resolved
-            enzyme_discription: `str` Text Discription of the Protein from which the template was generated
+            enzyme_description: `str` Text Discription of the Protein from which the template was generated
             represented_sites: `int` The number of Enzymes which this template is representative for
             ec: `list` of EC numbers associated with Enzymes this template represents
             cath: `list` of CATH numbers associated with Enzymes this template represents
@@ -501,7 +494,9 @@ class Template(pyjess.Template):
         NOTE:
             It is recommended not to pass an id string.
             If id is `None`, the id string will be set to:
-            {`~Template.effective_size`}-Residues_{~`Template.template_id_string`}_Cluster_{`Cluster.id`}-{`Cluster.member`}-{`Cluster.size`}
+
+            > {`~Template.effective_size`}-Residues_{~`Template.template_id_string`}_Cluster_{`Cluster.id`}-{`Cluster.member`}-{`Cluster.size`}
+
             This identifier string should be unique.
 
         NOTE:
@@ -1058,10 +1053,10 @@ class AnnotatedTemplate(Template):
             cluster: `Cluster` Instance of the template
             uniprot_id: `str` UniProt Identifier of the Protein from which the template was generated
             organism: `str` Organism name of the Protein from which the template was generated
-            organism_id: `str` Taxnomomic Identifier of the Organism of the Protein from which the template was generated
+            organism_id: `str` Taxonomic Identifier of the Organism of the Protein from which the template was generated
             resolution: `float` Resolution of the Protein Structure from which the template was generated
             experimental_method: `str` Experimental method by which the Protein Structure of the template was resolved
-            enzyme_discription: `str` Text Discription of the Protein from which the template was generated
+            enzyme_description: `str` Text Discription of the Protein from which the template was generated
             represented_sites: `int` The number of Enzymes which this template is representative for
             ec: `list` of EC numbers associated with Enzymes this template represents
             cath: `list` of CATH numbers associated with Enzymes this template represents
@@ -1078,8 +1073,10 @@ class AnnotatedTemplate(Template):
 
         NOTE:
             It is recommended not to pass an id string.
-            If id is `None`, the id string will be set to:
-            {`~Template.effective_size`}-Residues_{~`Template.template_id_string`}_Cluster_{`Cluster.id`}-{`Cluster.member`}-{`Cluster.size`}
+            If id is `None`, the id string will be set to
+
+            > {`~Template.effective_size`}-Residues_{~`Template.template_id_string`}_Cluster_{`Cluster.id`}-{`Cluster.member`}-{`Cluster.size`}
+
             This identifier string should be unique.
 
         Returns:
@@ -1284,12 +1281,12 @@ class AnnotatedTemplate(Template):
         for residue in template.residues:
             ################### get reference residue ##################################
             try:
-                template_pdbchain = catalytic_residue_homologs[template.mcsa_id][
+                template_pdbchain = CATALYTIC_RESIDUE_HOMOLOGS[template.mcsa_id][
                     template.pdb_id + residue.chain_id
                 ]
             except KeyError:
                 try:
-                    template_pdbchain = catalytic_residue_homologs[template.mcsa_id][
+                    template_pdbchain = CATALYTIC_RESIDUE_HOMOLOGS[template.mcsa_id][
                         template.pdb_id + residue.chain_id[0]
                     ]
                     # print(f"Only found a template pdb for {template.pdb_id} with pdbchain {residue.chain_id[0]} instead of {residue.chain_id}")
@@ -1323,7 +1320,7 @@ class AnnotatedTemplate(Template):
                 ref_residue = hom_residue
             else:
                 _, ref_pdbchain, _ = hom_residue.reference
-                reference_pdb = catalytic_residue_homologs[template.mcsa_id][
+                reference_pdb = CATALYTIC_RESIDUE_HOMOLOGS[template.mcsa_id][
                     ref_pdbchain
                 ]
                 ref_residue = reference_pdb.residues[index]
@@ -1433,7 +1430,7 @@ with files(__package__).joinpath("data", "MCSA_EC_mapping.json").open() as f:  #
 with files(__package__).joinpath("data", "pdb_sifts.json").open() as f:  # type: ignore
     Template._PDB_SIFTS = json.load(f)
 
-catalytic_residue_homologs = load_mcsa_catalytic_residue_homologs_info(
+CATALYTIC_RESIDUE_HOMOLOGS = load_mcsa_catalytic_residue_homologs_info(
     Path(files(__package__).joinpath("data"))
 )
 

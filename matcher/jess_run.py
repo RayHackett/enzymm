@@ -581,15 +581,17 @@ class Matcher:
             filter_matches: `bool` If matches should be filtered by wether they are predicted to be correct. Default `True`
 
         Note:
-            Default jess parameters depend on the size of the template:
-            _DEFAULT_JESS_PARAMS = {
-                3: {"rmsd": 2, "distance": 0.9, "max_dynamic_distance": 0.9},
-                4: {"rmsd": 2, "distance": 1.7, "max_dynamic_distance": 1.7},
-                5: {"rmsd": 2, "distance": 2.0, "max_dynamic_distance": 2.0},
-                6: {"rmsd": 2, "distance": 2.0, "max_dynamic_distance": 2.0},
-                7: {"rmsd": 2, "distance": 2.0, "max_dynamic_distance": 2.0},
-                8: {"rmsd": 2, "distance": 2.0, "max_dynamic_distance": 2.0},
-            }
+            Default jess parameters depend on the size of the template::
+
+                _DEFAULT_JESS_PARAMS = {
+                    3: {"rmsd": 2, "distance": 0.9, "max_dynamic_distance": 0.9},
+                    4: {"rmsd": 2, "distance": 1.7, "max_dynamic_distance": 1.7},
+                    5: {"rmsd": 2, "distance": 2.0, "max_dynamic_distance": 2.0},
+                    6: {"rmsd": 2, "distance": 2.0, "max_dynamic_distance": 2.0},
+                    7: {"rmsd": 2, "distance": 2.0, "max_dynamic_distance": 2.0},
+                    8: {"rmsd": 2, "distance": 2.0, "max_dynamic_distance": 2.0},
+                }
+
         """
 
         self.templates = templates
