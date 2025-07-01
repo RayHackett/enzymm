@@ -3,7 +3,7 @@
 #SBATCH -e Swissprot_%a_%j.err
 #SBATCH -o Swissprot_%a_%j.out
 #SBATCH --qos=normal
-#SBATCH --mem=128G
+#SBATCH --mem=12G
 #SBATCH --nodes=1
 #SBATCH --no-requeue
 

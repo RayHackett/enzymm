@@ -5,17 +5,20 @@ nextflow.enable.dsl=2
 // params.output
 // params.input
 // params.batch_size
+if (!params.input) error "Missing required parameter: --input"
+if (!params.output) error "Missing required parameter: --output"
+if (!params.batch_size) error "Missing required parameter: --batch_size"
 
 //////// Optional parameters
 def matcher_params = ""
 matcher_params += params.template_folder ? " -t ${params.template_folder}" : ""
 
 ///////// Jess control parameters
+def jess_params = ""
 if (params.rmsd && params.distance && params.max_dynamic_distance){
     jess_params = " -j ${params.rmsd} ${params.distance} ${params.max_dynamic_distance}"
-} else {
-    jess_params = ""
 }
+
 
 ///////// optional control parameters
 matcher_params += params.conservation_cutoff ? " -c ${params.conservation_cutoff}" : ""
@@ -44,15 +47,16 @@ workflow {
 
     /*
      * Execute matching process for each chunk emitted by the 'ch_fasta' channel
+     * Collect all the tsv files into a channel
      * emit all the tsv files generated
      */
-    ch_tsv_files = matching(ch_files)
+    matching(ch_files) | collect() | set { ch_tsv_files }
 
     /*
-     * Collect all the tsv files into a single file via the concatendate_tsvs process
+     * concatendate the tsv files keeping the header from the first
      * and print the resulting file contents when complete.
     */
-    concatenate_tsvs(ch_tsvs)
+    concatenate_tsvs(ch_tsv_files)
 }
 
 process matching {
@@ -88,9 +92,10 @@ process concatenate_tsvs {
     script:
     """
     # Use the header from the first file, then skip headers in the rest
-    head -n 1 ${tsv_files[0]} > ${params.output}
-    for f in ${tsv_files[@]}; do
-        tail -n +2 "$f" >> ${params.output}
+    first_file=\$(echo ${tsv_files} | cut -d' ' -f1)
+    head -n 1 "\$first_file" > "${params.output}"
+    for f in ${tsv_files}; do
+        tail -n +2 "\$f" >> ${params.output}
     done
     echo "Collected template matching results to ${params.output}"
     """
