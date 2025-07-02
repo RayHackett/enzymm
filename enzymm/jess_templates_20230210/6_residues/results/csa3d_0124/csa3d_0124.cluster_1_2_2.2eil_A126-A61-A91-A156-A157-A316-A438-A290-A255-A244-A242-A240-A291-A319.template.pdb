@@ -1,0 +1,32 @@
+REMARK TEMPLATE
+REMARK CLUSTER 1_2_2
+REMARK REPRESENTING 65 CATALYTIC SITES
+REMARK ID 2eil_A126-A61-A91-A156-A157-A316-A438-A290-A255-A244-A242-A240-A291-A319
+REMARK MCSA_ID 124
+REMARK PDB_ID 2eil
+REMARK UNIPROT_ID P00396
+REMARK EC 7.1.1.9
+REMARK ENZYME Cytochrome c oxidase subunit 1 (E.C.1.9.3.1), Cytochrome c oxidase subunit 2 (E.C.1.9.3.1), Cytochrome c oxidase subunit 3 (E.C.1.9.3.1), Cytochrome c oxidase subunit 4 isoform 1 (E.C.1.9.3.1), Cytochrome c oxidase polypeptide Va (E.C.1.9.3.1), Cytochrome c oxidase polypeptide Vb (E.C.1.9.3.1), Cytochrome c oxidase polypeptide VIa-heart (E.C.1.9.3.1), Cytochrome c oxidase subunit VIb isoform 1 (E.C.1.9.3.1), Cytochrome c oxidase polypeptide VIc (E.C.1.9.3.1), Cytochrome c oxidase polypeptide VIIa-heart (E.C.1.9.3.1), Cytochrome c oxidase polypeptide VIIb (E.C.1.9.3.1), Cytochrome c oxidase polypeptide VIIc (E.C.1.9.3.1), Cytochrome c oxidase polypeptide VIII-heart (E.C.1.9.3.1)
+REMARK EXPERIMENTAL_METHOD X-ray diffraction
+REMARK RESOLUTION 2.1
+REMARK ORGANISM_NAME Bos taurus
+REMARK ORGANISM_ID 9913
+ATOM      3  CG ZASP A  91      65.220 317.822 221.317 D     1.00 
+ATOM      3  OD1ZASP A  91      65.478 318.111 220.129 D     1.00 
+ATOM      3  OD2ZASP A  91      64.073 317.967 221.798 D     1.00 
+ATOM      3  CA ZSER A 156      65.288 320.767 204.472 S     0.49 
+ATOM      3  CB ZSER A 156      63.785 320.808 204.222 S     0.49 
+ATOM      1  OG ZSER A 156      63.115 319.963 205.128 S     0.49 
+ATOM      3  CA ZSER A 157      66.151 317.074 203.963 S     0.51 
+ATOM      3  CB ZSER A 157      65.693 316.211 202.803 S     0.51 
+ATOM      1  OG ZSER A 157      64.300 315.983 202.894 S     0.51 
+ATOM      3  CE1ZTYR A 244      65.523 299.728 196.816 Y     0.54 
+ATOM      3  CZ ZTYR A 244      65.890 300.045 195.509 Y     0.54 
+ATOM      1  OH ZTYR A 244      65.712 299.115 194.523 Y     0.54 
+ATOM      3  CD ZGLU A 242      63.229 310.812 197.355 E     1.29 
+ATOM      3  OE1ZGLU A 242      62.119 311.046 197.894 E     1.29 
+ATOM      3  OE2ZGLU A 242      64.303 311.227 197.867 E     1.29 
+ATOM      0  CG ZHIS A 240      67.417 303.194 192.415 H     0.44 
+ATOM      8  ND1ZHIS A 240      66.263 302.586 191.968 H     0.44 
+ATOM      8  CD2ZHIS A 240      67.721 302.674 193.629 H     0.44 
+END

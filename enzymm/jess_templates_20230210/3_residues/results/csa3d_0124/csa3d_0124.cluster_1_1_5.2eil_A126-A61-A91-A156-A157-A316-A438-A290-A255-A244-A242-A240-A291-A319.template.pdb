@@ -1,0 +1,23 @@
+REMARK TEMPLATE
+REMARK CLUSTER 1_1_5
+REMARK REPRESENTING 65 CATALYTIC SITES
+REMARK ID 2eil_A126-A61-A91-A156-A157-A316-A438-A290-A255-A244-A242-A240-A291-A319
+REMARK MCSA_ID 124
+REMARK PDB_ID 2eil
+REMARK UNIPROT_ID P00396
+REMARK EC 7.1.1.9
+REMARK ENZYME Cytochrome c oxidase subunit 1 (E.C.1.9.3.1), Cytochrome c oxidase subunit 2 (E.C.1.9.3.1), Cytochrome c oxidase subunit 3 (E.C.1.9.3.1), Cytochrome c oxidase subunit 4 isoform 1 (E.C.1.9.3.1), Cytochrome c oxidase polypeptide Va (E.C.1.9.3.1), Cytochrome c oxidase polypeptide Vb (E.C.1.9.3.1), Cytochrome c oxidase polypeptide VIa-heart (E.C.1.9.3.1), Cytochrome c oxidase subunit VIb isoform 1 (E.C.1.9.3.1), Cytochrome c oxidase polypeptide VIc (E.C.1.9.3.1), Cytochrome c oxidase polypeptide VIIa-heart (E.C.1.9.3.1), Cytochrome c oxidase polypeptide VIIb (E.C.1.9.3.1), Cytochrome c oxidase polypeptide VIIc (E.C.1.9.3.1), Cytochrome c oxidase polypeptide VIII-heart (E.C.1.9.3.1)
+REMARK EXPERIMENTAL_METHOD X-ray diffraction
+REMARK RESOLUTION 2.1
+REMARK ORGANISM_NAME Bos taurus
+REMARK ORGANISM_ID 9913
+ATOM      0  NE1ZTRP A 126      58.584 310.289 189.088 W     0.43 
+ATOM      0  CZ2ZTRP A 126      60.437 309.893 190.738 W     0.43 
+ATOM      0  CH2ZTRP A 126      61.185 310.519 191.713 W     0.43 
+ATOM      0  CG ZHIS A  61      49.598 312.078 192.024 H     0.51 
+ATOM      8  ND1ZHIS A  61      48.814 311.666 193.081 H     0.51 
+ATOM      8  CD2ZHIS A  61      50.187 310.946 191.553 H     0.51 
+ATOM      0  CZ ZARG A 438      56.179 306.839 184.922 R     0.52 
+ATOM      3  NH1ZARG A 438      57.264 306.086 184.840 R     0.52 
+ATOM      3  NH2ZARG A 438      56.131 307.831 185.799 R     0.52 
+END

@@ -1,0 +1,29 @@
+REMARK TEMPLATE
+REMARK CLUSTER 3_1_1
+REMARK REPRESENTING 2 CATALYTIC SITES
+REMARK ID 6w1d_A258-A156-A232-A235-A381
+REMARK MCSA_ID 855
+REMARK PDB_ID 6w1d
+REMARK UNIPROT_ID Q9Y697
+REMARK EC 2.8.1.7
+REMARK ENZYME Cysteine desulfurase, mitochondrial (E.C.2.8.1.7), LYR motif-containing protein 4, Acyl carrier protein, Iron-sulfur cluster assembly enzyme ISCU, mitochondrial
+REMARK EXPERIMENTAL_METHOD X-ray diffraction
+REMARK RESOLUTION 1.795
+REMARK ORGANISM_NAME Escherichia coli
+REMARK ORGANISM_ID 562
+ATOM      0  CD ZLYS A 258      29.726  51.442   6.007 K     0.14 
+ATOM      0  CE ZLYS A 258      29.148  50.548   4.795 K     0.14 
+ATOM      0  NZ ZLYS A 258      28.044  49.709   5.290 K     0.14 
+ATOM      0  CG ZHIS A 156      23.070  45.575   4.819 H     0.14 
+ATOM      8  ND1ZHIS A 156      23.960  44.917   4.003 H     0.14 
+ATOM      8  CD2ZHIS A 156      23.203  46.898   4.546 H     0.14 
+ATOM      3  CG ZASP A 232      24.892  44.213  10.168 D     0.12 
+ATOM      3  OD1ZASP A 232      25.906  44.908  10.412 D     0.12 
+ATOM      3  OD2ZASP A 232      24.448  44.057   8.995 D     0.12 
+ATOM      3  CD ZGLN A 235      25.799  52.248   8.243 Q     0.07 
+ATOM      1  OE1ZGLN A 235      26.248  53.354   8.675 Q     0.07 
+ATOM      1  NE2ZGLN A 235      25.872  51.886   6.983 Q     0.07 
+ATOM      0  CA ZCYS A 381      23.973  51.690   2.425 C     0.28 
+ATOM      0  CB ZCYS A 381      24.761  50.802   3.417 C     0.28 
+ATOM      0  SG ZCYS A 381      25.562  49.322   2.737 C     0.28 
+END

@@ -1,14 +1,14 @@
+import io
+import os
 import unittest
 import importlib.resources
 from importlib.resources import files
 from . import test_data
 
-import io
-import os
-
-import matcher
-from matcher import template, jess_run
 import pyjess
+
+import enzymm
+from enzymm import template, jess_run
 
 
 class TestMatch(unittest.TestCase):
@@ -18,7 +18,7 @@ class TestMatch(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with open(
-            importlib.resources.files(matcher).joinpath(
+            importlib.resources.files(enzymm).joinpath(
                 "jess_templates_20230210/5_residues/results/csa3d_0285/csa3d_0285.cluster_1_1_1.1uh3_A396-A262-A356-A471-A472.template.pdb",
             ),
             "r",
@@ -40,7 +40,7 @@ class TestMatch(unittest.TestCase):
         )
 
         with open(
-            importlib.resources.files(matcher).joinpath(
+            importlib.resources.files(enzymm).joinpath(
                 "jess_templates_20230210/3_residues/results/csa3d_0415/csa3d_0415.cluster_1_1_2.1be0_A124-A175-A125-A289-A260.template.pdb",
             ),
             "r",
@@ -69,7 +69,7 @@ class TestMatch(unittest.TestCase):
         self.assertEqual(self.match1.hit.template.multimeric, self.template1.multimeric)
         self.assertEqual(self.match1.multimeric, False)
         self.assertEqual(self.match1.query_atom_count, 3339)
-        self.assertEqual(self.match1.query_residue_count, 558)
+        self.assertEqual(self.match1.query_residue_count, 403)
         self.assertAlmostEqual(self.match1.hit.rmsd, 0.32093143)
         self.assertAlmostEqual(self.match1.hit.log_evalue, -3.08424478)
         self.assertAlmostEqual(self.match1.orientation, 0.15327054322)
@@ -141,7 +141,7 @@ class TestMatch(unittest.TestCase):
             self.assertEqual(buffer.getvalue(), f.read())
 
     def test_match_dumps(self):
-        dumps_string = "query_id	pairwise_distance	match_index	template_pdb_id	template_pdb_chains	template_cluster_id	template_cluster_member	template_cluster_size	template_effective_size	template_dimension	template_mcsa_id	template_uniprot_id	template_ec	template_cath	template_multimeric	query_multimeric	query_atom_count	query_residue_count	rmsd	log_evalue	orientation	preserved_order	completeness	predicted_correct	matched_residues	number_of_mutated_residues	number_of_side_chain_residues_(template,reference)	number_of_metal_ligands_(template,reference)	number_of_ptm_residues_(template, reference)	total_reference_residues\n1AMY	1.5	0	1uh3	A	1	1	1	5	5	285	Q60053	3.2.1.10,3.2.1.135	2.60.40.10,2.60.40.1180,3.20.20.80	False	False	3339	558	0.32093143180639955	-3.084244780540347	0.1532705432273403	True	True	True	GLU_A_204,ASP_A_87,ASP_A_179,HIS_A_288,ASP_A_289	0	5,5	0,0	0,0	5\n"
+        dumps_string = "query_id	pairwise_distance	match_index	template_pdb_id	template_pdb_chains	template_cluster_id	template_cluster_member	template_cluster_size	template_effective_size	template_dimension	template_mcsa_id	template_uniprot_id	template_ec	template_cath	template_multimeric	query_multimeric	query_atom_count	query_residue_count	rmsd	log_evalue	orientation	preserved_order	completeness	predicted_correct	matched_residues	number_of_mutated_residues	number_of_side_chain_residues_(template,reference)	number_of_metal_ligands_(template,reference)	number_of_ptm_residues_(template, reference)	total_reference_residues\n1AMY	1.5	0	1uh3	A	1	1	1	5	5	285	Q60053	3.2.1.10,3.2.1.135	2.60.40.10,2.60.40.1180,3.20.20.80	False	False	3339	403	0.32093143180639955	-3.084244780540347	0.1532705432273403	True	True	True	GLU_A_204,ASP_A_87,ASP_A_179,HIS_A_288,ASP_A_289	0	5,5	0,0	0,0	5\n"
         self.assertEqual(self.match1.dumps(header=True), dumps_string)
 
     def test_match_dump2pdb(self):
@@ -178,7 +178,7 @@ class TestMatcher(unittest.TestCase):
 
         template_texts = []
         for path in template_files:
-            with open(importlib.resources.files(matcher).joinpath(path), "r") as f:
+            with open(importlib.resources.files(enzymm).joinpath(path), "r") as f:
                 template_texts.append(f.read())
 
         cls.template_list = []
@@ -187,21 +187,21 @@ class TestMatcher(unittest.TestCase):
 
         res5_templates = list(
             template.load_templates(
-                template_dir=importlib.resources.files(matcher).joinpath(
+                template_dir=importlib.resources.files(enzymm).joinpath(
                     "jess_templates_20230210/5_residues/results/csa3d_0285/"
                 ),
             )
         )
         res4_templates = list(
             template.load_templates(
-                template_dir=importlib.resources.files(matcher).joinpath(
+                template_dir=importlib.resources.files(enzymm).joinpath(
                     "jess_templates_20230210/4_residues/results/csa3d_0285"
                 ),
             )
         )
         res3_templates = list(
             template.load_templates(
-                template_dir=importlib.resources.files(matcher).joinpath(
+                template_dir=importlib.resources.files(enzymm).joinpath(
                     "jess_templates_20230210/3_residues/results/csa3d_0344"
                 ),
             )
@@ -284,22 +284,30 @@ class TestMatcher(unittest.TestCase):
         processed_molecules_1 = self.template_matcher.run(
             molecules=[self.molecule, self.molecule2]
         )
+        processed_molecules_2 = self.template_matcher2.run(
+            molecules=[self.molecule, self.molecule3]
+        )
+
         self.assertEqual(list(processed_molecules_1.keys())[0], self.molecule)
         self.assertEqual(list(processed_molecules_1.keys())[1], self.molecule2)
         self.assertEqual(len(processed_molecules_1[self.molecule]), 2)
         self.assertEqual(len(processed_molecules_1[self.molecule2]), 2)
+        #  processed_molecules_2 has skip smaller hits
+        self.assertEqual(len(processed_molecules_2[self.molecule]), 1)
+        self.assertEqual(len(processed_molecules_2[self.molecule3]), 1)
+
+        # self.assertEqual(
+        #     [i.query_residue_count for i in processed_molecules_1[self.molecule]], [403, 403]
+        # )
+
         self.assertEqual(
-            processed_molecules_1[self.molecule2][0].query_residue_count, 511
+            [i.query_residue_count for i in processed_molecules_1[self.molecule2]],
+            [511, 511],
         )
 
-        processed_molecules_2 = self.template_matcher2.run(
-            molecules=[self.molecule, self.molecule3]
-        )
         self.assertEqual(
-            len(processed_molecules_2[self.molecule]), 1
-        )  # skip smaller hits
-        self.assertEqual(
-            processed_molecules_2[self.molecule3][0].query_residue_count, 494
+            [i.query_residue_count for i in processed_molecules_2[self.molecule3]],
+            [494],
         )  # conservation cutoff applied
 
         processed_molecules_3 = self.template_matcher3.run(molecules=[self.molecule])

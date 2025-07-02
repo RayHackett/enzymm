@@ -1,7 +1,7 @@
 import unittest
 import json
 
-from matcher import utils
+from enzymm import utils
 
 
 class TestUtils(unittest.TestCase):

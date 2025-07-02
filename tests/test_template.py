@@ -1,6 +1,6 @@
 import unittest
-import matcher
-from matcher import template
+import enzymm
+from enzymm import template
 from pathlib import Path
 import math
 
@@ -33,7 +33,7 @@ class TestIntegration(unittest.TestCase):
         )  # check if all the expected templates were found
 
     def test_get_template_paths(self):
-        data_path = importlib.resources.files(matcher).joinpath("data/")
+        data_path = importlib.resources.files(enzymm).joinpath("data/")
         found_paths = sorted(template._get_paths_by_extension(data_path, ".json"))
         expected_paths = sorted(
             [
@@ -179,14 +179,14 @@ class TestTemplate(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with open(
-            importlib.resources.files(matcher).joinpath(
+            importlib.resources.files(enzymm).joinpath(
                 "jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb",
             ),
             "r",
         ) as f:
             cls.template_text1 = f.read()
         with open(
-            importlib.resources.files(matcher).joinpath(
+            importlib.resources.files(enzymm).joinpath(
                 "jess_templates_20230210/4_residues/results/csa3d_0011/csa3d_0011.cluster_1_1_3.1qum_D145-D109-D37-D72-D69-D229-D182-D231-D261-D216-D179.template.pdb",
             ),
             "r",
@@ -305,13 +305,20 @@ class TestTemplate(unittest.TestCase):
             )
         )
 
-        cls.template1 = template.Template.loads(cls.template_text1, warn=False)
+        cls.template1 = template.Template.loads(
+            cls.template_text1,
+            warn=False,
+        )
 
         cls.template1_with_id = template.Template.loads(
-            cls.template_text1, id="another_id", warn=False
+            cls.template_text1,
+            id="another_id",
+            warn=False,
         )
         cls.template2 = template.Template.loads(
-            cls.template_text2, id="hello_world", warn=True
+            cls.template_text2,
+            id="hello_world",
+            warn=True,
         )
 
     def test_good_loads(self):
@@ -434,22 +441,49 @@ class TestTemplate(unittest.TestCase):
 
     def test_bad_loads(self):
         with self.assertRaises(ValueError):
-            template.Template.loads(self.template_hetatm, warn=True)
+            template.Template.loads(
+                self.template_hetatm,
+                warn=True,
+            )
         with self.assertRaises(IndexError):
-            template.Template.loads(self.template_missing_cluster_annotation, warn=True)
+            template.Template.loads(
+                self.template_missing_cluster_annotation,
+                warn=True,
+            )
         with self.assertRaises(ValueError):
-            template.Template.loads(self.template_malformed_residue_1, warn=True)
+            template.Template.loads(
+                self.template_malformed_residue_1,
+                warn=True,
+            )
         with self.assertRaises(ValueError):
-            template.Template.loads(self.template_malformed_residue_2, warn=True)
+            template.Template.loads(
+                self.template_malformed_residue_2,
+                warn=True,
+            )
         with self.assertRaises(ValueError):
-            template.Template.loads(self.template_malformed_residue_3, warn=True)
+            template.Template.loads(
+                self.template_malformed_residue_3,
+                warn=True,
+            )
         with self.assertRaises(ValueError):
-            template.Template.loads(self.not_a_template, warn=True)
+            template.Template.loads(
+                self.not_a_template,
+                warn=True,
+            )
 
         # These do not raise Warnings or errors
-        template.Template.loads(self.template_no_remark, warn=True)
-        template.Template.loads(self.template_new_remark, warn=True)
-        template.Template.loads(self.template_pdb_id_none, warn=True)
+        template.Template.loads(
+            self.template_no_remark,
+            warn=True,
+        )
+        template.Template.loads(
+            self.template_new_remark,
+            warn=True,
+        )
+        template.Template.loads(
+            self.template_pdb_id_none,
+            warn=True,
+        )
 
     # def test_dumps(self): # TODO
     #     # tests both dump and dumps methods
@@ -499,14 +533,14 @@ class TestAnnotatedTemplate(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with open(
-            importlib.resources.files(matcher).joinpath(
+            importlib.resources.files(enzymm).joinpath(
                 "jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb",
             ),
             "r",
         ) as f:
             cls.template_text1 = f.read()
         with open(
-            importlib.resources.files(matcher).joinpath(
+            importlib.resources.files(enzymm).joinpath(
                 "jess_templates_20230210/4_residues/results/csa3d_0011/csa3d_0011.cluster_1_1_3.1qum_D145-D109-D37-D72-D69-D229-D182-D231-D261-D216-D179.template.pdb",
             ),
             "r",
@@ -543,15 +577,19 @@ class TestAnnotatedTemplate(unittest.TestCase):
         cls.template1 = template.AnnotatedTemplate.loads(cls.template_text1, warn=False)
 
         cls.template1_with_id = template.AnnotatedTemplate.loads(
-            cls.template_text1, id="another_id", warn=False
+            cls.template_text1,
+            id="another_id",
+            warn=False,
         )
         cls.template2 = template.AnnotatedTemplate.loads(
             cls.template_text2, id="hello_world", warn=True
         )
 
-    # TODO test the anntoations added via annotated load fn
     def test_good_loads(self):
-        pass
+
+        self.assertIsInstance(self.template1, template.AnnotatedTemplate)
+        self.assertIsInstance(self.template1_with_id, template.AnnotatedTemplate)
+        self.assertIsInstance(self.template2, template.AnnotatedTemplate)
 
     def test_copy(self):
         template1_copy = self.template1.copy()
@@ -591,10 +629,17 @@ class TestAnnotatedTemplate(unittest.TestCase):
         with self.assertRaises(ValueError):
             template.AnnotatedTemplate.loads(self.not_a_template, warn=True)
 
+        self.assertIsInstance(
+            template.AnnotatedTemplate.loads(self.template_pdb_id_none, warn=True),
+            template.Template,
+        )
+
         # These do not raise Warnings or errors
         template.AnnotatedTemplate.loads(self.template_no_remark, warn=True)
         template.AnnotatedTemplate.loads(self.template_new_remark, warn=True)
-        template.AnnotatedTemplate.loads(self.template_pdb_id_none, warn=True)
+
+    def test_annotated_template_attributes(self):
+        pass  # TODO
 
 
 class TestResidue(unittest.TestCase):
@@ -602,7 +647,7 @@ class TestResidue(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with open(
-            importlib.resources.files(matcher).joinpath(
+            importlib.resources.files(enzymm).joinpath(
                 "jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb",
             ),
             "r",
@@ -671,6 +716,29 @@ class TestResidue(unittest.TestCase):
 
 
 # TODO test annotated Residue class
+class TestAnnotatedResidue(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        with open(
+            importlib.resources.files(enzymm).joinpath(
+                "jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb",
+            ),
+            "r",
+        ) as f:
+            template1 = template.AnnotatedTemplate.loads(
+                f.read(),
+                with_annotations=True,
+            )
+        cls.residue1 = template1.residues[0]
+        cls.residue2 = template1.residues[1]
+
+    def test_is_annotated(self):
+        self.assertIsInstance(self.residue1, template.AnnotatedResidue)
+        self.assertIsInstance(self.residue2, template.AnnotatedResidue)
+
+    def test_annotated_attributes(self):
+        pass  # TODO
 
 
 class TestTemplate_Checking(unittest.TestCase):
@@ -678,7 +746,7 @@ class TestTemplate_Checking(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with open(
-            importlib.resources.files(matcher).joinpath(
+            importlib.resources.files(enzymm).joinpath(
                 "jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb",
             ),
             "r",

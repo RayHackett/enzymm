@@ -1,0 +1,8 @@
+include           README.md
+include           CHANGELOG.md
+include           LICENSE
+include           pyproject.toml
+recursive-include enzymm/data                    *.json *.txt *.csv
+recursive-include enzymm/jess_templates_20230210 *.pdb
+include           enzymm/py.typed
+prune             tests

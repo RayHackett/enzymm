@@ -1,5 +1,5 @@
 import unittest
-import matcher
+import enzymm
 from pathlib import Path
 import errno
 import importlib.resources
@@ -7,7 +7,7 @@ from importlib.resources import files
 from . import test_data
 import io
 import tempfile
-from matcher._cli import main
+from enzymm._cli import main
 
 
 class Test_CLI(unittest.TestCase):
@@ -22,7 +22,7 @@ class Test_CLI(unittest.TestCase):
 
         selected_template_dir = str(
             Path(
-                importlib.resources.files(matcher).joinpath(
+                importlib.resources.files(enzymm).joinpath(
                     "jess_templates_20230210/5_residues/results/csa3d_0285/"
                 )
             ).resolve()
@@ -79,6 +79,7 @@ class Test_CLI(unittest.TestCase):
         cls.tempfile.close()
 
     def test_default_main(self):
+        # TODO supress rich bar here
         self.assertEqual(main(self.arguments_normal, stderr=io.StringIO()), 0)
         self.assertEqual(main(self.arguments_list, stderr=io.StringIO()), 0)
         self.assertEqual(main(self.arguments_both, stderr=io.StringIO()), 0)

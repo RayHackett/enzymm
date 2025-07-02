@@ -1,8 +1,8 @@
 API Reference
 =============
 
-.. automodule:: matcher.jess_run
+.. automodule:: enzymm.jess_run
     :members:
 
-.. automodule:: matcher.template
+.. automodule:: enzymm.template
     :members:

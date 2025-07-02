@@ -1,0 +1,35 @@
+REMARK TEMPLATE
+REMARK CLUSTER 1_2_2
+REMARK REPRESENTING 1 CATALYTIC SITES
+REMARK ID 5odi_B9-B78-B153-B154-B81-B193-B194-B234-B231-B41-B42
+REMARK MCSA_ID 981
+REMARK PDB_ID 5odi
+REMARK UNIPROT_ID A0A2D0TCB4
+REMARK EC 1.8.98.1
+REMARK ENZYME FAD dependent oxidoreductase, CoB/CoM heterodisulfide reductase, subunit B (E.C.1.8.98.1), CoB/CoM heterodisulfide reductase, subunit C, Methyl-viologen-reducing hydrogenase delta subunit, Hydrogen dehydrogenase (E.C.1.12.1.2)
+REMARK EXPERIMENTAL_METHOD X-ray diffraction
+REMARK RESOLUTION 2.4
+REMARK ORGANISM_NAME Methanothermococcus thermolithotrophicus DSM 2095
+REMARK ORGANISM_ID 523845
+ATOM      0  CA ZCYS B   9      23.501 -38.742   7.945 C     0.00 
+ATOM      0  CB ZCYS B   9      24.679 -37.778   8.065 C     0.00 
+ATOM      0  SG ZCYS B   9      24.519 -36.280   7.060 C     0.00 
+ATOM      0  CA ZCYS B  78      19.004 -37.850  16.720 C     0.00 
+ATOM      0  CB ZCYS B  78      19.873 -37.709  15.482 C     0.00 
+ATOM      0  SG ZCYS B  78      21.551 -37.155  15.851 C     0.00 
+ATOM      0  CG ZHIS B 154      23.645 -31.579  21.460 H     0.00 
+ATOM      8  ND1ZHIS B 154      24.678 -32.437  21.132 H     0.00 
+ATOM      8  CD2ZHIS B 154      24.161 -30.357  21.726 H     0.00 
+ATOM      0  CA ZCYS B  81      19.816 -33.076  14.376 C     0.00 
+ATOM      0  CB ZCYS B  81      19.268 -34.153  13.445 C     0.00 
+ATOM      0  SG ZCYS B  81      20.536 -34.939  12.418 C     0.00 
+ATOM      0  CA ZCYS B 231      21.743 -40.360  19.044 C     0.00 
+ATOM      0  CB ZCYS B 231      22.451 -39.244  19.809 C     0.00 
+ATOM      0  SG ZCYS B 231      23.402 -38.117  18.764 C     0.00 
+ATOM      0  CA ZCYS B  41      22.711 -32.451   6.716 C     0.00 
+ATOM      0  CB ZCYS B  41      24.185 -32.062   6.638 C     0.00 
+ATOM      0  SG ZCYS B  41      25.203 -32.704   7.985 C     0.00 
+ATOM      0  CA ZCYS B  42      21.028 -30.816   9.767 C     0.00 
+ATOM      0  CB ZCYS B  42      21.147 -31.168  11.250 C     0.00 
+ATOM      0  SG ZCYS B  42      22.720 -31.928  11.717 C     0.00 
+END

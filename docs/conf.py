@@ -9,13 +9,13 @@ import sys
 sys.path.insert(
     0, os.path.realpath(os.path.join(__file__, os.path.pardir, os.path.pardir))
 )
-from matcher import __version__
+from enzymm import __version__
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "matcher"
-copyright = "2024, Raymund Hackett"
+project = "EnzyMM - EnzymeMotifMiner"
+copyright = "2025, Raymund Hackett"
 author = "Raymund Hackett"
 version = __version__
 

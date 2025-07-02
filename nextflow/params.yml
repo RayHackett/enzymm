@@ -1,7 +1,7 @@
 ### Required params
 input: "/exports/archive/lucid-grpzeller-primary/hackett/EBI_Project/results/2024-04-01/fetched_pdbs.list" # required, path-string
 output: "/exports/archive/lucid-grpzeller-primary/hackett/EBI_Project/data/2024-04-23/results.tsv" # required, path-string
-batch_size: 1000 # required, integer
+batch_size: 500 # required, integer
 
 ### Optional params
 template_folder: "" # optional, path-string
@@ -17,6 +17,6 @@ warn: False # optional, boolean
 verbose: True # optional, boolean
 unfiltered: False # optional, boolean
 match_small_templates; False # optional, boolean
-skip_smaller_hits: False # optional, boolean
+skip_smaller_hits: True # optional, boolean
 skip_annoation: False # optional, boolean
-n_cpus: -1 # optional, default 0 (all but two threads), negative numbers thread all cpus, positve number is explicit
+# n_cpus: # optional, default 0 (all but two threads), negative numbers thread all cpus, positve number is explicit

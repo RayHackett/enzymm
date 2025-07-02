@@ -53,7 +53,7 @@ workflow {
     ch_tsv_files = matching(ch_files)
 
     // merge all tsv files into one
-    merged_tsv = ch_tsv_files.collectFile(name: 'merged.tsv', keepHeader: true, skip: 1)
+    merged_tsv = ch_tsv_files.collectFile(name: 'merged.tsv', keepHeader: true, skip: 2)
 
     // move the merged file to output
     merged_tsv.view { f ->

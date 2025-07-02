@@ -1,0 +1,38 @@
+REMARK TEMPLATE
+REMARK CLUSTER 3_1_1
+REMARK REPRESENTING 1 CATALYTIC SITES
+REMARK ID 6rg0_A116-A64-A206-A85-A166-A60-A58-A25-A22
+REMARK MCSA_ID 243
+REMARK PDB_ID 6rg0
+REMARK UNIPROT_ID P0A794
+REMARK EC 2.6.99.2
+REMARK ENZYME Pyridoxine 5'-phosphate synthase (E.C.2.6.99.2)
+REMARK EXPERIMENTAL_METHOD X-ray diffraction
+REMARK RESOLUTION 3.074
+REMARK ORGANISM_NAME Escherichia coli K12
+REMARK ORGANISM_ID 83333
+ATOM      0  CZ ZARG A  64      -6.789  -6.036  -4.932 R     0.00 
+ATOM      3  NH1ZARG A  64      -8.054  -5.647  -4.864 R     0.00 
+ATOM      3  NH2ZARG A  64      -6.511  -7.316  -5.146 R     0.00 
+ATOM      0  CG ZHIS A 206       1.945 -16.209  -2.389 H     0.00 
+ATOM      8  ND1ZHIS A 206       1.754 -16.444  -1.043 H     0.00 
+ATOM      8  CD2ZHIS A 206       1.144 -15.176  -2.712 H     0.00 
+ATOM      3  CD ZGLU A  85       1.059 -13.489  -9.319 E     0.00 
+ATOM      3  OE1ZGLU A  85       0.439 -12.728  -8.534 E     0.00 
+ATOM      3  OE2ZGLU A  85       2.176 -13.991  -9.045 E     0.00 
+ATOM      3  CD ZGLU A 166       4.124 -18.855  -8.308 E     0.00 
+ATOM      3  OE1ZGLU A 166       3.951 -18.367  -7.169 E     0.00 
+ATOM      3  OE2ZGLU A 166       4.183 -18.176  -9.370 E     0.00 
+ATOM      0  CZ ZARG A  60      -1.935  -5.806  -7.143 R     0.00 
+ATOM      3  NH1ZARG A  60      -2.019  -4.818  -8.028 R     0.00 
+ATOM      3  NH2ZARG A  60      -0.770  -6.054  -6.579 R     0.00 
+ATOM      0  CG ZHIS A  58      -1.973 -10.081  -9.507 H     0.00 
+ATOM      8  ND1ZHIS A  58      -3.037  -9.818 -10.343 H     0.00 
+ATOM      8  CD2ZHIS A  58      -2.426 -10.976  -8.600 H     0.00 
+ATOM      0  CG ZHIS A  25       3.154  -5.477  -2.073 H     0.00 
+ATOM      8  ND1ZHIS A  25       3.279  -6.323  -0.997 H     0.00 
+ATOM      8  CD2ZHIS A  25       1.924  -5.696  -2.593 H     0.00 
+ATOM      3  CG ZASN A  22       4.896 -10.040  -7.221 N     0.00 
+ATOM      1  OD1ZASN A  22       4.471  -8.976  -7.632 N     0.00 
+ATOM      1  ND2ZASN A  22       4.097 -11.050  -6.893 N     0.00 
+END

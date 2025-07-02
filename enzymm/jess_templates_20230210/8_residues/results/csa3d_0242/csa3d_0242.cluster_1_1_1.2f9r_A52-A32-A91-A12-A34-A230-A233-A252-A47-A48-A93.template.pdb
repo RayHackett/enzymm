@@ -1,0 +1,38 @@
+REMARK TEMPLATE
+REMARK CLUSTER 1_1_1
+REMARK REPRESENTING 6 CATALYTIC SITES
+REMARK ID 2f9r_A52-A32-A91-A12-A34-A230-A233-A252-A47-A48-A93
+REMARK MCSA_ID 242
+REMARK PDB_ID 2f9r
+REMARK UNIPROT_ID Q8I914
+REMARK EC 4.6.1.-
+REMARK ENZYME Sphingomyelinase D 1 (E.C.3.1.4.41)
+REMARK EXPERIMENTAL_METHOD X-ray diffraction
+REMARK RESOLUTION 1.85
+REMARK ORGANISM_NAME Loxosceles laeta
+REMARK ORGANISM_ID 58217
+ATOM      3  CG ZASP A  52       0.738   7.477   4.229 D     5.52 
+ATOM      3  OD1ZASP A  52       0.408   6.415   3.642 D     5.52 
+ATOM      3  OD2ZASP A  52       0.900   7.553   5.459 D     5.52 
+ATOM      3  CD ZGLU A  32       7.699   1.961   7.646 E     0.40 
+ATOM      3  OE1ZGLU A  32       7.323   3.107   7.304 E     0.40 
+ATOM      3  OE2ZGLU A  32       7.808   1.005   6.855 E     0.40 
+ATOM      3  CG ZASP A  91       6.826  -2.313   5.719 D     0.50 
+ATOM      3  OD1ZASP A  91       6.654  -3.546   5.656 D     0.50 
+ATOM      3  OD2ZASP A  91       5.933  -1.493   5.438 D     0.50 
+ATOM      0  CG ZHIS A  12       4.500   5.955   7.404 H     0.25 
+ATOM      8  ND1ZHIS A  12       3.839   6.532   6.345 H     0.25 
+ATOM      8  CD2ZHIS A  12       4.548   4.629   7.140 H     0.25 
+ATOM      3  CG ZASP A  34       8.629   1.612   3.347 D     0.33 
+ATOM      3  OD1ZASP A  34       7.787   0.981   4.010 D     0.33 
+ATOM      3  OD2ZASP A  34       8.620   2.836   3.272 D     0.33 
+ATOM      0  NE1ZTRP A 230       2.499  -1.101  11.050 W     5.27 
+ATOM      0  CZ2ZTRP A 230       4.523  -1.005   9.551 W     5.27 
+ATOM      0  CH2ZTRP A 230       5.021  -0.367   8.443 W     5.27 
+ATOM      3  CG ZASN A 252       2.709  10.099   6.924 N     0.45 
+ATOM      1  OD1ZASN A 252       3.693   9.481   6.515 N     0.45 
+ATOM      1  ND2ZASN A 252       1.452   9.680   6.729 N     0.45 
+ATOM      0  CG ZHIS A  47       6.471   3.602   0.446 H     0.70 
+ATOM      8  ND1ZHIS A  47       5.516   3.758  -0.532 H     0.70 
+ATOM      8  CD2ZHIS A  47       5.846   3.038   1.505 H     0.70 
+END
