@@ -52,26 +52,14 @@ workflow {
     
     ch_tsv_files = matching(ch_files)
 
-    ch_tsv_files
-        .collect()
-        .set { ch_all_tsvs }
+    // merge all tsv files into one
+    merged_tsv = ch_tsv_files.collectFile(name: 'merged.tsv', keepHeader: true, skip: 1)
 
-    /*
-     * concatendate the tsv files keeping the header from the first
-     * and print the resulting file contents when complete.
-    */
-
-    ch_all_tsvs.view { tsvs ->
-        if (tsvs.size() == 1) {
-            println "Only one TSV file; renaming to ${params.output}"
-            tsvs[0].moveTo(params.output)
-        } else {
-            concatenate_tsvs(tsvs)
-        }
+    // move the merged file to output
+    merged_tsv.view { f ->
+        println "Moving merged TSV to ${params.output}"
+        f.moveTo(params.output)
     }
-
-    concatenate_tsvs(ch_tsv_files)
-        .view { f -> f.moveTo(params.output) }
 }
 
 process matching {
@@ -87,29 +75,5 @@ process matching {
     echo $SLURM_JOB_ID
     export PYTHONPATH='/exports/archive/lucid-grpzeller-primary/hackett/template_matching/'
     python -m matcher -l ${input_file} -o output.tsv ${jess_params}${matcher_params}
-    """
-}
-
-process concatenate_tsvs {
-
-    input:
-    // tsv_files will be a list of paths
-    path tsv_files
-
-    output:
-    path "merged.tsv"
-
-    // head -n 1 ${tsv_files[0]} > ${params.output} takes the header from the first tsv
-    // for f in ${tsv_files[@]} loops over tsv files. @ expands the channel to an array
-    // while skipping subsequent header lines with tail -n +2
-
-    script:
-    """
-    # Use the header from the first file, then skip headers in the rest
-    first_file=\$(echo ${tsv_files} | cut -d' ' -f1)
-    head -n 1 "\$first_file" > merged.tsv
-    for f in ${tsv_files}; do
-        tail -n +2 "\$f" >> merged.tsv
-    done
     """
 }
