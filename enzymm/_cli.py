@@ -28,14 +28,14 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         exit_on_error=False,
         usage="""
-            Minimal use: %(prog)s -i query.pdb -o result.tsv
+            Minimal use: enzymm -i query.pdb -o result.tsv
             
-            Recommended use: %(prog)s -l query_pdbs.list -o results.tsv -v --pdbs --include-query -n -1
+            Recommended use: enzymm -l query_pdbs.list -o results.tsv -v --pdbs --include-query -n -1
             """,
         description="EnzMM - EnzymeMotifMiner - version {__version__}\nGeometric matching of catalytic motifs in protein structures.",
     )
     parser.add_argument(
-        "-V", "--version", action="version", version=f"%(prog)s {__version__}"
+        "-V", "--version", action="version", version=f"enzymm {__version__}"
     )
     parser.add_argument(
         "-o",
