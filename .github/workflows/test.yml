@@ -42,7 +42,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Update pip
-      run: python -m pip install -U pip wheel setuptools coverage
+      run: python -m pip install -U pip wheel setuptools "coverage[toml]"
     - name: Install Python requirements
       run: python -m pip install -e . -v
     - name: Test with coverage
@@ -91,7 +91,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Update pip
-      run: python -m pip install -U pip wheel setuptools coverage
+      run: python -m pip install -U pip wheel setuptools "coverage[toml]"
     - name: Install package
       run: python -m pip install -e . -v
     - name: Test with coverage
