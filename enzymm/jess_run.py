@@ -107,8 +107,16 @@ class Match:
             By default, atoms are written in the coordinate reference frame of the query.
         """
 
-        # TODO option to include template atoms too.
+        # TODO option to include template atoms too. esp. with --transform
+        # this requires a dump method for pyjess.TemplateAtoms
         # if NOT transform, rotate the template atoms into the query reference frame.
+        # if transform then in pymol once could fetch the template reference pdb
+        # select the template atoms in the reference_pdb (selection called ref_site)
+        # then call align ref_site, csa*** name of template
+        # TODO once writing one match to a single file is done
+        # with --transform and --include query, rotate the query to the template reference too
+        # simply by using the roation matrix or by selecting the atoms in the query
+        # and aligning to the matched residues object.
 
         def write_atom_line(atom: pyjess.Atom) -> str:
             one_char_elements = {

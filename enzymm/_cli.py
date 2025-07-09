@@ -32,7 +32,7 @@ def build_parser() -> argparse.ArgumentParser:
             
             Recommended use: enzymm -l query_pdbs.list -o results.tsv -v --pdbs --include-query -n -1
             """,
-        description="EnzMM - EnzymeMotifMiner - version {__version__}\nGeometric matching of catalytic motifs in protein structures.",
+        description="EnzyMM - EnzymeMotifMiner - version {__version__}\nGeometric matching of catalytic motifs in protein structures.",
     )
     parser.add_argument(
         "-V", "--version", action="version", version=f"enzymm {__version__}"
@@ -276,6 +276,21 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
                         tsvfile, header=(i == 0)
                     )  # one line per match, write header only for the first match
 
+        # TODO with multiple matches per query we have two options:
+        # with --include-query and not --transform we can write them all into one pdb
+        # in this case, we dont need to do any furhter processing.
+
+        # with --transform this doesnt make much sense.
+        # here we would like to write each match in its own file
+        # to a seperate folder named after the query
+        # then we would include also the template and
+        # the query and do all the alignment processing
+
+        # TODO print warning saying that setting the args.transform
+        # option doesnt make sense when
+        # searching with multiple templates in the current setup.
+        # as described above, we would want seperate output files per match
+
         def write_hits2pdb(matches: List[Match], filename: str, outdir: Path):
             outdir.mkdir(parents=True, exist_ok=True)
             # make sure molecule().id is unique!
@@ -289,9 +304,6 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
                         match.dump2pdb(
                             pdbfile, include_query=(i == 0), transform=args.transform
                         )
-                        # TODO print warning saying that setting the args.transform
-                        # option doesnt make sense when
-                        # searching with multiple templates
                 else:
                     for match in matches:
                         match.dump2pdb(pdbfile, transform=args.transform)

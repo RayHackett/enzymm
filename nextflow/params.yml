@@ -19,4 +19,5 @@ unfiltered: False # optional, boolean
 match_small_templates; False # optional, boolean
 skip_smaller_hits: True # optional, boolean
 skip_annoation: False # optional, boolean
+conservation_cutoff: 70
 # n_cpus: # optional, default 0 (all but two threads), negative numbers thread all cpus, positve number is explicit
