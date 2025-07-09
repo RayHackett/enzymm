@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import List
 import json
 import pandas as pd  # type: ignore
 import urllib.request
@@ -6,14 +7,62 @@ import gzip
 import shutil
 from collections import OrderedDict
 from dataclasses import asdict
+import requests  # type: ignore
+from requests.adapters import HTTPAdapter  # type: ignore
+from urllib3.util.retry import Retry  # type: ignore
+import time
 
-from catsite.mcsa_info import (
+from enzymm.utils import SetEncoder  # type: ignore
+from template_info import get_list_of_template_pdbchains
+
+from enzymm.mcsa_info import (
     HomologousPDB,
     ReferenceCatalyticResidue,
     NonReferenceCatalyticResidue,
 )
-from catsite.utils import request_url, SetEncoder  # type: ignore
-from template_info import get_list_of_template_pdbchains
+
+
+def request_url(
+    url: str, acceptable_stati: List[int], timeout: int = 10, max_retries: int = 10
+):
+    """
+    Fetch content from a url, while handling retries and url issues.
+
+    Arguments:
+        acceptable_stati: List of HTTP Status codes to accept. If Code is is accepted but not 200, return an empty string.
+        timeout: time to sleep between retries
+        max_retries: number of times to retry reaching a url
+
+    Returns:
+        `Response` object or empty string or prints a warning.
+    """
+    # TODO figure out maxretries
+
+    session = requests.Session()
+    retry = Retry(connect=3, backoff_factor=1)
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+
+    r = session.get(url)
+    request_counter = 0
+    while request_counter < max_retries and r.status_code in range(
+        500, 600
+    ):  # server errors 500-599; 429 too many requests
+        time.sleep(timeout)
+        r = session.get(url)
+        request_counter += 1
+
+    if r.status_code == 429:
+        time.sleep(int(r.headers["Retry-After"]))
+
+    if r.status_code in acceptable_stati:
+        if r.status_code == 200:
+            return r
+        else:
+            return ""
+    else:
+        print("Failed to get url", url, " with status code: ", r.status_code)
 
 
 def check_other_files(outdir: Path):
@@ -95,7 +144,7 @@ def check_other_files(outdir: Path):
 
 def make_pdb_sifts_df(outdir: Path):
 
-    dir = Path("/home/ray/Documents/template_matching/catsite/data")
+    dir = Path("/home/ray/Documents/template_matching/enzymm/data")
 
     PDBchain_to_CATH_Uniprot = Path(dir, "pdb_chain_cath_uniprot.csv")
     PDBchain_to_EC_Uniprot = Path(dir, "pdb_chain_enzyme.csv")

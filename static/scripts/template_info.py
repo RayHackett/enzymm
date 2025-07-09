@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Set, List
 
-from catsite.template import load_templates
+from enzymm.template import load_templates
 
 
 def get_list_of_template_pdbchains() -> List[str]:

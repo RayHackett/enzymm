@@ -1,10 +1,6 @@
-import requests  # type: ignore
-from requests.adapters import HTTPAdapter  # type: ignore
-from urllib3.util.retry import Retry  # type: ignore
 import typing
 from typing import List, Tuple, Iterable, Iterator, TypeVar, Any, Literal, Callable
 from itertools import islice
-import time
 import json
 
 T = TypeVar("T")
@@ -24,49 +20,6 @@ def ranked_argsort(lst: List[int]) -> List[int]:
     unique_values = sorted(set(lst))
     ranks = {v: i + 1 for i, v in enumerate(unique_values)}
     return [ranks[i] for i in lst]
-
-
-def request_url(
-    url: str, acceptable_stati: List[int], timeout: int = 10, max_retries: int = 10
-):
-    """
-    Fetch content from a url, while handling retries and url issues.
-
-    Arguments:
-        acceptable_stati: List of HTTP Status codes to accept. If Code is is accepted but not 200, return an empty string.
-        timeout: time to sleep between retries
-        max_retries: number of times to retry reaching a url
-
-    Returns:
-        `Response` object or empty string or prints a warning.
-    """
-    # TODO figure out maxretries
-
-    session = requests.Session()
-    retry = Retry(connect=3, backoff_factor=1)
-    adapter = HTTPAdapter(max_retries=retry)
-    session.mount("http://", adapter)
-    session.mount("https://", adapter)
-
-    r = session.get(url)
-    request_counter = 0
-    while request_counter < max_retries and r.status_code in range(
-        500, 600
-    ):  # server errors 500-599; 429 too many requests
-        time.sleep(timeout)
-        r = session.get(url)
-        request_counter += 1
-
-    if r.status_code == 429:
-        time.sleep(int(r.headers["Retry-After"]))
-
-    if r.status_code in acceptable_stati:
-        if r.status_code == 200:
-            return r
-        else:
-            return ""
-    else:
-        print("Failed to get url", url, " with status code: ", r.status_code)
 
 
 # this makes any set serializable. This allows me to write to json
