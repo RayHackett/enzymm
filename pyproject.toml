@@ -7,7 +7,7 @@ name = "enzymm"
 dynamic = ["version"]
 description = "Detect catalytic enzyme residues in protein structures by matching a library of known templates."
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 license = { file = "LICENSE" }
 authors = [
   { name = "Raymund Hackett", email = "r.e.hackett@lumc.nl" },
