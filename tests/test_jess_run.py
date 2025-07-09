@@ -1,6 +1,7 @@
 import io
 import os
 import unittest
+import math
 import importlib.resources
 from importlib.resources import files
 from . import test_data
@@ -77,26 +78,32 @@ class TestMatch(unittest.TestCase):
             self.match1.template_vector_list,
             [res.orientation_vector for res in self.template1.residues],
         )
-        self.assertEqual(
-            self.match1.match_vector_list,
-            [
-                template.Vec3(
-                    x=0.2290067979141952, y=-0.3853409610281773, z=0.377114677867322
-                ),
-                template.Vec3(
-                    x=0.4249816660862038, y=-0.21966898402981627, z=-0.3540863184957992
-                ),
-                template.Vec3(
-                    x=0.45459385444007694, y=-0.34869961601989985, z=0.10687378206512577
-                ),
-                template.Vec3(
-                    x=-0.8733960645698886, y=0.2563504028143271, z=-0.9840695023070225
-                ),
-                template.Vec3(
-                    x=-0.510183600042339, y=-0.1958417994791759, z=0.18963368325429997
-                ),
-            ],
-        )
+        expected = [
+            template.Vec3(
+                x=0.2290067979141952, y=-0.3853409610281773, z=0.377114677867322
+            ),
+            template.Vec3(
+                x=0.4249816660862038, y=-0.21966898402981627, z=-0.3540863184957992
+            ),
+            template.Vec3(
+                x=0.45459385444007694, y=-0.34869961601989985, z=0.10687378206512577
+            ),
+            template.Vec3(
+                x=-0.8733960645698886, y=0.2563504028143271, z=-0.9840695023070225
+            ),
+            template.Vec3(
+                x=-0.510183600042339, y=-0.1958417994791759, z=0.18963368325429997
+            ),
+        ]
+
+        actual = self.match1.match_vector_list
+        self.assertEqual(len(actual), len(expected))
+
+        for a, e in zip(actual, expected):
+            self.assertTrue(math.isclose(a.x, e.x, rel_tol=1e-9, abs_tol=1e-9))
+            self.assertTrue(math.isclose(a.y, e.y, rel_tol=1e-9, abs_tol=1e-9))
+            self.assertTrue(math.isclose(a.z, e.z, rel_tol=1e-9, abs_tol=1e-9))
+
         self.assertEqual(self.match1.preserved_resid_order, True)
         self.assertEqual(self.match1.complete, True)
         self.assertEqual(
@@ -141,7 +148,7 @@ class TestMatch(unittest.TestCase):
             self.assertEqual(buffer.getvalue(), f.read())
 
     def test_match_dumps(self):
-        dumps_string = "query_id	pairwise_distance	match_index	template_pdb_id	template_pdb_chains	template_cluster_id	template_cluster_member	template_cluster_size	template_effective_size	template_dimension	template_mcsa_id	template_uniprot_id	template_ec	template_cath	template_multimeric	query_multimeric	query_atom_count	query_residue_count	rmsd	log_evalue	orientation	preserved_order	completeness	predicted_correct	matched_residues	number_of_mutated_residues	number_of_side_chain_residues_(template,reference)	number_of_metal_ligands_(template,reference)	number_of_ptm_residues_(template, reference)	total_reference_residues\n1AMY	1.5	0	1uh3	A	1	1	1	5	5	285	Q60053	3.2.1.10,3.2.1.135	2.60.40.10,2.60.40.1180,3.20.20.80	False	False	3339	403	0.32093143180639955	-3.084244780540347	0.1532705432273403	True	True	True	GLU_A_204,ASP_A_87,ASP_A_179,HIS_A_288,ASP_A_289	0	5,5	0,0	0,0	5\n"
+        dumps_string = "query_id	pairwise_distance	match_index	template_pdb_id	template_pdb_chains	template_cluster_id	template_cluster_member	template_cluster_size	template_effective_size	template_dimension	template_mcsa_id	template_uniprot_id	template_ec	template_cath	template_multimeric	query_multimeric	query_atom_count	query_residue_count	rmsd	log_evalue	orientation	preserved_order	completeness	predicted_correct	matched_residues	number_of_mutated_residues	number_of_side_chain_residues_(template,reference)	number_of_metal_ligands_(template,reference)	number_of_ptm_residues_(template, reference)	total_reference_residues\n1AMY	1.5	0	1uh3	A	1	1	1	5	5	285	Q60053	3.2.1.10,3.2.1.135	2.60.40.10,2.60.40.1180,3.20.20.80	False	False	3339	403	0.32093	-3.08424	0.15327	True	True	True	GLU_A_204,ASP_A_87,ASP_A_179,HIS_A_288,ASP_A_289	0	5,5	0,0	0,0	5\n"
         self.assertEqual(self.match1.dumps(header=True), dumps_string)
 
     def test_match_dump2pdb(self):
