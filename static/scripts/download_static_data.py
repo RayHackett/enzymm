@@ -76,7 +76,9 @@ def check_other_files(outdir: Path):
     CATH_names_mapping = Path(outdir, "cath-domain-list.txt")
 
     if not Path(EC_cofactor_mapping).is_file():
-        raise FileNotFoundError("EC to cofactor mapping csv from Neera is missing!")
+        raise FileNotFoundError(
+            f"EC to cofactor mapping csv expected at {EC_cofactor_mapping.resolve()} is missing!"
+        )
 
     if not Path(PDBchain_to_CATH_Uniprot).is_file():
         compressed = Path(outdir, "pdb_chain_cath_uniprot.csv.gz")
@@ -683,7 +685,9 @@ def download_mcsa_homolog_info(outdir: Path):
             json.dump(serializable, f, indent=4, sort_keys=True)
 
 
-def download_static_data(outdir: Path = Path("./data")):
+def download_static_data(
+    outdir: Path = Path("/home/ray/Documents/template_matching/enzymm/data"),
+):
     get_mcsa_ec(outdir)
     get_mcsa_cath(outdir)
     check_other_files(outdir)
