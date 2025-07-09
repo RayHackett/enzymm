@@ -97,7 +97,7 @@ def build_parser() -> argparse.ArgumentParser:
         "-n",
         "--n-jobs",
         type=int,
-        default=len(os.sched_getaffinity(0)),
+        default=os.cpu_count(),  # len(os.sched_getaffinity(0)) doesnt work on mac
         help="The number of threads to run in parallel. Pass 0 to select all. Negative numbers: leave this many threads free.",
     )
 

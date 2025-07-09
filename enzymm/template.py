@@ -1486,7 +1486,7 @@ def load_templates(
     template_dir: Path | None,
     warn: bool = False,
     verbose: bool = False,
-    cpus: int = len(os.sched_getaffinity(0)),
+    cpus: int = os.cpu_count(),  # type: ignore # len(os.sched_getaffinity(0)),
     with_annotations: bool = True,
 ) -> Iterator[Template | AnnotatedTemplate]:
     """
@@ -1532,7 +1532,12 @@ def load_templates(
             ) from exc
 
     if cpus <= 0:
-        cpus = max(1, len(os.sched_getaffinity(0)) + cpus)
+        # cpus = max(1, len(os.sched_getaffinity(0)) + cpus)
+        os_cpu_count = os.cpu_count()
+        if os_cpu_count is not None:
+            cpus = max(1, os_cpu_count + cpus)
+        else:
+            cpus = 1
 
     pool: DummyPool | ThreadPool = DummyPool() if cpus == 1 else ThreadPool(cpus)
     with pool:

@@ -572,7 +572,7 @@ class Matcher:
         verbose: bool = False,
         skip_smaller_hits: bool = False,
         match_small_templates: bool = False,
-        cpus: int = len(os.sched_getaffinity(0)),
+        cpus: int = os.cpu_count(),  # type: ignore # len(os.sched_getaffinity(0)),
         filter_matches: bool = True,
         console: rich.console.Console | None = None,
     ):
@@ -635,7 +635,12 @@ class Matcher:
             raise ValueError("Duplicate templates were found.")
 
         if self.cpus <= 0:
-            self.cpus = max(1, len(os.sched_getaffinity(0)) + self.cpus)
+            # self.cpus = max(1, len(os.sched_getaffinity(0)) + self.cpus)
+            os_cpu_count = os.cpu_count()
+            if os_cpu_count is not None:
+                self.cpus = max(1, os_cpu_count + self.cpus)
+            else:
+                self.cpus = 1
 
         self.verbose_print(f"PyJess Version: {pyjess.__version__}")
         self.verbose_print(f"Running on {self.cpus} Thread(s)")
