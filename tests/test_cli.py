@@ -83,13 +83,16 @@ class Test_CLI(unittest.TestCase):
             "-o",
             cls.tempfile.name,
         ]  # passing a dir in list file
+        cls.bad_argument_3 = [
+            "-o",
+            cls.tempfile.name,
+        ]  # no input
 
     @classmethod
     def tearDownClass(cls):
         cls.tempfile.close()
 
     def test_default_main(self):
-        # TODO supress rich bar here
         self.assertEqual(main(self.arguments_normal, stderr=io.StringIO()), 0)
         self.assertEqual(main(self.arguments_list, stderr=io.StringIO()), 0)
         self.assertEqual(main(self.arguments_both, stderr=io.StringIO()), 0)
@@ -98,3 +101,5 @@ class Test_CLI(unittest.TestCase):
         self.assertEqual(retcode, errno.ENOENT)
         retcode2 = main(self.bad_argument_2, stderr=io.StringIO())
         self.assertEqual(retcode2, errno.EISDIR)
+        with self.assertRaises(ValueError):
+            main(self.bad_argument_3)

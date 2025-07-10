@@ -26,7 +26,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        exit_on_error=False,
         usage="""
             Minimal use: enzymm -i query.pdb -o result.tsv
             
@@ -162,9 +161,7 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
     parser = build_parser()
     args = parser.parse_args(args=argv)
     if not args.files:
-        parser.error(
-            "No input files were passed. Use the -i and/or -l flags to pass input."
-        )
+        raise ValueError("No input files were passed. Use -i and/or -l.")
 
     jess_params = None
     if args.jess:
