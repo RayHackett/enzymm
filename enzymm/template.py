@@ -4,9 +4,10 @@ import os
 import contextlib
 import glob
 import warnings
+import io
+import math
 import re
 import json
-from importlib.resources import files
 from pathlib import Path
 from typing import (
     Any,
@@ -24,11 +25,14 @@ from typing import (
 )
 from functools import cached_property
 from dataclasses import dataclass
-import io
-import math
 from multiprocessing.pool import ThreadPool
 
 import pyjess
+
+try:
+    from importlib.resources import files as resource_files
+except ImportError:
+    from importlib_resources import files as resource_files  # type: ignore
 
 from enzymm.utils import chunks, ranked_argsort, DummyPool
 from enzymm.mcsa_info import load_mcsa_catalytic_residue_homologs_info
@@ -1439,18 +1443,18 @@ class AnnotatedTemplate(Template):
 # Populate the mapping of MCSA IDs to CATH numbers so that it can be accessed
 # by individual templates in the `Template.cath` property.
 # Source: M-CSA which provides cath annotations for either residue homologs or for m-csa entries
-with files(__package__).joinpath("data/MCSA_CATH_mapping.json").open() as f:
+with resource_files(__package__).joinpath("data/MCSA_CATH_mapping.json").open() as f:
     Template._CATH_MAPPING = json.load(f)
 
-with files(__package__).joinpath("data/MCSA_EC_mapping.json").open() as f:
+with resource_files(__package__).joinpath("data/MCSA_EC_mapping.json").open() as f:
     Template._EC_MAPPING = json.load(f)
 
 # Source: CATH, EC and InterPro from PDB-SIFTS through mapping to the pdbchain
-with files(__package__).joinpath("data/pdb_sifts.json").open() as f:
+with resource_files(__package__).joinpath("data/pdb_sifts.json").open() as f:
     Template._PDB_SIFTS = json.load(f)
 
 CATALYTIC_RESIDUE_HOMOLOGS = load_mcsa_catalytic_residue_homologs_info(
-    files(__package__).joinpath("data")  # type: ignore
+    resource_files(__package__).joinpath("data")  # type: ignore
 )
 
 # global MCSA_interpro_dict
@@ -1503,7 +1507,9 @@ def load_templates(
         `Template`|`AnnotatedTemplate`
     """
     if template_dir is None:
-        template_dir = Path(str(files(__package__).joinpath("jess_templates_20230210")))
+        template_dir = Path(
+            str(resource_files(__package__).joinpath("jess_templates_20230210"))
+        )
 
     elif isinstance(template_dir, Path):
         if not template_dir.is_dir():

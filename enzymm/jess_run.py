@@ -1,13 +1,6 @@
 from __future__ import annotations
 
 import collections
-from multiprocessing.pool import ThreadPool
-import functools
-from typing import List, Tuple, Dict, Optional, IO, ClassVar, Iterable
-from functools import cached_property
-from dataclasses import dataclass, field
-from importlib.resources import files
-from pathlib import Path
 import math
 import warnings
 import csv
@@ -15,11 +8,21 @@ import itertools
 import io
 import os
 import json
+import functools
+from multiprocessing.pool import ThreadPool
+from typing import List, Tuple, Dict, Optional, IO, ClassVar, Iterable
+from functools import cached_property
+from dataclasses import dataclass, field
+from pathlib import Path
 
 import rich
+import pyjess
 from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
 
-import pyjess
+try:
+    from importlib.resources import files as resource_files
+except ImportError:
+    from importlib_resources import files as resource_files  # type: ignore
 
 from enzymm.template import Template, AnnotatedTemplate, Vec3, check_template
 from enzymm.utils import chunks, ranked_argsort, DummyPool
@@ -490,7 +493,7 @@ class Match:
 
 
 # Load the logistic regression models from the json into a dictionary
-with files(__package__).joinpath("data", "logistic_regression_models.json").open() as f:  # type: ignore
+with resource_files(__package__).joinpath("data", "logistic_regression_models.json").open() as f:  # type: ignore
     logistic_regression_models: Dict[str, Dict[str, List[LogisticRegressionModel]]] = {}
     model_dict = json.load(f)
 

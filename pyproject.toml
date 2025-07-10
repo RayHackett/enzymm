@@ -7,7 +7,7 @@ name = "enzymm"
 dynamic = ["version"]
 description = "Detect catalytic enzyme residues in protein structures by matching a library of known templates."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.7"
 license = { file = "LICENSE" }
 authors = [
   { name = "Raymund Hackett", email = "r.e.hackett@lumc.nl" },
@@ -29,6 +29,7 @@ classifiers = [
 dependencies = [
     "pyjess ~=0.5.0",
     "rich >=10.0.0",
+    "importlib-resources >=1.3  ; python_version < '3.9'",  # only required in Python 3.8 or lower
 ]
 
 [tool.setuptools.packages.find]
