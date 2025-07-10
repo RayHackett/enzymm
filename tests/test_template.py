@@ -1,13 +1,16 @@
 import unittest
-import enzymm
-from enzymm import template
-from pathlib import Path
 import math
+from pathlib import Path
+
+try:
+    from importlib.resources import files as resource_files
+except ImportError:
+    from importlib_resources import files as resource_files  # type: ignore
 
 import pyjess
 
-import importlib.resources
-from importlib.resources import files
+import enzymm
+from enzymm import template
 from . import test_data
 
 
@@ -20,12 +23,12 @@ class TestIntegration(unittest.TestCase):
         with self.assertRaises(NotADirectoryError):
             list(
                 template.load_templates(
-                    files(test_data).joinpath("bad_templates/pdb_id_none.pdb")
+                    resource_files(test_data).joinpath("bad_templates/pdb_id_none.pdb")
                 )
             )
 
         with self.assertRaises(ValueError):
-            list(template.load_templates(Path(files(test_data))))
+            list(template.load_templates(Path(resource_files(test_data))))
 
         # End to End test loading all supplied templates
         self.assertEqual(
@@ -33,7 +36,7 @@ class TestIntegration(unittest.TestCase):
         )  # check if all the expected templates were found
 
     def test_get_template_paths(self):
-        data_path = importlib.resources.files(enzymm).joinpath("data/")
+        data_path = resource_files(enzymm).joinpath("data/")
         found_paths = sorted(template._get_paths_by_extension(data_path, ".json"))
         expected_paths = sorted(
             [
@@ -48,7 +51,7 @@ class TestIntegration(unittest.TestCase):
 
     def test__get_paths_by_extension(self):
         with self.assertRaises(FileNotFoundError):
-            template._get_paths_by_extension(Path(files(test_data)), ".xyz")
+            template._get_paths_by_extension(Path(resource_files(test_data)), ".xyz")
 
 
 class TestVec3(unittest.TestCase):
@@ -179,45 +182,53 @@ class TestTemplate(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with open(
-            importlib.resources.files(enzymm).joinpath(
+            resource_files(enzymm).joinpath(
                 "jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb",
             ),
             "r",
         ) as f:
             cls.template_text1 = f.read()
         with open(
-            importlib.resources.files(enzymm).joinpath(
+            resource_files(enzymm).joinpath(
                 "jess_templates_20230210/4_residues/results/csa3d_0011/csa3d_0011.cluster_1_1_3.1qum_D145-D109-D37-D72-D69-D229-D182-D231-D261-D216-D179.template.pdb",
             ),
             "r",
         ) as f:
             cls.template_text2 = f.read()
 
-        with files(test_data).joinpath("bad_templates/hetatm.pdb").open() as f:
+        with resource_files(test_data).joinpath("bad_templates/hetatm.pdb").open() as f:
             cls.template_hetatm = f.read()
-        with files(test_data).joinpath(
+        with resource_files(test_data).joinpath(
             "bad_templates/malformed_residues_1.pdb"
         ).open() as f:
             cls.template_malformed_residue_1 = f.read()
-        with files(test_data).joinpath(
+        with resource_files(test_data).joinpath(
             "bad_templates/malformed_residues_2.pdb"
         ).open() as f:
             cls.template_malformed_residue_2 = f.read()
-        with files(test_data).joinpath(
+        with resource_files(test_data).joinpath(
             "bad_templates/malformed_residues_3.pdb"
         ).open() as f:
             cls.template_malformed_residue_3 = f.read()
-        with files(test_data).joinpath(
+        with resource_files(test_data).joinpath(
             "bad_templates/missing_cluster_annotation.pdb"
         ).open() as f:
             cls.template_missing_cluster_annotation = f.read()
-        with files(test_data).joinpath("bad_templates/new_remark.pdb").open() as f:
+        with resource_files(test_data).joinpath(
+            "bad_templates/new_remark.pdb"
+        ).open() as f:
             cls.template_new_remark = f.read()
-        with files(test_data).joinpath("bad_templates/pdb_id_none.pdb").open() as f:
+        with resource_files(test_data).joinpath(
+            "bad_templates/pdb_id_none.pdb"
+        ).open() as f:
             cls.template_pdb_id_none = f.read()
-        with files(test_data).joinpath("bad_templates/not_a_template.pdb").open() as f:
+        with resource_files(test_data).joinpath(
+            "bad_templates/not_a_template.pdb"
+        ).open() as f:
             cls.not_a_template = f.read()
-        with files(test_data).joinpath("bad_templates/no_remark.pdb").open() as f:
+        with resource_files(test_data).joinpath(
+            "bad_templates/no_remark.pdb"
+        ).open() as f:
             cls.template_no_remark = f.read()
 
         magic_atom = pyjess.TemplateAtom(
@@ -533,45 +544,53 @@ class TestAnnotatedTemplate(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with open(
-            importlib.resources.files(enzymm).joinpath(
+            resource_files(enzymm).joinpath(
                 "jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb",
             ),
             "r",
         ) as f:
             cls.template_text1 = f.read()
         with open(
-            importlib.resources.files(enzymm).joinpath(
+            resource_files(enzymm).joinpath(
                 "jess_templates_20230210/4_residues/results/csa3d_0011/csa3d_0011.cluster_1_1_3.1qum_D145-D109-D37-D72-D69-D229-D182-D231-D261-D216-D179.template.pdb",
             ),
             "r",
         ) as f:
             cls.template_text2 = f.read()
 
-        with files(test_data).joinpath("bad_templates/hetatm.pdb").open() as f:
+        with resource_files(test_data).joinpath("bad_templates/hetatm.pdb").open() as f:
             cls.template_hetatm = f.read()
-        with files(test_data).joinpath(
+        with resource_files(test_data).joinpath(
             "bad_templates/malformed_residues_1.pdb"
         ).open() as f:
             cls.template_malformed_residue_1 = f.read()
-        with files(test_data).joinpath(
+        with resource_files(test_data).joinpath(
             "bad_templates/malformed_residues_2.pdb"
         ).open() as f:
             cls.template_malformed_residue_2 = f.read()
-        with files(test_data).joinpath(
+        with resource_files(test_data).joinpath(
             "bad_templates/malformed_residues_3.pdb"
         ).open() as f:
             cls.template_malformed_residue_3 = f.read()
-        with files(test_data).joinpath(
+        with resource_files(test_data).joinpath(
             "bad_templates/missing_cluster_annotation.pdb"
         ).open() as f:
             cls.template_missing_cluster_annotation = f.read()
-        with files(test_data).joinpath("bad_templates/new_remark.pdb").open() as f:
+        with resource_files(test_data).joinpath(
+            "bad_templates/new_remark.pdb"
+        ).open() as f:
             cls.template_new_remark = f.read()
-        with files(test_data).joinpath("bad_templates/pdb_id_none.pdb").open() as f:
+        with resource_files(test_data).joinpath(
+            "bad_templates/pdb_id_none.pdb"
+        ).open() as f:
             cls.template_pdb_id_none = f.read()
-        with files(test_data).joinpath("bad_templates/not_a_template.pdb").open() as f:
+        with resource_files(test_data).joinpath(
+            "bad_templates/not_a_template.pdb"
+        ).open() as f:
             cls.not_a_template = f.read()
-        with files(test_data).joinpath("bad_templates/no_remark.pdb").open() as f:
+        with resource_files(test_data).joinpath(
+            "bad_templates/no_remark.pdb"
+        ).open() as f:
             cls.template_no_remark = f.read()
 
         cls.template1 = template.AnnotatedTemplate.loads(cls.template_text1, warn=False)
@@ -647,7 +666,7 @@ class TestResidue(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with open(
-            importlib.resources.files(enzymm).joinpath(
+            resource_files(enzymm).joinpath(
                 "jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb",
             ),
             "r",
@@ -658,17 +677,19 @@ class TestResidue(unittest.TestCase):
         cls.residue1 = template1.residues[0]
         cls.residue2 = template1.residues[1]
 
-        with files(test_data).joinpath("bad_templates/unk_residue.pdb").open() as f:
+        with resource_files(test_data).joinpath(
+            "bad_templates/unk_residue.pdb"
+        ).open() as f:
             cls.template_unkown_residue_text = f.read()
-        with files(test_data).joinpath(
+        with resource_files(test_data).joinpath(
             "bad_templates/bad_atom_names_1.pdb"
         ).open() as f:
             cls.bad_atom_names_1 = f.read()
-        with files(test_data).joinpath(
+        with resource_files(test_data).joinpath(
             "bad_templates/bad_atom_names_2.pdb"
         ).open() as f:
             cls.bad_atom_names_2 = f.read()
-        with files(test_data).joinpath(
+        with resource_files(test_data).joinpath(
             "bad_templates/bad_atom_names_3.pdb"
         ).open() as f:
             cls.bad_atom_names_3 = f.read()
@@ -721,7 +742,7 @@ class TestAnnotatedResidue(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with open(
-            importlib.resources.files(enzymm).joinpath(
+            resource_files(enzymm).joinpath(
                 "jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb",
             ),
             "r",
@@ -746,7 +767,7 @@ class TestTemplate_Checking(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with open(
-            importlib.resources.files(enzymm).joinpath(
+            resource_files(enzymm).joinpath(
                 "jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb",
             ),
             "r",

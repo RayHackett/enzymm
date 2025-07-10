@@ -1,13 +1,17 @@
 import unittest
-import enzymm
-from pathlib import Path
 import errno
-import importlib.resources
-from importlib.resources import files
-from . import test_data
 import io
 import tempfile
+from pathlib import Path
+
+try:
+    from importlib.resources import files as resource_files
+except ImportError:
+    from importlib_resources import files as resource_files  # type: ignore
+
+import enzymm
 from enzymm._cli import main
+from . import test_data
 
 
 class Test_CLI(unittest.TestCase):
@@ -15,14 +19,20 @@ class Test_CLI(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tempfile = tempfile.NamedTemporaryFile(suffix=".tsv")
-        molecule_path = str(Path(files(test_data).joinpath("1AMY.pdb")).resolve())
+        molecule_path = str(
+            Path(resource_files(test_data).joinpath("1AMY.pdb")).resolve()
+        )
 
-        list_path = str(Path(files(test_data).joinpath("input_list.txt")).resolve())
-        list_path2 = str(Path(files(test_data).joinpath("input_dir.txt")).resolve())
+        list_path = str(
+            Path(resource_files(test_data).joinpath("input_list.txt")).resolve()
+        )
+        list_path2 = str(
+            Path(resource_files(test_data).joinpath("input_dir.txt")).resolve()
+        )
 
         selected_template_dir = str(
             Path(
-                importlib.resources.files(enzymm).joinpath(
+                resource_files(enzymm).joinpath(
                     "jess_templates_20230210/5_residues/results/csa3d_0285/"
                 )
             ).resolve()

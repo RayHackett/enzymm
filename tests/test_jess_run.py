@@ -2,13 +2,16 @@ import io
 import os
 import unittest
 import math
-import importlib.resources
-from importlib.resources import files
-from . import test_data
+
+try:
+    from importlib.resources import files as resource_files
+except ImportError:
+    from importlib_resources import files as resource_files  # type: ignore
 
 import pyjess
 
 import enzymm
+from . import test_data
 from enzymm import template, jess_run
 
 
@@ -19,7 +22,7 @@ class TestMatch(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with open(
-            importlib.resources.files(enzymm).joinpath(
+            resource_files(enzymm).joinpath(
                 "jess_templates_20230210/5_residues/results/csa3d_0285/csa3d_0285.cluster_1_1_1.1uh3_A396-A262-A356-A471-A472.template.pdb",
             ),
             "r",
@@ -28,7 +31,7 @@ class TestMatch(unittest.TestCase):
             cls.template1 = template.AnnotatedTemplate.loads(template_text1, warn=False)
             jess_1 = pyjess.Jess([cls.template1])
 
-        with files(test_data).joinpath("1AMY.pdb").open() as f:
+        with resource_files(test_data).joinpath("1AMY.pdb").open() as f:
             molecule = pyjess.Molecule.load(f)
 
         query = jess_1.query(
@@ -41,7 +44,7 @@ class TestMatch(unittest.TestCase):
         )
 
         with open(
-            importlib.resources.files(enzymm).joinpath(
+            resource_files(enzymm).joinpath(
                 "jess_templates_20230210/3_residues/results/csa3d_0415/csa3d_0415.cluster_1_1_2.1be0_A124-A175-A125-A289-A260.template.pdb",
             ),
             "r",
@@ -144,7 +147,7 @@ class TestMatch(unittest.TestCase):
     def test_match_dump(self):
         buffer = io.StringIO()
         self.match1.dump(buffer, header=True)
-        with files(test_data).joinpath("results.tsv").open() as f:
+        with resource_files(test_data).joinpath("results.tsv").open() as f:
             self.assertEqual(buffer.getvalue(), f.read())
 
     def test_match_dumps(self):
@@ -154,19 +157,25 @@ class TestMatch(unittest.TestCase):
     def test_match_dump2pdb(self):
         buffer = io.StringIO()
         self.match1.dump2pdb(buffer, transform=False, include_query=False)
-        with files(test_data).joinpath("1AMY_matches_no_query.pdb").open() as f:
+        with resource_files(test_data).joinpath(
+            "1AMY_matches_no_query.pdb"
+        ).open() as f:
             self.assertEqual(buffer.getvalue(), f.read())
 
     def test_match_dump2pdb_with_query(self):
         buffer = io.StringIO()
         self.match1.dump2pdb(buffer, transform=False, include_query=True)
-        with files(test_data).joinpath("1AMY_matches_query_included.pdb").open() as f:
+        with resource_files(test_data).joinpath(
+            "1AMY_matches_query_included.pdb"
+        ).open() as f:
             self.assertEqual(buffer.getvalue(), f.read())
 
     def test_match_dump2pdb_transformed(self):
         buffer = io.StringIO()
         self.match1.dump2pdb(buffer, transform=True, include_query=False)
-        with files(test_data).joinpath("1AMY_matches_template.pdb").open() as f:
+        with resource_files(test_data).joinpath(
+            "1AMY_matches_template.pdb"
+        ).open() as f:
             self.assertEqual(buffer.getvalue(), f.read())
 
 
@@ -185,7 +194,7 @@ class TestMatcher(unittest.TestCase):
 
         template_texts = []
         for path in template_files:
-            with open(importlib.resources.files(enzymm).joinpath(path), "r") as f:
+            with open(resource_files(enzymm).joinpath(path), "r") as f:
                 template_texts.append(f.read())
 
         cls.template_list = []
@@ -194,21 +203,21 @@ class TestMatcher(unittest.TestCase):
 
         res5_templates = list(
             template.load_templates(
-                template_dir=importlib.resources.files(enzymm).joinpath(
+                template_dir=resource_files(enzymm).joinpath(
                     "jess_templates_20230210/5_residues/results/csa3d_0285/"
                 ),
             )
         )
         res4_templates = list(
             template.load_templates(
-                template_dir=importlib.resources.files(enzymm).joinpath(
+                template_dir=resource_files(enzymm).joinpath(
                     "jess_templates_20230210/4_residues/results/csa3d_0285"
                 ),
             )
         )
         res3_templates = list(
             template.load_templates(
-                template_dir=importlib.resources.files(enzymm).joinpath(
+                template_dir=resource_files(enzymm).joinpath(
                     "jess_templates_20230210/3_residues/results/csa3d_0344"
                 ),
             )
@@ -257,10 +266,12 @@ class TestMatcher(unittest.TestCase):
             filter_matches=True,
         )
 
-        with files(test_data).joinpath("1AMY.pdb").open() as f:
+        with resource_files(test_data).joinpath("1AMY.pdb").open() as f:
             cls.molecule = pyjess.Molecule.load(f)
 
-        with files(test_data).joinpath("AF-P0DUB6-F1-model_v4.pdb").open() as f:
+        with resource_files(test_data).joinpath(
+            "AF-P0DUB6-F1-model_v4.pdb"
+        ).open() as f:
             cls.molecule2 = pyjess.Molecule.load(f)
             cls.molecule3 = cls.molecule2.conserved(80)
 
