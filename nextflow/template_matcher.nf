@@ -25,7 +25,7 @@ matcher_params += params.conservation_cutoff ? " -c ${params.conservation_cutoff
 matcher_params += params.warn ? " -w" : ""
 matcher_params += params.verbose ? " -v" : ""
 matcher_params += params.match_small_templates ? " --match-small-templates" : ""
-matcher_params += params.skip_smaller_hits ? " -skip-smaller-hits" : ""
+matcher_params += params.skip_smaller_hits ? " --skip-smaller-hits" : ""
 matcher_params += params.skip_annotation ? " --skip-annotation": ""
 matcher_params += params.unfiltered ? " --unfiltered" : ""
 matcher_params += params.n_cpus ? " -n ${params.n_cpus}" : ""
@@ -74,6 +74,6 @@ process matching {
     """
     echo $SLURM_JOB_ID
     export PYTHONPATH='/exports/archive/lucid-grpzeller-primary/hackett/template_matching/'
-    python -m matcher -l ${input_file} -o output.tsv ${jess_params}${matcher_params}
+    python -m enzymm -l ${input_file} -o output.tsv ${jess_params}${matcher_params}
     """
 }
