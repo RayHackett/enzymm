@@ -148,7 +148,7 @@ jobs:
     - name: Install build requirements
       run: python -m pip install build
     - name: Build wheel
-      run: python -m build -w . 
+      run: python -m build -s . 
     - name: Store built wheels
       uses: actions/upload-artifact@v4
       with:
