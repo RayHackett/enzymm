@@ -6,6 +6,7 @@ import warnings
 import csv
 import itertools
 import io
+import sys
 import os
 import json
 import functools
@@ -181,13 +182,16 @@ class Match:
             file.write(write_atom_line(atom))
         file.write("END\n\n")
 
-    def dump(self, file: IO[str], header: bool = False):
+    def dump(
+        self, file: IO[str], header: bool = False, predict_correctness: bool = True
+    ):
         """
         Dump the information associated with a `Match` to a '.tsv' like line.
 
         Arguments:
             file: `file-like` object to write to
             header: `bool` If a header line should be written too
+            predict_correctness: 'bool' Wether to predict if the match is correct or not
 
         Note:
             Coordinate information is not written.
@@ -259,7 +263,7 @@ class Match:
             str(round(self.orientation, 5)),
             str(self.preserved_resid_order),
             str(self.complete),
-            str(self.predicted_correct),
+            str(self.predicted_correct) if predict_correctness else "",
             (",".join("_".join(t) for t in self.matched_residues)),
         ]
 
@@ -575,7 +579,11 @@ class Matcher:
         verbose: bool = False,
         skip_smaller_hits: bool = False,
         match_small_templates: bool = False,
-        cpus: int = os.cpu_count(),  # type: ignore # len(os.sched_getaffinity(0)),
+        cpus: int = (
+            len(os.sched_getaffinity(0))
+            if sys.platform == "linux"
+            else os.cpu_count() or 1
+        ),
         filter_matches: bool = True,
         console: rich.console.Console | None = None,
     ):
@@ -638,8 +646,11 @@ class Matcher:
             raise ValueError("Duplicate templates were found.")
 
         if self.cpus <= 0:
-            # self.cpus = max(1, len(os.sched_getaffinity(0)) + self.cpus)
-            os_cpu_count = os.cpu_count()
+            os_cpu_count = (
+                len(os.sched_getaffinity(0))
+                if sys.platform == "linux"
+                else os.cpu_count()
+            )
             if os_cpu_count is not None:
                 self.cpus = max(1, os_cpu_count + self.cpus)
             else:
@@ -866,10 +877,12 @@ class Matcher:
         # all matches are added to processed_molecules
         else:
             for molecule, matches in all_matches:
-                processed_molecules[molecule].extend(matches)
+                if matches:
+                    processed_molecules[molecule].extend(matches)
                 total_matches += len(matches)
 
         self.verbose_print(f"{total_matches} matches found!")
+        self.verbose_print(f"{len(processed_molecules)} target structures processed!")
 
         return processed_molecules
 
@@ -903,7 +916,7 @@ class Matcher:
             SpinnerColumn(),
             *Progress.get_default_columns(),
             TimeElapsedColumn(),
-            "{task.completed}/{task.total}",
+            "Structures {task.completed}/{task.total}",
             console=self.console,
         ) as progress:
 

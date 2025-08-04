@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import contextlib
 import glob
 import warnings
@@ -1490,7 +1491,9 @@ def load_templates(
     template_dir: Path | None,
     warn: bool = False,
     verbose: bool = False,
-    cpus: int = os.cpu_count(),  # type: ignore # len(os.sched_getaffinity(0)),
+    cpus: int = (
+        len(os.sched_getaffinity(0)) if sys.platform == "linux" else os.cpu_count() or 1
+    ),
     with_annotations: bool = True,
 ) -> Iterator[Template | AnnotatedTemplate]:
     """
@@ -1538,8 +1541,9 @@ def load_templates(
             ) from exc
 
     if cpus <= 0:
-        # cpus = max(1, len(os.sched_getaffinity(0)) + cpus)
-        os_cpu_count = os.cpu_count()
+        os_cpu_count = (
+            len(os.sched_getaffinity(0)) if sys.platform == "linux" else os.cpu_count()
+        )
         if os_cpu_count is not None:
             cpus = max(1, os_cpu_count + cpus)
         else:

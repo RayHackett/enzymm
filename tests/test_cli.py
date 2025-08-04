@@ -46,6 +46,19 @@ class Test_CLI(unittest.TestCase):
             "-o",
             cls.tempfile.name,
         ]
+
+        cls.arguments_unfiltered = [
+            "-i",
+            molecule_path,
+            "-o",
+            cls.tempfile.name,
+            "-j",
+            "2",
+            "0.5",
+            "0.5",
+            "--unfiltered",
+        ]
+
         cls.arguments_list = [
             "-l",
             list_path,
@@ -60,6 +73,7 @@ class Test_CLI(unittest.TestCase):
             "-c",
             "2",
         ]
+
         cls.arguments_both = [
             "-i",
             molecule_path,
@@ -87,6 +101,16 @@ class Test_CLI(unittest.TestCase):
             "-o",
             cls.tempfile.name,
         ]  # no input
+        cls.arguments_bad_unfiltered = [
+            "-i",
+            molecule_path,
+            "-o",
+            cls.tempfile.name,
+            "-j",
+            "2",
+            "0.5",
+            "0.5",
+        ]  # expecting filtering with 0.5A
 
     @classmethod
     def tearDownClass(cls):
@@ -94,6 +118,7 @@ class Test_CLI(unittest.TestCase):
 
     def test_default_main(self):
         self.assertEqual(main(self.arguments_normal, stderr=io.StringIO()), 0)
+        self.assertEqual(main(self.arguments_unfiltered, stderr=io.StringIO()), 0)
         self.assertEqual(main(self.arguments_list, stderr=io.StringIO()), 0)
         self.assertEqual(main(self.arguments_both, stderr=io.StringIO()), 0)
 
@@ -102,4 +127,6 @@ class Test_CLI(unittest.TestCase):
         retcode2 = main(self.bad_argument_2, stderr=io.StringIO())
         self.assertEqual(retcode2, errno.EISDIR)
         with self.assertRaises(ValueError):
-            main(self.bad_argument_3)
+            main(self.bad_argument_3, stderr=io.StringIO())
+        with self.assertRaises(KeyError):
+            main(self.arguments_bad_unfiltered, stderr=io.StringIO())

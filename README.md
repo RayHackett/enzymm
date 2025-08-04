@@ -3,11 +3,11 @@
 
 ## ️Overview
 
-Enzyme Motif Miner uses geometric template matching to identify known arrangements of catalytic residues in protein structures. It searches protein structures provided by the user for residue arrangements found in a database of templates. `EnzyMM` ships with a library of catalytic templates derived from the [Mechanism and Catalytic Site Atlas](https://www.ebi.ac.uk/thornton-srv/m-csa/) (M-CSA). These templates represent consensus arrangements of catalytic sites found in active sites of experimental protein structures.   
+Enzyme Motif Miner uses geometric template matching to identify known arrangements of catalytic residues called templates in protein structures. It searches protein structures provided by the user against a database of templates. `EnzyMM` ships with a library of catalytic templates derived from the [Mechanism and Catalytic Site Atlas](https://www.ebi.ac.uk/thornton-srv/m-csa/) (M-CSA) but you can also generate your own. These templates represent consensus arrangements of catalytic sites found in active sites of experimental protein structures.   
 
-As catalytic sites are both highly conservered and absolutely critical for the function of a protein, identifying them offers many biological insights. This method has two key advantages. Firstly, as it doesnt rely on sequence or global fold similarity, similar catalytic arrangements can be found accross great evolutionary distances offering insights into the divergence or even convergence of enyzmes. Secondly, as geometric matching is very fast, `EnzyMM` scales to along side databases of predicted protein structures. Expect to scan a protein structure in a matter of seconds.  
+As catalytic sites are both highly conserved and absolutely critical for the function of a protein, identifying them offers many biological insights. This method has two key advantages. Firstly, as it doesn't rely on sequence or (global) fold similarity, similar catalytic arrangements can be found accross great evolutionary distances offering insights into the divergence or even convergence of enyzmes. Secondly, as geometric matching is very fast, `EnzyMM` scales along side databases of predicted protein structures. Expect to scan a protein structure in a matter of seconds on consumer laptops.  
 
-As a database driven method, `EnzyMM` is inherintly limited by the coverage of residue arrangements in its template library. The provided template library covers nearly the entire M-CSA and thus around 3/4 of enyzme mechanisms classified by the Enyzme Commission to the 3rd level. Of course, the user can also provide their own library of templates. While primarily intended for catalytic sites, you are invited to search with your own libary of templates.  
+As a database driven method, `EnzyMM` is inherently limited by the coverage of residue arrangements in its template library. The provided template library covers nearly the entire M-CSA and thus around 3/4 of enzyme mechanisms classified by the Enzyme Commission to the 3rd level. Catalytic arrangements not found in the PDBe won't be included in the M-CSA. Of course, the user can also provide their own library of templates. While primarily intended for catalytic sites, you are invited to search with your own library of templates.  
 
 For the actual geometric matching `EnzyMM` relies on [PyJess](https://github.com/althonos/pyjess) - a [Cython](https://cython.org/) wrapper of [Jess](https://github.com/iriziotis/jess).
 
@@ -34,8 +34,7 @@ machine:
 $ pip install enzymm
 ```
 
-This will both install `EnzyMM` and also download a libary of catalytic templates
-together with important metadata. This requires around 16MB of data to be downloaded.
+This will both install `EnzyMM` and also download a library of catalytic templates together with important metadata. This requires around 16MB of data to be downloaded.
 It should also run on windows (though this is not tested for on release).
 
 ## 🔎 Running EnzyMM
@@ -52,30 +51,29 @@ Additional parameters of interest are:
 - `--n-jobs` or `-n`, which controls the number of threads used to parallelize the search.
   By default, it will use one thread less than available on your system using
   [`os.cpu_count`](https://docs.python.org/3/library/os.html#os.cpu_count).
-- `--unfiltered` or `-u`, which disalbes filtering of matches by RMSD and residue orientation.
+- `--unfiltered` or `-u`, which disables filtering of matches by RMSD and residue orientation.
   By default, filtering is enabled.
 - `--skip-smaller-hits`, which skips searches with smaller templates on a query
   if a match to a larger template has already been found.
-- `--jess` or `-j`, which controls the RMSD threshold and pairwise distance threshold applied. By default sesible thresholds are selected. Refer to the Docs for details
+- `--jess` or `-j`, which controls the RMSD threshold and pairwise distance threshold applied. By default sensible thresholds are selected. Refer to the Docs for details
 - `--template-dir` or `-t`, though which the user may supply their own template library. By default, a library of catalytic templates derived from the M-CSA is loaded.
 - `--conservation-cutoff` or `-c`, which can be set to exclude atoms with B-factors or pLDDT scores below this threshold from matching. This is not set by default.
 
-Further, `EnyzMM` is designed with modularity in mind and comes with a fully useable internal API.
-RPlease refer to the Docs for further reference.
+Further, `EnyzMM` is designed with modularity in mind and comes with a fully usable internal API.
+Please refer to the Docs for further reference.
 
 ## 🖹 Results
 
-`EnzyMM` will create the a single output file:
+`EnzyMM` will create a single output file:
 
 - `{output}.tsv`: A `.tsv` file containing a summary of all results. One row is printed per match.
 
-For visual exploration of matches, you can optionally save an alignment of the template
-and the matched query residues to a pdb file which can be viewed with any pdb viewer.
+For visual exploration of matches, you can optionally save an alignment of the template and the matched query residues to a pdb file which can be viewed with any pdb viewer.
 To do so, supply an output directory after the `--pdbs` flag for the `.pdb` files.
 
 This will also create:
 
-- `{pdbs_dir}/{query_identifier}_matches.pdb`: One `.pdb` file per query with a structural alignment between template and query residues. This can be furhter configured.
+- `{pdbs_dir}/{query_identifier}_matches.pdb`: One `.pdb` file per query with a structural alignment between template and query residues. This can be further configured.
 
 Add additional information to each `.pdb` file with the following flags:
 
@@ -90,7 +88,7 @@ Hopefully I'll get around to fixing this soon.
 `EnyzMM` is academic software but relies on many previous approaches.  
   
 `EnzyMM` itself can not yet be cited but a preprint is in preparation.
-We inted to publish during the summer of 2025.  
+We intend to publish during the summer of 2025.  
 
 We kindly ask you to cite both:  
 - PyJess for instance as:
@@ -114,4 +112,4 @@ I'm happy to help.
 
 ## ⚖️ License
 
-This software is provided under the [MIT](https://choosealicense.com/licenses/mit/). Though born and concieved at the [EMBL-EBI](https://www.ebi.ac.uk/) in Hinxton, UK in the [Thornton Group](https://www.ebi.ac.uk/research/thornton/), `EnzyMM` is now developed by Raymund Hackett and the [Zeller Group](https://zellerlab.org/) at the [Leiden University Medical Center](https://www.lumc.nl/en/) in Leiden in the Netherlands with continuing support from the Thornton Group.
+This software is provided under an [MIT](https://choosealicense.com/licenses/mit/) licence. Though conceived at the [EMBL-EBI](https://www.ebi.ac.uk/) in Hinxton, UK in the [Thornton Group](https://www.ebi.ac.uk/research/thornton/), `EnzyMM` is now developed by Raymund Hackett and the [Zeller Group](https://zellerlab.org/) at the [Leiden University Medical Center](https://www.lumc.nl/en/) in Leiden in the Netherlands with continuing support from the Thornton Group.

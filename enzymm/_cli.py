@@ -96,7 +96,11 @@ def build_parser() -> argparse.ArgumentParser:
         "-n",
         "--n-jobs",
         type=int,
-        default=os.cpu_count(),  # len(os.sched_getaffinity(0)) doesnt work on mac
+        default=(
+            len(os.sched_getaffinity(0))
+            if sys.platform == "linux"
+            else os.cpu_count() or 1
+        ),  # len(os.sched_getaffinity(0)) doesnt work on mac/win
         help="The number of threads to run in parallel. Pass 0 to select all. Negative numbers: leave this many threads free.",
     )
 
@@ -270,7 +274,9 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
                     i = index + jndex
                     match.index = jndex + 1  # 1 indexed matches per query
                     match.dump(
-                        tsvfile, header=(i == 0)
+                        tsvfile,
+                        header=(i == 0),
+                        predict_correctness=not args.unfiltered,
                     )  # one line per match, write header only for the first match
 
         # TODO with multiple matches per query we have two options:
@@ -289,7 +295,6 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
         # as described above, we would want seperate output files per match
 
         def write_hits2pdb(matches: List[Match], filename: str, outdir: Path):
-            outdir.mkdir(parents=True, exist_ok=True)
             # make sure molecule().id is unique!
             with open(
                 Path(outdir, f"{filename}_matches.pdb"), "w", encoding="utf-8"
@@ -306,6 +311,7 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
                         match.dump2pdb(pdbfile, transform=args.transform)
 
         if args.pdbs:
+            args.pdbs.mkdir(parents=True, exist_ok=False)
             for molecule, matches in processed_molecules.items():
                 write_hits2pdb(matches=matches, filename=molecule.id, outdir=args.pdbs)  # type: ignore
 
