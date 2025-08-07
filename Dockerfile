@@ -25,8 +25,8 @@ LABEL org.opencontainers.image.description="Enzyme Motif Miner"
 LABEL org.opencontainers.image.version=$VERSION
 LABEL org.opencontainers.image.authors="Raymund Hackett <r.e.hackett@lumc.nl>"
 LABEL org.opencontainers.image.licenses="MIT"
-LABEL org.opencontainers.image.url="https://github.com/RayHackett/enzymm"
-LABEL org.opencontainers.image.source="https://github.com/RayHackett/enzymm"
+LABEL org.opencontainers.image.url="https://github.com/rayhackett/enzymm"
+LABEL org.opencontainers.image.source="https://github.com/rayhackett/enzymm"
 
 WORKDIR /app
 
