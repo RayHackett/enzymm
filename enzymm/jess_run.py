@@ -807,8 +807,15 @@ class Matcher:
             max_dynamic_distance=max_dynamic_distance,
             max_candidates=max_candidates,
             best_match=True,
+            ignore_chain=True,
         )  # query is pyjess.Query object which is an iterator over pyjess.Hits
 
+        # ignore_chain=True disables checks for chain relationship
+        # i.e. if two atoms are on a different chain in the template
+        # they must also be on different chains in the target
+
+        # best_match=True reports only the single best match between template and target
+        # For this to make sense consider that:
         # A template is not encoded as coordinates, rather as a set of constraints.
         # For example, it would not contain the exact positions of THR and ASN atoms,
         # but instructions like
