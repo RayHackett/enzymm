@@ -627,12 +627,13 @@ def download_mcsa_homolog_info(outdir: Path):
         mcsa_pdb_resids[897]["1pviC"] = mcsa_pdb_resids[897]["1pviA"]
 
         # fix annotations in entry 638:
-        metal_role = {
-            "group_function": "metal ligand",
-            "function_type": "interaction",
-            "function": "metal ligand",
-            "emo": "EMO_00116",
-        }
+        # metal_role = {
+        #     "group_function": "metal ligand",
+        #     "function_type": "interaction",
+        #     "function": "metal ligand",
+        #     "emo": "EMO_00116",
+        # }
+        metal_role = "EMO_00116"
         metal_summary = ["metal ligand"]
         mcsa_pdb_resids[638]["1i1iP"].residues[475].roles = (
             mcsa_pdb_resids[638]["1i1iP"].residues[503].roles
@@ -654,6 +655,28 @@ def download_mcsa_homolog_info(outdir: Path):
         mcsa_pdb_resids[585]["1lbuA"].residues[154].roles_summary = metal_summary
         mcsa_pdb_resids[585]["1lbuA"].residues[161].roles_summary = metal_summary
         mcsa_pdb_resids[585]["1lbuA"].residues[197].roles_summary = metal_summary
+        ######################### assembly fixes #######################################
+
+        # in all these cases, the assembly used to generate the template was 1
+        for mcsa, pdbchain_dict in mcsa_pdb_resids.items():
+            for pdbchain, pdbchain_obj in pdbchain_dict.items():
+                if pdbchain_obj.assembly is None:
+                    pdbchain_obj.assembly = 1
+
+        mcsa_pdb_resids[715]["1l1dA"].assembly = 1
+        mcsa_pdb_resids[715]["1l1dB"].assembly = 1
+        mcsa_pdb_resids[267]["1dhpA"].assembly = 1
+        mcsa_pdb_resids[267]["1dhpB"].assembly = 1
+        mcsa_pdb_resids[553]["1dhpA"].assembly = 1
+        mcsa_pdb_resids[553]["1dhpB"].assembly = 1
+        mcsa_pdb_resids[242]["2f9rA"].assembly = 1
+        mcsa_pdb_resids[242]["2f9rB"].assembly = 1
+        mcsa_pdb_resids[235]["2zufA"].assembly = 1
+        mcsa_pdb_resids[948]["1m3sA"].assembly = 1
+        mcsa_pdb_resids[948]["1m3sB"].assembly = 1
+        mcsa_pdb_resids[646]["4ehiA"].assembly = 1
+        mcsa_pdb_resids[646]["4ehiB"].assembly = 1
+
         ################################################################################
 
         # NOTE:

@@ -1043,6 +1043,7 @@ class AnnotatedTemplate(Template):
         number_of_ptm_residues: Tuple[int, int],
         number_of_side_chain_residues: Tuple[int, int],
         total_reference_residues: int,
+        assembly: int,
         id: Optional[str] = None,
         template_id_string: Optional[str] = None,
         cluster: Optional[Cluster] = None,
@@ -1126,6 +1127,7 @@ class AnnotatedTemplate(Template):
         self.number_of_ptm_residues = number_of_ptm_residues
         self.number_of_side_chain_residues = number_of_side_chain_residues
         self.total_reference_residues = total_reference_residues
+        self.assembly = assembly
 
     def _state(self) -> Tuple:
         atoms: List[pyjess.TemplateAtom] = []
@@ -1193,6 +1195,7 @@ class AnnotatedTemplate(Template):
             number_of_ptm_residues=self.number_of_ptm_residues,
             number_of_side_chain_residues=self.number_of_side_chain_residues,
             total_reference_residues=self.total_reference_residues,
+            assembly=self.assembly,
         )
 
     @classmethod  # reading from text
@@ -1274,6 +1277,7 @@ class AnnotatedTemplate(Template):
                 number_of_ptm_residues=ann_dict["number_of_ptm_residues"],
                 number_of_side_chain_residues=ann_dict["number_of_side_chain_residues"],
                 total_reference_residues=ann_dict["total_reference_residues"],
+                assembly=ann_dict["assembly_id"],
             )
 
         else:
@@ -1302,6 +1306,7 @@ class AnnotatedTemplate(Template):
 
         reference_homologs = set()
         annotated_residues = []
+        assembly_ids = set()
         for residue in template.residues:
             ################### get reference residue ##################################
             try:
@@ -1320,6 +1325,8 @@ class AnnotatedTemplate(Template):
                     raise KeyError(
                         f"Failed to find template pdb in catalytic residue homologs for M-CSA id {template.mcsa_id} and pdbchain {template.pdb_id+residue.chain_id}"  # type: ignore
                     ) from None
+
+            assembly_ids.add(template_pdbchain.assembly)
 
             match_found = False
             for index, hom_residue in template_pdbchain.residues.items():
@@ -1375,6 +1382,13 @@ class AnnotatedTemplate(Template):
                     has_ptm=bool(ref_residue.ptm),
                     roles=tuple(ref_residue.roles),
                 )
+            )
+
+        if len(assembly_ids) == 1:
+            assembly_id = list(assembly_ids)[0]
+        else:
+            raise ValueError(
+                f"Got multiple assemblies for template from {template.pdb_id}"
             )
 
         ######################### Template level counts ################################
@@ -1438,6 +1452,7 @@ class AnnotatedTemplate(Template):
             ),
             # total number of residues in the reference pdb structure
             "total_reference_residues": number_reference_residues,
+            "assembly_id": assembly_id,
         }
 
 
