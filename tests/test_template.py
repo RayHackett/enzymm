@@ -658,7 +658,23 @@ class TestAnnotatedTemplate(unittest.TestCase):
         template.AnnotatedTemplate.loads(self.template_new_remark, warn=True)
 
     def test_annotated_template_attributes(self):
-        pass  # TODO
+        # a perfectly normal 6-residue template.
+        self.assertEqual(self.template1.number_of_metal_ligands, (0, 0))
+        self.assertEqual(self.template1.number_of_mutated_residues, 0)
+        self.assertEqual(self.template1.number_of_ptm_residues, (0, 0))
+        self.assertEqual(self.template1.number_of_side_chain_residues, (6, 6))
+        self.assertEqual(self.template1.total_reference_residues, 6)
+        self.assertEqual(self.template1.assembly, 1)
+
+        # a template derived from a structure with 11 residues, 9 of which are metal ligands
+        # the template has just 4 residues, all of which interact via the side chain
+        # there are no ptms or mutations
+        self.assertEqual(self.template2.number_of_metal_ligands, (4, 9))
+        self.assertEqual(self.template2.number_of_mutated_residues, 0)
+        self.assertEqual(self.template2.number_of_ptm_residues, (0, 0))
+        self.assertEqual(self.template2.number_of_side_chain_residues, (4, 11))
+        self.assertEqual(self.template2.total_reference_residues, 11)
+        self.assertEqual(self.template2.assembly, 1)
 
 
 class TestResidue(unittest.TestCase):
@@ -709,7 +725,7 @@ class TestResidue(unittest.TestCase):
     def test_attributes(self):
         self.assertEqual(self.residue1.residue_name, "GLU")
         self.assertEqual(self.residue1.allowed_residues, "E")
-        self.assertEqual(self.residue1.match_mode, 3)
+        self.assertEqual(self.residue1.specific, True)
         self.assertEqual(self.residue1.backbone, False)
         self.assertEqual(self.residue1.residue_number, 147)
         self.assertEqual(self.residue1.chain_id, "A")
@@ -736,14 +752,13 @@ class TestResidue(unittest.TestCase):
         )  # from atom 0 to atom 1
 
 
-# TODO test annotated Residue class
 class TestAnnotatedResidue(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
         with open(
             resource_files(enzymm).joinpath(
-                "jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb",
+                "jess_templates_20230210/8_residues/results/csa3d_0661/csa3d_0661.cluster_1_1_1.4cyr_A51-A375-A317-A211-A55-A115-A113-A14-A13-A318.template.pdb",
             ),
             "r",
         ) as f:
@@ -753,13 +768,62 @@ class TestAnnotatedResidue(unittest.TestCase):
             )
         cls.residue1 = template1.residues[0]
         cls.residue2 = template1.residues[1]
+        cls.residue4 = template1.residues[3]
 
     def test_is_annotated(self):
         self.assertIsInstance(self.residue1, template.AnnotatedResidue)
         self.assertIsInstance(self.residue2, template.AnnotatedResidue)
 
     def test_annotated_attributes(self):
-        pass  # TODO
+        self.assertEqual(self.residue1.reference_idx, 51)
+        self.assertFalse(self.residue1.is_mutated)
+        self.assertTrue(self.residue1.is_metal_ligand)
+        self.assertTrue(self.residue1.has_ptm)
+        self.assertSetEqual(
+            set(self.residue1.roles),
+            set(
+                [
+                    "EMO_00116",
+                    "EMO_00054",
+                    "EMO_00116",
+                    "EMO_00115",
+                    "EMO_00116",
+                    "EMO_00039",
+                    "EMO_00068",
+                ]
+            ),
+        )
+
+        self.assertEqual(self.residue2.reference_idx, 317)
+        self.assertFalse(self.residue2.is_mutated)
+        self.assertTrue(self.residue2.is_metal_ligand)
+        self.assertFalse(self.residue2.has_ptm)
+        self.assertSetEqual(
+            set(self.residue2.roles),
+            set(
+                [
+                    "EMO_00040",
+                    "EMO_00116",
+                    "EMO_00038",
+                    "EMO_00116",
+                    "EMO_00116",
+                    "EMO_00066",
+                ]
+            ),
+        )
+
+        self.assertEqual(self.residue4.reference_idx, 55)
+        self.assertFalse(self.residue4.is_mutated)
+        self.assertFalse(self.residue4.is_metal_ligand)
+        self.assertFalse(self.residue4.has_ptm)
+        self.assertSetEqual(
+            set(self.residue4.roles),
+            set(
+                [
+                    "EMO_00033",
+                ]
+            ),
+        )
 
 
 class TestTemplate_Checking(unittest.TestCase):

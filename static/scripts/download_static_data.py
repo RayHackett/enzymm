@@ -562,17 +562,21 @@ def download_mcsa_homolog_info(outdir: Path):
                                     code=hom_residue["code"],
                                     resid=hom_residue["resid"],
                                     auth_resid=hom_residue["auth_resid"],
-                                    function_location_abv=residue[
-                                        "function_location_abv"
-                                    ],
+                                    function_location_abv=(
+                                        residue["function_location_abv"]
+                                        if residue["function_location_abv"]
+                                        else ("ptm" if residue["ptm"] else "")
+                                    ),
                                     ptm=residue["ptm"],
                                     roles_summary=[
                                         s.strip()
                                         for s in residue["roles_summary"].split(",")
                                     ],
-                                    roles=list(
-                                        role_dict["emo"]
-                                        for role_dict in residue["roles"]
+                                    roles=sorted(
+                                        set(
+                                            role_dict["emo"]
+                                            for role_dict in residue["roles"]
+                                        )
                                     ),
                                 )
                             else:
@@ -655,6 +659,14 @@ def download_mcsa_homolog_info(outdir: Path):
         mcsa_pdb_resids[585]["1lbuA"].residues[154].roles_summary = metal_summary
         mcsa_pdb_resids[585]["1lbuA"].residues[161].roles_summary = metal_summary
         mcsa_pdb_resids[585]["1lbuA"].residues[197].roles_summary = metal_summary
+
+        ############################### ptm fixes ######################################
+        # cases where reference_residue.function_location_abv is "ptm" but ptm is ""
+        mcsa_pdb_resids[661]["1hdhA"].residues[51].ptm = "DDZ"
+        mcsa_pdb_resids[159]["1hzyA"].residues[
+            136
+        ].ptm = "LYS"  # strangely not marked as modified in the PDB
+
         ######################### assembly fixes #######################################
 
         # in all these cases, the assembly used to generate the template was 1

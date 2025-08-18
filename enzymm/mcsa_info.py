@@ -13,6 +13,16 @@ from typing import Optional, List, Dict, Tuple
 
 @dataclass(frozen=False)
 class HomologousResidue:
+    """
+    Base class for a PDB residue identical or homologous to a template residue.
+
+    Attributes:
+        code : `str` Three letter amino-acid code
+        resid : `int` residue id in the PDB
+        auth_resid : `int` Author assigned residue id
+
+    """
+
     code: str  # three letter code
     resid: int
     auth_resid: int
@@ -25,6 +35,17 @@ class HomologousResidue:
 
 @dataclass(frozen=False)
 class ReferenceCatalyticResidue(HomologousResidue):
+    """
+    Class for a reference PDB residue for a template residue.
+
+    Attributes:
+        function_location_abv : `str` Functional part of the residue. Empty string means side chain. Else "main", "main-C", "main-N" or "ptm"
+        ptm : `str` Empty string or for post translationally modified residues, the 3-letter code of the ptm in the PDB
+        roles : `List[str]` List of EMO codes describing functional roles
+        roles_summary : `List[str]` List text discriptions of functional roles
+
+    """
+
     function_location_abv: Optional[str]
     ptm: Optional[str]
     roles: List[str]
@@ -33,11 +54,34 @@ class ReferenceCatalyticResidue(HomologousResidue):
 
 @dataclass(frozen=False)
 class NonReferenceCatalyticResidue(HomologousResidue):
+    """
+    Class for a non-reference PDB residue for a template residue.
+
+    Attributes:
+        reference : `Tuple[int, str, int]` : Tuple of mcsa_id, pdb_id, residue_index to find the reference
+
+    """
+
     reference: Tuple[int, str, int]  # can link to with mcsa_id, pdb_id, residue index
 
 
 @dataclass(frozen=False)
 class HomologousPDB:
+    """
+    Class for a PDB Entry homologous to or identical to the structure from which a template was generated.
+
+    Attributes:
+        mcsa_id : `int` : M-CSA ID
+        reference_pdbchain : `str` : PDB identifier of the M-CSA reference PDB structure
+        is_reference : `bool` : If this structure is an M-CSA reference
+        pdb_id : `str` : PDB identifier of the PDB structure
+        chain_name : `str` : Chain identifier in the PDB
+        assembly_chain_name : `str` : Author assigned assembly chain identifier
+        assembly : `int` : Assembly number (usually but not always the biological assembly)
+        residues : `Dict[int, HomologousResidue]` : Dictionary mapping residue indices to residues. If "is_reference" then values are `ReferenceCatalyticResidue` else they are `NonReferenceCatalyticResidue`
+
+    """
+
     # because we iteratively add residues, the HomologousPDB dataclass
     # cannot be frozen
     mcsa_id: int

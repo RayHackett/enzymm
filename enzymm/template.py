@@ -374,11 +374,11 @@ class Residue:
         return "".join(set(convert_to_single[i] for i in self.atoms[0].residue_names))
 
     @property
-    def match_mode(self) -> int:
+    def specific(self) -> int:
         """
-        `int`: Get the residue specificity (interger) from the first atom. <100 is specific.
+        `bool`: Atoms with a match_mode greater 100 are unspecific. <100 is specific.
         """
-        return self.atoms[0].match_mode
+        return all([atm.match_mode < 100 for atm in self.atoms])
 
     @property
     def backbone(self) -> bool:
@@ -388,6 +388,8 @@ class Residue:
         True if the atom may match backbone atoms.
         Check if the atom has 'ANY' or 'XXX' in its residue_names attribute
         """
+
+        # TODO check what X or XXX means in pyjess!
         return (
             "ANY" in self.atoms[0].residue_names or "XXX" in self.atoms[0].residue_names
         )
@@ -424,12 +426,23 @@ class Residue:
 
 @dataclass(frozen=True)
 class AnnotatedResidue(Residue):
+    """
+    Child class inheriting from `Residue` for M-CSA annotated template residues.
+
+    Attributes:
+        is_mutated : `bool` : Wether the residue in the M-CSA reference PDB structure was mutated.
+        is_metal_ligand : `str` : Wether the residue in the M-CSA reference PDB structure was metal coordinating.
+        roles : `Tuple[str]` : Tuple of EMO codes describing catalytic roles.
+        reference_idx: `int` : Residue indentifier of the reference residue.
+        has_ptm: `bool` : Wether the residue in the M-CSA reference PDB structure was post-translationally modified.
+
+    """
+
     is_mutated: bool
     is_metal_ligand: bool
-    roles: Tuple[str, ...]  # TODO save only the emo identifier mb
+    roles: Tuple[str, ...]
     reference_idx: int
     has_ptm: bool
-    # TODO does this need function_location_abv
 
 
 @dataclass(frozen=True)
@@ -802,7 +815,7 @@ class Template(pyjess.Template):
         effective_size = 0
         for residue in self.residues:
             if (
-                residue.match_mode < 100 and not residue.backbone
+                residue.specific and not residue.backbone
             ):  # type specific and not Backbone
                 effective_size += 1
         return effective_size
@@ -1022,11 +1035,6 @@ class Template(pyjess.Template):
 
 
 class AnnotatedTemplate(Template):
-    """
-    Class for storing templates and associated information plus additional information on catalytic properties of the template.
-
-    Inherits and extends from `Template`
-    """
 
     residues: Tuple[AnnotatedResidue, ...]
     pdb_id: str
@@ -1366,10 +1374,16 @@ class AnnotatedTemplate(Template):
             is_mutated = False
             if (
                 residue.residue_name not in ["ANY", "PTM"]
-                and residue.match_mode < 100
+                and residue.specific
                 and ref_residue.function_location_abv is not None
             ):
                 is_mutated = residue.residue_name != ref_residue.code
+
+            # if template.mcsa_id == 661 and template.pdb_id == "4cyr" and ref_residue.resid == 51:
+            #     print(ref_pdbchain, ref_residue.resid, ref_residue.code, ref_residue.ptm, bool(ref_residue.ptm))
+
+            #     if isinstance(hom_residue, NonReferenceCatalyticResidue):
+            #         print("is non_reference")
 
             annotated_residues.append(
                 AnnotatedResidue(
@@ -1400,8 +1414,7 @@ class AnnotatedTemplate(Template):
         number_mutated = 0
 
         for residue in annotated_residues:
-            # TODO i dont know if this is equivalent to ref_residue.function_location_abv
-            if residue.match_mode < 100:
+            if residue.specific:
                 number_side_chain_residues += 1
             if residue.is_metal_ligand:
                 number_metal_ligands += 1
