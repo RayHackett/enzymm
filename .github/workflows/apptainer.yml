@@ -1,0 +1,49 @@
+name: Apptainer
+
+on:
+  push:
+    tags:
+      - 'v*'  # Only trigger on version tags
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    # Use the official Apptainer container for convenience
+    container:
+      image: ghcr.io/apptainer/apptainer:1.4.2 # or use latest
+      options: --fakeroot
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: get_tag
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build Apptainer image
+        run: |
+          # --fakeroot allows non-root build inside container
+          apptainer build --fakeroot enzymm.sif enzymm_apptainer.def
+
+      - name: Login to GHCR
+        run: |
+          echo ${{ secrets.GITHUB_TOKEN }} | apptainer registry login -u ${{ github.repository_owner }} --password-stdin oras://ghcr.io
+
+      - name: Push Apptainer image to GHCR
+        run: |
+          apptainer push enzymm.sif oras://ghcr.io/${GITHUB_REPOSITORY}:${{ steps.get_tag.outputs.version }}
+          apptainer push enzymm.sif oras://ghcr.io/${GITHUB_REPOSITORY}:latest
+
+      # - name: Upload SIF as release artifact
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: enzymm-${{ steps.get_tag.outputs.version }}.sif
+      #     path: enzymm.sif

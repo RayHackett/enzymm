@@ -1,0 +1,49 @@
+Bootstrap: docker
+From: python:3.13-alpine
+
+# Build this with apptainer build --fakeroot enzymm.sif enzymm_apptainer.def
+# Run it with apptainer run enzymm.sif -i ../testing_template_matching/1AMY.pdb -o test.out
+
+%labels
+    Author Raymund Hackett <r.e.hackett@lumc.nl>
+    Version latest
+    org.opencontainers.image.title "enzymm"
+    org.opencontainers.image.description "Enzyme Motif Miner"
+    org.opencontainers.image.version "latest"
+    org.opencontainers.image.authors "Raymund Hackett <r.e.hackett@lumc.nl>"
+    org.opencontainers.image.licenses "MIT"
+    org.opencontainers.image.url "https://github.com/rayhackett/enzymm"
+    org.opencontainers.image.source "https://github.com/rayhackett/enzymm"
+
+%environment
+    export PATH=/usr/local/bin:$PATH
+    export PYTHONUNBUFFERED=1
+
+%files
+    pyproject.toml /app/
+    CHANGELOG.md /app/
+    README.md /app/
+    MANIFEST.in /app/
+    LICENSE /app/
+    enzymm /app/enzymm
+
+%post
+    # Alpine package manager works in fakeroot just fine
+    apk add --no-cache \
+        build-base \
+        python3-dev \
+        gcc \
+        musl-dev
+
+    pip install --upgrade pip setuptools wheel
+
+    cd /app
+    pip wheel . -w /wheels
+    pip install --no-cache-dir /wheels/*
+
+    apk del build-base python3-dev gcc musl-dev
+    rm -rf /wheels
+
+%runscript
+    exec enzymm "$@"
+
