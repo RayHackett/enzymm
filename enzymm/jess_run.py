@@ -9,9 +9,8 @@ import io
 import sys
 import os
 import json
-import functools
-from multiprocessing.pool import ThreadPool
-from typing import List, Tuple, Dict, Optional, IO, ClassVar, Iterable
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import List, Tuple, Dict, Optional, IO, ClassVar
 from functools import cached_property
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -26,7 +25,7 @@ except ImportError:
     from importlib_resources import files as resource_files  # type: ignore
 
 from enzymm.template import Template, AnnotatedTemplate, Vec3, check_template
-from enzymm.utils import chunks, ranked_argsort, DummyPool
+from enzymm.utils import chunks, ranked_argsort
 from enzymm.utils import PROTEINOGENIC_AMINO_ACIDS, SPECIAL_AMINO_ACIDS
 
 __all__ = [
@@ -669,8 +668,11 @@ class Matcher:
         # check each template and if it passes add it to the dictionary of templates
         self.templates_by_effective_size: Dict[int, List[Template]] = (
             collections.defaultdict(list)
-        )  # Dictionary of List of AnnoatedTemplate objects grouped by Template.effective_size as keys
+        )  # Dictionary of List of Template objects grouped by Template.effective_size as keys
         for template in templates:
+            # skip smaller templates if match_small_templates is not set!
+            if not self.match_small_templates and template.effective_size < 3:
+                continue
             if check_template(
                 template, warn=self.warn
             ):  # returns True if the Template passed all checks or if warn is set to False
@@ -681,8 +683,6 @@ class Matcher:
         if self.verbose:
             template_number_dict: Dict[int, int] = {}
             for size, template_list in self.templates_by_effective_size.items():
-                if not self.match_small_templates and size < 3:
-                    continue
                 template_number_dict[size] = len(template_list)
             print(
                 f"Templates by effective size: {collections.OrderedDict(sorted(template_number_dict.items()))}"
@@ -693,21 +693,17 @@ class Matcher:
             reverse=True
         )  # get a list of template_sizes in decending order
 
-        if self.warn:
+        # print a warning if match_small_templates was set.
+        if self.warn and self.match_small_templates:
             smaller_sizes = [i for i in self.template_effective_sizes if i < 3]
             if smaller_sizes:
                 small_templates = []
                 for i in smaller_sizes:
                     small_templates.extend(self.templates_by_effective_size[i])
 
-                if self.match_small_templates:
-                    warnings.warn(
-                        f"{len(small_templates)} Templates with an effective size smaller than 3 defined sidechain residues were supplied.\nFor small templates Jess parameters for templates of 3 residues will be used."
-                    )
-                else:
-                    warnings.warn(
-                        f"{len(small_templates)} Templates with an effective size smaller than 3 defined sidechain residues were supplied.\nThese will be excluded since these templates are too general."
-                    )
+                warnings.warn(
+                    f"{len(small_templates)} Templates with an effective size smaller than 3 defined sidechain residues were supplied.\nFor small templates Jess parameters for templates of 3 residues will be used."
+                )
 
                 self.verbose_print(
                     "The templates with the following ids are too small:"
@@ -864,49 +860,49 @@ class Matcher:
 
         return matches
 
-    def _filter_matches(
+    def _filter_molecule_matches(
         self,
-        all_matches: Iterable[Tuple[pyjess.Molecule, List[Match]]],
-        processed_molecules: Dict[pyjess.Molecule, List[Match]],
+        all_matches: List[Match],
     ):
-
-        # counter for all matches found for a given tempate size
-        total_matches = 0
 
         # keep only matches predicted as correct
         if self.filter_matches:
-            for molecule, matches in all_matches:
-                for match in matches:
-                    if match.predicted_correct:
-                        total_matches += 1
-                        processed_molecules[molecule].append(match)
+            filtered_matches = []
+            for match in all_matches:
+                if match.predicted_correct:
+                    filtered_matches.append(match)
+            return filtered_matches
 
-        # all matches are added to processed_molecules
+        # return unchanged
         else:
-            for molecule, matches in all_matches:
-                if matches:
-                    processed_molecules[molecule].extend(matches)
-                total_matches += len(matches)
+            return all_matches
 
-        self.verbose_print(f"{total_matches} matches found!")
-        self.verbose_print(f"{len(processed_molecules)} target structures processed!")
+    def _worker(
+        self,
+        mol: pyjess.Molecule,
+        template_size: int,
+    ):
+        templates = self.templates_by_effective_size[template_size]
+        rmsd, distance, max_dynamic_distance = self._get_jess_parameters(template_size)
+        results = self._single_query_run(
+            mol,
+            templates=templates,
+            rmsd_threshold=rmsd,
+            distance_cutoff=distance,
+            max_dynamic_distance=max_dynamic_distance,
+        )
 
-        return processed_molecules
+        return mol, self._filter_molecule_matches(results)
 
     def run(
-        self, molecules: List[pyjess.Molecule]
+        self,
+        molecules: List[pyjess.Molecule],
     ) -> Dict[pyjess.Molecule, List[Match]]:
         """
         Run the matcher against a `list` of query `~pyjess.Molecule` to search.
 
         Arguments:
             molecules: `list` of `~pyjess.Molecule` to search
-
-        Note:
-            Will first search against larger and then progressively smaller templates
-
-        Note:
-            Templates with fewer than 3 residues are skipped
 
         Returns:
             `dict` of `~pyjess.Molecule` --> `list` of `Match`: Dictionary of query molecules as keys and all found matches as values.
@@ -916,10 +912,13 @@ class Matcher:
             collections.defaultdict(list)
         )
 
-        pool: DummyPool | ThreadPool = (
-            DummyPool() if self.cpus == 1 else ThreadPool(self.cpus)
-        )
-        with pool, Progress(
+        # state: a dict of molecule: template sizes which still need to be searched
+        # Each molecule has a copy of the template size list
+        remaining_sizes = {
+            mol: self.template_effective_sizes.copy() for mol in molecules
+        }
+
+        with ThreadPoolExecutor(max_workers=self.cpus) as pool, Progress(
             SpinnerColumn(),
             *Progress.get_default_columns(),
             TimeElapsedColumn(),
@@ -927,63 +926,50 @@ class Matcher:
             console=self.console,
         ) as progress:
 
-            for template_size in self.template_effective_sizes:
+            task_id = progress.add_task(
+                description="[green]Searching structures ...", total=len(molecules)
+            )
 
-                if template_size < 3 and not self.match_small_templates:
-                    # skip the rest of the for-loop
-                    continue
-
-                templates = self.templates_by_effective_size[template_size]
-
-                rmsd, distance, max_dynamic_distance = self._get_jess_parameters(
-                    template_size
-                )
-
-                self.verbose_print(
-                    f"Now matching query structure(s) to template of size {template_size}"
-                )
-                self.verbose_print(
-                    f"jess parameters are: {rmsd} {distance} {max_dynamic_distance}"
-                )
-
-                ################# Running Jess ###################################
-
-                if (
-                    self.skip_smaller_hits
-                ):  # only search the molecule if no larger hits have been found for it already
-                    query_molecules = [
-                        molecule
-                        for molecule in molecules
-                        if molecule not in processed_molecules
-                    ]
+            futures = {}
+            # Seed jobs with the largest template size per molecule
+            for mol, sizes in remaining_sizes.items():
+                if sizes:
+                    futures[pool.submit(self._worker, mol, sizes.pop(0))] = mol
                 else:
-                    query_molecules = molecules
-
-                _single_query_run = functools.partial(
-                    self._single_query_run,
-                    templates=templates,
-                    rmsd_threshold=rmsd,
-                    distance_cutoff=distance,
-                    max_dynamic_distance=max_dynamic_distance,
-                )
-
-                task_id = progress.add_task(
-                    description=f"[green]Searching with {template_size}-residue templates ...",
-                    total=len(query_molecules),
-                )
-
-                all_matches = []
-                # NOTE we cannot use imap_unordered here ... mb work on this
-                for mol, result in zip(
-                    query_molecules, pool.imap(_single_query_run, query_molecules)  # type: ignore
-                ):
-                    all_matches.append((mol, result))
                     progress.advance(task_id)
 
-                processed_molecules = self._filter_matches(
-                    all_matches=all_matches,
-                    processed_molecules=processed_molecules,
-                )
+            while futures:
+                for fut in as_completed(futures, timeout=None):
+                    mol = futures.pop(fut)
+
+                    # # if there is an error in the worker function, id like to see it
+                    # results = None
+                    # try:
+                    #     mol, results = fut.result()
+                    # except Exception as e:
+                    #     raise e
+
+                    # but for now i trust the worker function 100%
+                    mol, results = fut.result()
+
+                    if results:  # match found --> stop further searches with molecule
+                        processed_molecules[mol].extend(results)
+                        if self.skip_smaller_hits:
+                            progress.advance(task_id)
+                            remaining_sizes.pop(
+                                mol, None
+                            )  # remove to stop further jobs
+                            continue
+
+                    # no match --> schedule next smaller template for this molecule
+                    sizes = remaining_sizes[mol]
+                    if sizes:
+                        next_size = sizes.pop(0)
+                        futures[pool.submit(self._worker, mol, next_size)] = mol
+                    else:
+                        # Exhausted all sizes with no match
+                        progress.advance(task_id)
+                        remaining_sizes.pop(mol, None)
 
         return processed_molecules
 

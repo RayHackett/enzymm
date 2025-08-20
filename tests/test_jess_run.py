@@ -306,8 +306,6 @@ class TestMatcher(unittest.TestCase):
             molecules=[self.molecule, self.molecule3]
         )
 
-        self.assertEqual(list(processed_molecules_1.keys())[0], self.molecule)
-        self.assertEqual(list(processed_molecules_1.keys())[1], self.molecule2)
         self.assertEqual(len(processed_molecules_1[self.molecule]), 2)
         self.assertEqual(len(processed_molecules_1[self.molecule2]), 2)
         #  processed_molecules_2 has skip smaller hits
