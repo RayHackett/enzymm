@@ -1,5 +1,22 @@
 
-# EnzyMM - The Enzyme Motif Miner
+# EnzyMM - The Enzyme Motif Miner [![Star me](https://img.shields.io/github/stars/rayhackett/enzymm.svg?style=social&label=Star&maxAge=3600)](https://github.com/rayhackett/enzymm/stargazers)
+
+[![Actions](https://img.shields.io/github/actions/workflow/status/RayHackett/enzymm/test.yml?branch=main&style=flat-square&maxAge=300)](https://github.com/RayHackett/Enzymm/actions/workflows/test.yml)
+[![Coverage](https://img.shields.io/codecov/c/gh/rayhackett/enzymm?logo=codecov&style=flat-square&maxAge=3600)](https://codecov.io/gh/rayhackett/enzymm/)
+[![version](https://img.shields.io/github/v/tag/rayhackett/enzymm?label=version&sort=semver)](https://github.com/rayhackett/enzymm/tags)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square&maxAge=2678400)](https://choosealicense.com/licenses/mit/)
+[![Source](https://img.shields.io/badge/source-GitHub-303030.svg?maxAge=2678400&style=flat-square)](https://github.com/RayHackett/enzymm/)
+[![Changelog](https://img.shields.io/badge/keep%20a-changelog-8A0707.svg?maxAge=2678400&style=flat-square)](https://github.com/rayHackett/enzymm/blob/main/CHANGELOG.md)
+[![Issues](https://img.shields.io/github/issues/RayHackett/enzymm.svg?style=flat-square&maxAge=600)](https://github.com/RayHackett/enzymm/issues)
+[![Python Versions](https://img.shields.io/pypi/pyversions/enzymm.svg?style=flat-square&maxAge=600&logo=python)](https://pypi.org/project/enzymm/#files)
+[![PyPI](https://img.shields.io/pypi/v/enzymm.svg?style=flat-square&maxAge=3600)](https://pypi.python.org/pypi/enzymm)
+[![Wheel](https://img.shields.io/pypi/wheel/enzymm?style=flat-square&maxAge=3600)](https://pypi.org/project/enzymm/#files)
+[![Docker](https://img.shields.io/badge/Docker-GHCR-blue?logo=docker)](https://github.com/users/rayhackett/packages/container/package/enzymm)
+[![Apptainer](https://img.shields.io/badge/Apptainer-ORAS-blue)](oras://ghcr.io/https://github.com/users/rayhackett/enzymm:latest)
+<!-- [![Paper](https://img.shields.io/badge/paper-JOSS-9400ff?style=flat-square&maxAge=86400)](https://doi.org/10.21105/joss.04296) -->
+<!-- [![Citations](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fbadge.dimensions.ai%2Fdetails%2Fid%2Fpub.1147419140%2Fmetadata.json&query=%24.times_cited&style=flat-square&label=citations&maxAge=86400)](https://badge.dimensions.ai/details/id/pub.1147419140) -->
+<!-- [![Bioconda](https://img.shields.io/conda/vn/bioconda/pyhmmer?logo=anaconda&style=flat-square&maxAge=3600)](https://anaconda.org/bioconda/pyhmmer) -->
+<!-- [![AUR](https://img.shields.io/aur/version/python-pyhmmer?logo=archlinux&style=flat-square&maxAge=3600)](https://aur.archlinux.org/packages/python-pyhmmer) -->
 
 ## ️Overview
 
@@ -11,15 +28,6 @@ As a database driven method, `EnzyMM` is inherently limited by the coverage of r
 
 For the actual geometric matching `EnzyMM` relies on [PyJess](https://github.com/althonos/pyjess) - a [Cython](https://cython.org/) wrapper of [Jess](https://github.com/iriziotis/jess).
 
-[![Actions](https://img.shields.io/github/actions/workflow/status/RayHackett/enzymm/test.yml?branch=main&style=flat-square&maxAge=300)](https://github.com/RayHackett/Enzymm/actions/workflows/test.yml)
-[![License](https://img.shields.io/badge/license-mit.svg?style=flat-square&maxAge=2678400)](https://choosealicense.com/licenses/mit/)
-[![Source](https://img.shields.io/badge/source-GitHub-303030.svg?maxAge=2678400&style=flat-square)](https://github.com/RayHackett/enzymm/)
-[![Changelog](https://img.shields.io/badge/keep%20a-changelog-8A0707.svg?maxAge=2678400&style=flat-square)](https://github.com/rayHackett/enzymm/blob/main/CHANGELOG.md)
-[![Issues](https://img.shields.io/github/issues/RayHackett/enzymm.svg?style=flat-square&maxAge=600)](https://github.com/RayHackett/enzymm/issues)
-[![PyPI](https://img.shields.io/pypi/v/enzymm.svg?style=flat-square&maxAge=3600)](https://pypi.python.org/pypi/gecco-tool)
-[![Versions](https://img.shields.io/pypi/pyversions/enzymm.svg?style=flat-square&maxAge=3600)](https://pypi.org/project/enzymm/#files)
-[![Wheel](https://img.shields.io/pypi/wheel/enzymm?style=flat-square&maxAge=3600)](https://pypi.org/project/enzymm/#files)
-
 
 ## 🔧 Installing EnzyMM
 
@@ -30,19 +38,32 @@ additional libraries that can be installed directly from
 
 Use [`pip`](https://pip.pypa.io/en/stable/) to install `EnzyMM` on your
 machine:
-```console
+```bash
 $ pip install enzymm
 ```
 
 This will both install `EnzyMM` and also download a library of catalytic templates together with important metadata. This requires around 16MB of data to be downloaded.
 It should also run on windows (though this is not tested for on release).
 
+### 🖼️ Images
+Lightweight images built from [`python:3.13-alpine`](https://hub.docker.com/_/python/tags?page=1&name=3.13-alpine) are available:  
+
+Pull the latest [Docker](https://www.docker.com/) image from GHCR:
+```bash
+docker pull ghcr.io/rayhackett/enzymm:latest
+```
+
+Pull the latest [Apptainer](https://apptainer.org/) image via ORAS from GHCR:
+```bash
+apptainer pull oras://ghcr.io/rayhackett/enzymm:latest
+```
+
 ## 🔎 Running EnzyMM
 
 Once `EnzyMM` is installed, you can run it from the terminal. The user can either provide a path to a single protein structure `-i` or to run multiple queries at once, the path to a text file `-l` which itself contains a list of paths to protein structures.
 Optionally, an output directory for pdb structures of the identified matches per query protein can be supplied with the `--pdbs` flag.
 
-```console
+```bash
 $ enzymm -i some_structure.pdb -o results.tsv --pdbs dir_to_save_matches
 ```
 
@@ -84,18 +105,6 @@ Currently, `--transform` and `--include-query` should not be used together.
 Hopefully I'll get around to fixing this soon.
 
 
-## 🔖 Citations
-`EnyzMM` is academic software but relies on many previous approaches.  
-  
-`EnzyMM` itself can not yet be cited but a preprint is in preparation.
-We intend to publish during the summer of 2025.  
-
-We kindly ask you to cite both:  
-- PyJess for instance as:
-> PyJess, a Python library binding to Jess (Barker *et al.*, 2003).
-- Mechanism and Catalytic Site Atlas as:
-> Ribeiro AJM et al. (2017), Nucleic Acids Res, 46, D618-D623. Mechanism and Catalytic Site Atlas (M-CSA): a database of enzyme reaction mechanisms and active sites. DOI:10.1093/nar/gkx1012. PMID:29106569.
-
 ## 💭 Feedback
 
 ### ⚠️ Issue Tracker
@@ -110,6 +119,27 @@ Contributions are more than welcome!
 Raise an issue or shoot me an email under `r.e.hackett` AT `lumc.nl`  
 I'm happy to help.
 
+## 📋 Changelog
+
+This project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
+and provides a [changelog](https://github.com/rayhackett/enzymm/blob/main/CHANGELOG.md)
+in the [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) format.
+
 ## ⚖️ License
 
-This software is provided under an [MIT](https://choosealicense.com/licenses/mit/) licence. Though conceived at the [EMBL-EBI](https://www.ebi.ac.uk/) in Hinxton, UK in the [Thornton Group](https://www.ebi.ac.uk/research/thornton/), `EnzyMM` is now developed by Raymund Hackett and the [Zeller Group](https://zellerlab.org/) at the [Leiden University Medical Center](https://www.lumc.nl/en/) in Leiden in the Netherlands with continuing support from the Thornton Group.
+This software is provided under the open source [MIT](https://choosealicense.com/licenses/mit/) licence.  
+Though conceived at the [EMBL-EBI](https://www.ebi.ac.uk/) in Hinxton, UK in the [Thornton Group](https://www.ebi.ac.uk/research/thornton/), `EnzyMM` is now developed by Raymund Hackett and the [Zeller Group](https://zellerlab.org/) at the [Leiden University Medical Center](https://www.lumc.nl/en/) in Leiden in the Netherlands with continuing support from the Thornton Group.
+
+## 🔖 Citations
+`EnyzMM` is academic software but relies on many previous approaches.  
+`EnzyMM` itself can not yet be cited but a preprint is in preparation.
+We intend to publish during the summer of 2025.  
+
+We kindly ask you to cite both:  
+- PyJess, for instance as:
+> PyJess, a Python library binding to Jess (Barker *et al.*, 2003).
+- Mechanism and Catalytic Site Atlas as:
+> Ribeiro AJM et al. (2017), Nucleic Acids Res, 46, D618-D623. Mechanism and Catalytic Site Atlas (M-CSA): a database of enzyme reaction mechanisms and active sites. DOI:10.1093/nar/gkx1012. PMID:29106569.
+
+<!-- 
+## 📚 References -->
