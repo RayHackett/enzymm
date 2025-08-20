@@ -16,7 +16,6 @@ jobs:
     # Use the official Apptainer container for convenience
     container:
       image: ghcr.io/apptainer/apptainer:1.4.2 # or use latest
-      options: --fakeroot
 
     steps:
       - name: Checkout code
@@ -30,8 +29,7 @@ jobs:
 
       - name: Build Apptainer image
         run: |
-          # --fakeroot allows non-root build inside container
-          apptainer build --fakeroot enzymm.sif enzymm_apptainer.def
+          apptainer build enzymm.sif enzymm_apptainer.def
 
       - name: Login to GHCR
         run: |
