@@ -13,13 +13,18 @@ jobs:
       packages: write
       id-token: write
 
-    # Use the official Apptainer container for convenience
-    container:
-      image: ghcr.io/apptainer/apptainer:1.4.2 # or use latest
+    # # Use the official Apptainer container for convenience
+    # container:
+    #   image: ghcr.io/apptainer/apptainer:1.4.2 # or use latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Install Apptainer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apptainer
 
       - name: Extract version from tag
         id: get_tag
