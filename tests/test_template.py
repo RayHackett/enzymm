@@ -31,8 +31,12 @@ class TestIntegration(unittest.TestCase):
             list(template.load_templates(Path(resource_files(test_data))))
 
         # End to End test loading all supplied templates
+        # This will take some time :(
         self.assertEqual(
-            len(list(template.load_templates(template_dir=None))), 7607
+            len(
+                list(template.load_templates(template_dir=None, with_annotations=False))
+            ),
+            7607,
         )  # check if all the expected templates were found
 
     def test_get_template_paths(self):

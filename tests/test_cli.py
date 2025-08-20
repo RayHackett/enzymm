@@ -52,6 +52,8 @@ class Test_CLI(unittest.TestCase):
             molecule_path,
             "-o",
             cls.tempfile.name,
+            "-t",
+            selected_template_dir,
             "-j",
             "2",
             "0.5",
@@ -128,5 +130,5 @@ class Test_CLI(unittest.TestCase):
         self.assertEqual(retcode2, errno.EISDIR)
         with self.assertRaises(ValueError):
             main(self.bad_argument_3, stderr=io.StringIO())
-        with self.assertRaises(KeyError):
+        with self.assertRaises(ValueError):
             main(self.arguments_bad_unfiltered, stderr=io.StringIO())

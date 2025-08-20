@@ -180,6 +180,14 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
             2
         ]  # if equal to distance dynamic is off: this option is currenlty dysfunctional
 
+        known_distances = [
+            float(i) for i in Match._logistic_regression_models["3"].keys()
+        ]
+        if distance not in known_distances and not args.unfiltered:
+            raise ValueError(
+                "Filtering paraterms only established for pairwise distances in 0.7, 0.8, ... , 2.0A "
+            )
+
         jess_params = {
             3: {
                 "rmsd": rmsd,
