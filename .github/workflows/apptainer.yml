@@ -55,6 +55,13 @@ jobs:
           wget -qO- https://github.com/oras-project/oras/releases/download/v1.2.0/oras_1.2.0_linux_amd64.tar.gz \
             | tar -xvz -C $HOME/.local/bin
 
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Push with ORAS
         run: |
           export PATH=$HOME/.local/bin:$PATH
@@ -63,7 +70,7 @@ jobs:
             --artifact-type application/vnd.sylabs.sif.layer.v1 \
             enzymm.sif:application/vnd.sylabs.sif.layer.v1
 
-          oras push push ghcr.io/rayhackett/enzymm:latest \
+          oras push ghcr.io/rayhackett/enzymm:latest \
             --artifact-type application/vnd.sylabs.sif.layer.v1 \
             enzymm.sif:application/vnd.sylabs.sif.layer.v1
 
