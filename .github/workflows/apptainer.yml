@@ -50,14 +50,14 @@ jobs:
       - name: Install ORAS CLI
         run: |
           mkdir -p $HOME/.local/bin
-          export PATH=$HOME/.local/bin
+          export PATH=$HOME/.local/bin:$PATH
           apt install -y wget
           wget -qO- https://github.com/oras-project/oras/releases/download/v1.2.0/oras_1.2.0_linux_amd64.tar.gz \
             | tar -xvz -C $HOME/.local/bin
 
       - name: Push with ORAS
         run: |
-          export PATH=$HOME/.local/bin
+          export PATH=$HOME/.local/bin:$PATH
 
           oras push ghcr.io/${{ github.repository }}:${{ steps.get_tag.outputs.version }} \
             --artifact-type application/vnd.sylabs.sif.layer.v1 \
