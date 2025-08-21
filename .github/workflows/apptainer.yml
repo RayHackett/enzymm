@@ -9,7 +9,7 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
       id-token: write
 
@@ -21,11 +21,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      # - name: Install Apptainer
-      #   run: |
-      #     sudo apt-get update
-      #     sudo apt-get install -y apptainer
 
       - name: Extract version from tag
         id: get_tag
