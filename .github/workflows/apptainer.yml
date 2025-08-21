@@ -51,7 +51,7 @@ jobs:
         run: |
           mkdir -p $HOME/.local/bin
           export PATH=$HOME/.local/bin:$PATH
-          apt install -y wget
+          # sudo apt-get install -y wget
           wget -qO- https://github.com/oras-project/oras/releases/download/v1.2.0/oras_1.2.0_linux_amd64.tar.gz \
             | tar -xvz -C $HOME/.local/bin
 
