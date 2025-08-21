@@ -11,4 +11,4 @@ See Also:
 
 __author__ = "Raymund Hackett"
 __license__ = "MIT"
-__version__ = "0.1.2"
+__version__ = "0.1.3"
