@@ -59,11 +59,11 @@ jobs:
         run: |
           export PATH=$HOME/.local/bin:$PATH
 
-          oras push ghcr.io/${{ github.repository }}:${{ steps.get_tag.outputs.version }} \
+          oras push ghcr.io/rayhackett/enzymm:${{ steps.get_tag.outputs.version }} \
             --artifact-type application/vnd.sylabs.sif.layer.v1 \
             enzymm.sif:application/vnd.sylabs.sif.layer.v1
 
-          oras push ghcr.io/${{ github.repository }}:latest \
+          oras push push ghcr.io/rayhackett/enzymm:latest \
             --artifact-type application/vnd.sylabs.sif.layer.v1 \
             enzymm.sif:application/vnd.sylabs.sif.layer.v1
 
@@ -73,5 +73,5 @@ jobs:
 
       # - name: Push Apptainer image to GHCR
       #   run: |
-      #     apptainer push enzymm.sif oras://ghcr.io/${GITHUB_REPOSITORY}:${{ steps.get_tag.outputs.version }}
-      #     apptainer push enzymm.sif oras://ghcr.io/${GITHUB_REPOSITORY}:latest
+      #     apptainer push enzymm.sif oras://ghcr.io/rayhackett/enzymm:${{ steps.get_tag.outputs.version }}
+      #     apptainer push enzymm.sif oras://ghcr.io/rayhackett/enzymm:latest
