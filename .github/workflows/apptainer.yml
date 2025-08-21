@@ -62,23 +62,27 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push with ORAS
-        run: |
-          export PATH=$HOME/.local/bin:$PATH
+      # - name: Push with ORAS
+      #   run: |
+      #     export PATH=$HOME/.local/bin:$PATH
 
-          oras push ghcr.io/rayhackett/enzymm:${{ steps.get_tag.outputs.version }} \
-            --artifact-type application/vnd.sylabs.sif.layer.v1 \
-            enzymm.sif:application/vnd.sylabs.sif.layer.v1
+      #     oras push ghcr.io/rayhackett/enzymm:${{ steps.get_tag.outputs.version }} \
+      #       --artifact-type application/vnd.sylabs.sif.layer.v1 \
+      #       enzymm.sif:application/vnd.sylabs.sif.layer.v1
 
-          oras push ghcr.io/rayhackett/enzymm:latest \
-            --artifact-type application/vnd.sylabs.sif.layer.v1 \
-            enzymm.sif:application/vnd.sylabs.sif.layer.v1
+      #     oras push ghcr.io/rayhackett/enzymm:latest \
+      #       --artifact-type application/vnd.sylabs.sif.layer.v1 \
+      #       enzymm.sif:application/vnd.sylabs.sif.layer.v1
+
+      #     oras push ghcr.io/rayhackett/enzymm:latest \
+      #       --artifact-type application/vnd.sylabs.sif \
+      #       enzymm.sif
 
       # - name: Login to GHCR
       #   run: |
       #     echo ${{ secrets.GITHUB_TOKEN }} | apptainer registry login -u ${{ github.repository_owner }} --password-stdin oras://ghcr.io
 
-      # - name: Push Apptainer image to GHCR
-      #   run: |
-      #     apptainer push enzymm.sif oras://ghcr.io/rayhackett/enzymm:${{ steps.get_tag.outputs.version }}
-      #     apptainer push enzymm.sif oras://ghcr.io/rayhackett/enzymm:latest
+      - name: Push Apptainer image to GHCR
+        run: |
+          apptainer push enzymm.sif oras://ghcr.io/rayhackett/enzymm:${{ steps.get_tag.outputs.version }}
+          apptainer push enzymm.sif oras://ghcr.io/rayhackett/enzymm:latest
