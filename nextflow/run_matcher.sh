@@ -19,6 +19,7 @@ if [ ${PROFILE} == "cluster_lumc" ]; then
     WORKFLOW="/exports/archive/lucid-grpzeller-primary/hackett/template_matching/nextflow/template_matcher.nf"
     CONFIG="/exports/archive/lucid-grpzeller-primary/hackett/template_matching/nextflow/matcher.config"
     module load bioinformatics/tools/Nextflow/25.04.6 # LUMC cluster
+    module load container/apptainer/1.4.1/gcc-8.5.0 
     WORKDIR=/exports/lucid-grpzeller-work/rehackett/${PROJECT}/
     PARAMS="params_lumc.yml"
 
@@ -39,6 +40,9 @@ mkdir -p ${WORKDIR}
 # ln -sf $WORKDIR work
 
 # nextflow pull ${WORKFLOW} -r ${WORKFLOW_VERSION}
+
+# Mount the home dir
+export NXF_APPTAINER_HOME_MOUNT=TRUE
 
 nextflow run ${WORKFLOW} \
     -profile ${PROFILE} \

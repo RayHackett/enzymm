@@ -73,7 +73,6 @@ process matching {
     script:
     """
     echo $SLURM_JOB_ID
-    export PYTHONPATH='/exports/archive/lucid-grpzeller-primary/hackett/template_matching/'
-    python -m enzymm -l ${input_file} -o output.tsv ${jess_params}${matcher_params}
+    enzymm -l ${input_file} -o output.tsv ${jess_params}${matcher_params}
     """
 }
