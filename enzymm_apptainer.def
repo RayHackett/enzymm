@@ -33,7 +33,8 @@ From: python:3.13-alpine
         build-base \
         python3-dev \
         gcc \
-        musl-dev
+        musl-dev \
+        bash
 
     pip install --upgrade pip setuptools wheel
 
@@ -45,5 +46,8 @@ From: python:3.13-alpine
     rm -rf /wheels
 
 %runscript
-    exec enzymm "$@"
+    #!/bin/bash
+    exec /bin/bash "$@"
 
+%apprun enzymm
+    exec enzymm "$@"
