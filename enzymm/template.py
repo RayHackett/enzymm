@@ -10,6 +10,7 @@ import math
 import re
 import json
 from pathlib import Path
+import functools
 from typing import (
     Any,
     Sequence,
@@ -478,10 +479,10 @@ class Template(pyjess.Template):
 
     def __init__(
         self,
+        *,
         residues: Sequence[Residue],
         pdb_id: Optional[str] = None,
         mcsa_id: Optional[int] = None,
-        *,
         id: Optional[str] = None,
         template_id_string: Optional[str] = None,
         cluster: Optional[Cluster] = None,
@@ -541,13 +542,8 @@ class Template(pyjess.Template):
                     f"Tried creating a `Template` from different types of `Residue` objects. Got {type(residue) and type(residues[0])}"
                 )
 
-        atoms: List[pyjess.TemplateAtom] = []
-        for residue in residues:
-            atoms.extend(residue._atoms)
-
-        super().__init__(atoms, id=id)
-
         self.residues = tuple(residues)
+        super().__init__([atom for r in self.residues for atom in r._atoms], id=id)
         self.pdb_id = pdb_id
         self.mcsa_id = mcsa_id
         self.template_id_string = template_id_string
@@ -564,6 +560,7 @@ class Template(pyjess.Template):
         self.cath = tuple(sorted({*cath, *self._add_cath_annotations()}))
 
     def _state(self) -> Tuple:
+        """Used only for computing a hash and for equality comparisons"""
         return (
             tuple(self.residues),
             self.id,
@@ -581,6 +578,30 @@ class Template(pyjess.Template):
             self.represented_sites,
             self.ec,
             self.cath,
+        )
+
+    def __reduce_ex__(self, protocol):
+
+        return (
+            functools.partial(
+                Template,
+                residues=self.residues,
+                pdb_id=self.pdb_id,
+                mcsa_id=self.mcsa_id,
+                id=self.id,
+                template_id_string=self.template_id_string,
+                cluster=self.cluster,
+                uniprot_id=self.uniprot_id,
+                organism=self.organism,
+                organism_id=self.organism_id,
+                resolution=self.resolution,
+                experimental_method=self.experimental_method,
+                enzyme_discription=self.enzyme_discription,
+                represented_sites=self.represented_sites,
+                ec=self.ec,
+                cath=self.cath,
+            ),
+            (),
         )
 
     def __copy__(self) -> Template:
@@ -1042,10 +1063,10 @@ class AnnotatedTemplate(Template):
 
     def __init__(
         self,
+        *,
         residues: Sequence[AnnotatedResidue],
         pdb_id: str,
         mcsa_id: int,
-        *,
         number_of_mutated_residues: int,
         number_of_metal_ligands: Tuple[int, int],
         number_of_ptm_residues: Tuple[int, int],
@@ -1128,7 +1149,7 @@ class AnnotatedTemplate(Template):
             cath=cath,
         )
 
-        # Now add in all the special information
+        # Now we add in all the special information
         self.residues = tuple(residues)
         self.number_of_mutated_residues = number_of_mutated_residues
         self.number_of_metal_ligands = number_of_metal_ligands
@@ -1137,12 +1158,40 @@ class AnnotatedTemplate(Template):
         self.total_reference_residues = total_reference_residues
         self.assembly = assembly
 
-    def _state(self) -> Tuple:
-        atoms: List[pyjess.TemplateAtom] = []
-        for residue in self.residues:
-            atoms.extend(residue._atoms)
+    def __reduce_ex__(self, protocol):
+        return (
+            functools.partial(
+                AnnotatedTemplate,
+                residues=self.residues,
+                pdb_id=self.pdb_id,
+                mcsa_id=self.mcsa_id,
+                number_of_mutated_residues=self.number_of_mutated_residues,
+                number_of_metal_ligands=self.number_of_metal_ligands,
+                number_of_ptm_residues=self.number_of_ptm_residues,
+                number_of_side_chain_residues=self.number_of_side_chain_residues,
+                total_reference_residues=self.total_reference_residues,
+                assembly=self.assembly,
+                id=self.id,
+                template_id_string=self.template_id_string,
+                cluster=self.cluster,
+                uniprot_id=self.uniprot_id,
+                organism=self.organism,
+                organism_id=self.organism_id,
+                resolution=self.resolution,
+                experimental_method=self.experimental_method,
+                enzyme_discription=self.enzyme_discription,
+                represented_sites=self.represented_sites,
+                ec=self.ec,
+                cath=self.cath,
+            ),
+            (),
+        )
 
-        residues = Residue.construct_residues_from_atoms(atoms=atoms)
+    def _state(self) -> Tuple:
+
+        residues = Residue.construct_residues_from_atoms(
+            atoms=[atom for r in self.residues for atom in r._atoms]
+        )
         # We use reuglar unanntoated residues to get the state!
         return (
             tuple(residues),

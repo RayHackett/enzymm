@@ -1,6 +1,7 @@
 import unittest
 import math
 from pathlib import Path
+import pickle
 
 try:
     from importlib.resources import files as resource_files
@@ -164,6 +165,10 @@ class TestVec3(unittest.TestCase):
         self.assertAlmostEqual(self.vec4.angle_to(self.vec5), math.pi)
         self.assertAlmostEqual(self.vec6.angle_to(self.vec7), 0)
 
+    def test_pickling(self):
+        vec1_pickle = pickle.loads(pickle.dumps(self.vec1))
+        self.assertEqual(self.vec1, vec1_pickle)
+
 
 class TestCluster(unittest.TestCase):
 
@@ -179,6 +184,10 @@ class TestCluster(unittest.TestCase):
         self.assertEqual(self.cluster1.id, 3)
         self.assertEqual(self.cluster1.size, 2)
         self.assertEqual(self.cluster1.member, 1)
+
+    def test_pickling(self):
+        cluster1_pickle = pickle.loads(pickle.dumps(self.cluster1))
+        self.assertEqual(self.cluster1, cluster1_pickle)
 
 
 class TestTemplate(unittest.TestCase):
@@ -542,6 +551,10 @@ class TestTemplate(unittest.TestCase):
                 tokens=[0, 1, "abcde"], metadata={}
             )
 
+    def test_pickling(self):
+        pickled_template1 = pickle.loads(pickle.dumps(self.template1))
+        self.assertEqual(self.template1, pickled_template1)
+
 
 class TestAnnotatedTemplate(unittest.TestCase):
 
@@ -621,6 +634,10 @@ class TestAnnotatedTemplate(unittest.TestCase):
             list(self.template1), list(template1_copy)
         )  # testing atoms copy
         self.assertEqual(self.template1, template1_copy)
+
+    def test_pickling(self):
+        template1_pickle = pickle.loads(pickle.dumps(self.template1))
+        self.assertEqual(self.template1, template1_pickle)
 
     def test_template_non_equality(self):
         # Test for template equality
@@ -755,6 +772,10 @@ class TestResidue(unittest.TestCase):
             self.residue2.orientation_vector_indices, (0, 1)
         )  # from atom 0 to atom 1
 
+    def test_pickling(self):
+        residue1_pickle = pickle.loads(pickle.dumps(self.residue1))
+        self.assertEqual(self.residue1, residue1_pickle)
+
 
 class TestAnnotatedResidue(unittest.TestCase):
 
@@ -828,6 +849,10 @@ class TestAnnotatedResidue(unittest.TestCase):
                 ]
             ),
         )
+
+    def test_pickling(self):
+        residue1_pickle = pickle.loads(pickle.dumps(self.residue1))
+        self.assertEqual(self.residue1, residue1_pickle)
 
 
 class TestTemplate_Checking(unittest.TestCase):
