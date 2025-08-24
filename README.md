@@ -12,7 +12,7 @@
 [![PyPI](https://img.shields.io/pypi/v/enzymm.svg?style=flat-square&maxAge=3600)](https://pypi.python.org/pypi/enzymm)
 [![Wheel](https://img.shields.io/pypi/wheel/enzymm?style=flat-square&maxAge=3600)](https://pypi.org/project/enzymm/#files)
 [![Docker](https://img.shields.io/badge/Docker-GHCR-blue?logo=docker)](https://github.com/users/rayhackett/packages/container/package/enzymm)
-[![Apptainer](https://img.shields.io/badge/Apptainer-ORAS-blue)](oras://ghcr.io/https://github.com/users/rayhackett/enzymm:latest)
+[![Apptainer](https://img.shields.io/badge/Apptainer-SIF-blue?logo=apptainer&style=flat)](https://github.com/rayhackett/enzymm/releases/latest)
 <!-- [![Paper](https://img.shields.io/badge/paper-JOSS-9400ff?style=flat-square&maxAge=86400)](https://doi.org/10.21105/joss.04296) -->
 <!-- [![Citations](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fbadge.dimensions.ai%2Fdetails%2Fid%2Fpub.1147419140%2Fmetadata.json&query=%24.times_cited&style=flat-square&label=citations&maxAge=86400)](https://badge.dimensions.ai/details/id/pub.1147419140) -->
 <!-- [![Bioconda](https://img.shields.io/conda/vn/bioconda/pyhmmer?logo=anaconda&style=flat-square&maxAge=3600)](https://anaconda.org/bioconda/pyhmmer) -->

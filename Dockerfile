@@ -36,6 +36,7 @@ COPY --from=build /wheels /wheels
 # Install wheels without build tools
 RUN pip install --no-cache-dir /wheels/*
 
+ENTRYPOINT ["/bin/bash"]
+# default to enzymm if no args passed
 # Entry point in pyproject.toml set with [project.scripts]\n enzymm = "enzymm._cli:main"
-CMD ["enzymm"]
-
+CMD ["-c", "enzymm"]

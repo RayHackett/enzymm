@@ -47,40 +47,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install ORAS CLI
-        run: |
-          mkdir -p $HOME/.local/bin
-          export PATH=$HOME/.local/bin:$PATH
-          # sudo apt-get install -y wget
-          wget -qO- https://github.com/oras-project/oras/releases/download/v1.2.0/oras_1.2.0_linux_amd64.tar.gz \
-            | tar -xvz -C $HOME/.local/bin
-
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      # - name: Push with ORAS
-      #   run: |
-      #     export PATH=$HOME/.local/bin:$PATH
-
-      #     oras push ghcr.io/rayhackett/enzymm:${{ steps.get_tag.outputs.version }} \
-      #       --artifact-type application/vnd.sylabs.sif.layer.v1 \
-      #       enzymm.sif:application/vnd.sylabs.sif.layer.v1
-
-      #     oras push ghcr.io/rayhackett/enzymm:latest \
-      #       --artifact-type application/vnd.sylabs.sif.layer.v1 \
-      #       enzymm.sif:application/vnd.sylabs.sif.layer.v1
-
-      #     oras push ghcr.io/rayhackett/enzymm:latest \
-      #       --artifact-type application/vnd.sylabs.sif \
-      #       enzymm.sif
-
-      # - name: Login to GHCR
-      #   run: |
-      #     echo ${{ secrets.GITHUB_TOKEN }} | apptainer registry login -u ${{ github.repository_owner }} --password-stdin oras://ghcr.io
 
       - name: Push Apptainer image to GHCR
         run: |
