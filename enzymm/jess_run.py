@@ -1004,7 +1004,8 @@ class Matcher:
 
         # this is to reverse the itertools product
         for (_, qmol), matches in zip(
-            itertools.product(job_batches, query_molecules), results, strict=True
+            itertools.product(job_batches, query_molecules),
+            results,
         ):
             if matches:
                 # # NOTE
