@@ -9,7 +9,8 @@ import io
 import sys
 import os
 import json
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from multiprocessing.pool import ThreadPool
+import functools
 from typing import List, Tuple, Dict, Optional, IO, ClassVar
 from functools import cached_property
 from dataclasses import dataclass, field
@@ -17,7 +18,8 @@ from pathlib import Path
 
 import rich
 import pyjess
-from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
+from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn, TaskID, Task
+from readerwriterlock import rwlock
 
 try:
     from importlib.resources import files as resource_files
@@ -25,7 +27,7 @@ except ImportError:
     from importlib_resources import files as resource_files  # type: ignore
 
 from enzymm.template import Template, AnnotatedTemplate, Vec3, check_template
-from enzymm.utils import chunks, ranked_argsort
+from enzymm.utils import chunks, ranked_argsort, DummyPool
 from enzymm.utils import PROTEINOGENIC_AMINO_ACIDS, SPECIAL_AMINO_ACIDS
 
 __all__ = [
@@ -78,6 +80,19 @@ class Match:
     _logistic_regression_models: ClassVar[
         Dict[str, Dict[str, List[LogisticRegressionModel]]]
     ]
+
+    def __reduce_ex__(self, protocol):
+        return (
+            functools.partial(
+                Match,
+                hit=self.hit,
+                complete=self.complete,
+                pairwise_distance=self.pairwise_distance,
+                index=self.index,
+                # we skip the _logistic_regression_models since it is a ClassVar
+            ),
+            (),
+        )
 
     def dumps(self, header: bool = False) -> str:
         """
@@ -555,6 +570,21 @@ def load_molecules(
     return molecules
 
 
+@dataclass
+class QueryMolecule:
+    molecule: pyjess.Molecule
+    lock: rwlock.Lockable = rwlock.RWLockRead().gen_rlock()
+    # the lock is similar to: threading.Lock = threading.Lock()
+    hit_found: bool = False
+    hit_size: int = 0
+
+
+class StructuresColumn(rich.progress.ProgressColumn):
+    def render(self, task: Task):
+        job_batches = task.fields.get("job_batches", 1)
+        return f"Structures {task.completed // job_batches}/{task.total // job_batches}"
+
+
 class Matcher:
     """
     Class from which a query `~pyjess.Molecule` is matched to a `list` of `Template`.
@@ -669,6 +699,7 @@ class Matcher:
         self.templates_by_effective_size: Dict[int, List[Template]] = (
             collections.defaultdict(list)
         )  # Dictionary of List of Template objects grouped by Template.effective_size as keys
+
         for template in templates:
             # skip smaller templates if match_small_templates is not set!
             if not self.match_small_templates and template.effective_size < 3:
@@ -838,6 +869,23 @@ class Matcher:
 
         return matches
 
+    def _filter_molecule_matches(
+        self,
+        all_matches: List[Match],
+    ):
+
+        # keep only matches predicted as correct
+        if self.filter_matches:
+            filtered_matches = []
+            for match in all_matches:
+                if match.predicted_correct:
+                    filtered_matches.append(match)
+            return filtered_matches
+
+        # return unchanged
+        else:
+            return all_matches
+
     def _single_query_run(
         self,
         molecule: pyjess.Molecule,
@@ -858,45 +906,10 @@ class Matcher:
         )
         self._check_completeness(matches)
 
-        return matches
-
-    def _filter_molecule_matches(
-        self,
-        all_matches: List[Match],
-    ):
-
-        # keep only matches predicted as correct
-        if self.filter_matches:
-            filtered_matches = []
-            for match in all_matches:
-                if match.predicted_correct:
-                    filtered_matches.append(match)
-            return filtered_matches
-
-        # return unchanged
-        else:
-            return all_matches
-
-    def _worker(
-        self,
-        mol: pyjess.Molecule,
-        template_size: int,
-    ):
-        templates = self.templates_by_effective_size[template_size]
-        rmsd, distance, max_dynamic_distance = self._get_jess_parameters(template_size)
-        results = self._single_query_run(
-            mol,
-            templates=templates,
-            rmsd_threshold=rmsd,
-            distance_cutoff=distance,
-            max_dynamic_distance=max_dynamic_distance,
-        )
-
-        return mol, self._filter_molecule_matches(results)
+        return self._filter_molecule_matches(matches)
 
     def run(
-        self,
-        molecules: List[pyjess.Molecule],
+        self, molecules: List[pyjess.Molecule]
     ) -> Dict[pyjess.Molecule, List[Match]]:
         """
         Run the matcher against a `list` of query `~pyjess.Molecule` to search.
@@ -907,69 +920,103 @@ class Matcher:
         Returns:
             `dict` of `~pyjess.Molecule` --> `list` of `Match`: Dictionary of query molecules as keys and all found matches as values.
         """
-
         processed_molecules: Dict[pyjess.Molecule, List[Match]] = (
             collections.defaultdict(list)
         )
 
-        # state: a dict of molecule: template sizes which still need to be searched
-        # Each molecule has a copy of the template size list
-        remaining_sizes = {
-            mol: self.template_effective_sizes.copy() for mol in molecules
-        }
+        query_molecules = [QueryMolecule(molecule=mol) for mol in molecules]
 
-        with ThreadPoolExecutor(max_workers=self.cpus) as pool, Progress(
+        # batches of templates with only one size of templates within each batch
+        # batches must be pure in terms of template size
+        ordered_template_batches: List[Tuple[Tuple[pyjess.Template, ...], int]] = []
+        for template_size in self.template_effective_sizes:
+            for batch in chunks(
+                iterable=self.templates_by_effective_size[template_size], n=100
+            ):
+                ordered_template_batches.append((batch, template_size))
+
+        job_batches = []
+        for template_batch, template_size in ordered_template_batches:
+
+            rmsd, distance, max_dynamic_distance = self._get_jess_parameters(
+                template_size
+            )
+
+            the_function = functools.partial(
+                self._single_query_run,
+                templates=template_batch,
+                rmsd_threshold=rmsd,
+                distance_cutoff=distance,
+                max_dynamic_distance=max_dynamic_distance,
+            )
+
+            job_batches.append(the_function)
+
+        def process(
+            batch_partial: functools.partial,
+            molecule: QueryMolecule,
+            progress: Progress,
+            task: TaskID,
+        ):
+
+            template_size = batch_partial.keywords["templates"][0].effective_size
+
+            if self.skip_smaller_hits:
+                with molecule.lock:
+                    if molecule.hit_found and molecule.hit_size > template_size:
+                        progress.advance(task_id=task)
+                        return []
+
+            # call the partial function with the molecule
+            results = list(batch_partial(molecule=molecule.molecule))
+
+            if results and self.skip_smaller_hits:
+                with molecule.lock:
+                    molecule.hit_found = True
+                    molecule.hit_size = template_size
+
+            progress.advance(task_id=task)
+
+            return results
+
+        pool: DummyPool | ThreadPool = (
+            DummyPool() if self.cpus == 1 else ThreadPool(self.cpus)
+        )
+
+        with pool, Progress(
             SpinnerColumn(),
             *Progress.get_default_columns(),
             TimeElapsedColumn(),
-            "Structures {task.completed}/{task.total}",
+            StructuresColumn(),
             console=self.console,
         ) as progress:
 
-            task_id = progress.add_task(
-                description="[green]Searching structures ...", total=len(molecules)
+            task = progress.add_task(
+                "Searching Structures",
+                total=len(job_batches) * len(molecules),
+                job_batches=len(job_batches),
+            )
+            _process = functools.partial(process, progress=progress, task=task)
+
+            results = list(
+                pool.starmap(_process, itertools.product(job_batches, query_molecules))
             )
 
-            futures = {}
-            # Seed jobs with the largest template size per molecule
-            for mol, sizes in remaining_sizes.items():
-                if sizes:
-                    futures[pool.submit(self._worker, mol, sizes.pop(0))] = mol
-                else:
-                    progress.advance(task_id)
-
-            while futures:
-                for fut in as_completed(futures, timeout=None):
-                    mol = futures.pop(fut)
-
-                    # # if there is an error in the worker function, id like to see it
-                    # results = None
-                    # try:
-                    #     mol, results = fut.result()
-                    # except Exception as e:
-                    #     raise e
-
-                    # but for now i trust the worker function 100%
-                    mol, results = fut.result()
-
-                    if results:  # match found --> stop further searches with molecule
-                        processed_molecules[mol].extend(results)
-                        if self.skip_smaller_hits:
-                            progress.advance(task_id)
-                            remaining_sizes.pop(
-                                mol, None
-                            )  # remove to stop further jobs
-                            continue
-
-                    # no match --> schedule next smaller template for this molecule
-                    sizes = remaining_sizes[mol]
-                    if sizes:
-                        next_size = sizes.pop(0)
-                        futures[pool.submit(self._worker, mol, next_size)] = mol
-                    else:
-                        # Exhausted all sizes with no match
-                        progress.advance(task_id)
-                        remaining_sizes.pop(mol, None)
+        # this is to reverse the itertools product
+        for (_, qmol), matches in zip(
+            itertools.product(job_batches, query_molecules), results, strict=True
+        ):
+            if matches:
+                # # NOTE
+                # # due to parallelism some smaller results might have get computed
+                # # and will not be skipped. These run at no extra time cost
+                # # to clean those up too, uncomment this
+                # if self.skip_smaller_hits:
+                #     matches = [
+                #         match for match in matches
+                #         if match.hit.template.effective_size == qmol.hit_size
+                #     ]
+                processed_molecules[qmol.molecule].extend(matches)
 
         return processed_molecules
 

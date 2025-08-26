@@ -1,5 +1,4 @@
-import typing
-from typing import List, Tuple, Iterable, Iterator, TypeVar, Any, Literal, Callable
+from typing import List, Tuple, Iterable, Iterator, TypeVar, Any, Callable
 from itertools import islice
 import json
 
@@ -90,14 +89,6 @@ def json_extract(obj: Any, key: X) -> List[X]:
 
     values = extract(obj, arr, key)
     return values
-
-
-@typing.overload
-def chunks(iterable: Iterable[T], n: Literal[2]) -> Iterator[Tuple[T, T]]: ...
-
-
-@typing.overload
-def chunks(iterable: Iterable[T], n: Literal[3]) -> Iterator[Tuple[T, T, T]]: ...
 
 
 def chunks(iterable: Iterable[T], n: int) -> Iterator[Tuple[T, ...]]:
