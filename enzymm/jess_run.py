@@ -573,7 +573,7 @@ def load_molecules(
 @dataclass
 class QueryMolecule:
     molecule: pyjess.Molecule
-    lock: rwlock.Lockable = rwlock.RWLockRead().gen_rlock()
+    lock: rwlock.Lockable = field(default_factory=rwlock.RWLockRead)
     # the lock is similar to: threading.Lock = threading.Lock()
     hit_found: bool = False
     hit_size: int = 0
@@ -962,7 +962,7 @@ class Matcher:
             template_size = batch_partial.keywords["templates"][0].effective_size
 
             if self.skip_smaller_hits:
-                with molecule.lock:
+                with molecule.lock.gen_rlock():
                     if molecule.hit_found and molecule.hit_size > template_size:
                         progress.advance(task_id=task)
                         return []
@@ -971,7 +971,7 @@ class Matcher:
             results = list(batch_partial(molecule=molecule.molecule))
 
             if results and self.skip_smaller_hits:
-                with molecule.lock:
+                with molecule.lock.gen_wlock():
                     molecule.hit_found = True
                     molecule.hit_size = template_size
 
