@@ -22,12 +22,17 @@ class Test_CLI(unittest.TestCase):
         molecule_path = str(
             Path(resource_files(test_data).joinpath("1AMY.pdb")).resolve()
         )
-
         list_path = str(
             Path(resource_files(test_data).joinpath("input_list.txt")).resolve()
         )
         list_path2 = str(
             Path(resource_files(test_data).joinpath("input_dir.txt")).resolve()
+        )
+        list_path3 = str(
+            Path(resource_files(test_data).joinpath("input_list_bad.txt")).resolve()
+        )
+        list_path4 = str(
+            Path(resource_files(test_data).joinpath("input_list_bad2.txt")).resolve()
         )
 
         selected_template_dir = str(
@@ -103,6 +108,28 @@ class Test_CLI(unittest.TestCase):
             "-o",
             cls.tempfile.name,
         ]  # no input
+
+        cls.bad_argument_4 = [
+            "-i",
+            list_path,
+            "-o",
+            cls.tempfile.name,
+        ]  # passing a something other than a PDB through -i
+
+        cls.bad_argument_5 = [
+            "-l",
+            list_path3,
+            "-o",
+            cls.tempfile.name,
+        ]  # passing a missing PDB in the list
+
+        cls.bad_argument_6 = [
+            "-l",
+            list_path4,
+            "-o",
+            cls.tempfile.name,
+        ]  # passing something which is not a PDB in the list
+
         cls.arguments_bad_unfiltered = [
             "-i",
             molecule_path,
@@ -130,5 +157,12 @@ class Test_CLI(unittest.TestCase):
         self.assertEqual(retcode2, errno.EISDIR)
         with self.assertRaises(ValueError):
             main(self.bad_argument_3, stderr=io.StringIO())
+        with self.assertRaises(ValueError):
+            main(self.bad_argument_4, stderr=io.StringIO())
+        retcode3 = main(self.bad_argument_5, stderr=io.StringIO())
+        print(retcode3)
+        self.assertEqual(retcode3, errno.ENOENT)
+        with self.assertRaises(ValueError):
+            main(self.bad_argument_6, stderr=io.StringIO())
         with self.assertRaises(ValueError):
             main(self.arguments_bad_unfiltered, stderr=io.StringIO())

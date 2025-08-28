@@ -318,7 +318,6 @@ class TestMatcher(unittest.TestCase):
         processed_molecules_2 = self.template_matcher2.run(
             molecules=[self.molecule, self.molecule3]
         )
-
         processed_molecules_3 = self.template_matcher3.run(
             molecules=[self.molecule, self.molecule3]
         )

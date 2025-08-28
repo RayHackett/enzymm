@@ -225,7 +225,6 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
         molecules = load_molecules(
             molecule_paths=args.files,
             conservation_cutoff=args.conservation_cutoff,
-            warn=args.warn,
         )
 
         templates = list(

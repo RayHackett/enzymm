@@ -535,7 +535,7 @@ with resource_files(__package__).joinpath("data", "logistic_regression_models.js
 
 
 def load_molecules(
-    molecule_paths: List[Path], conservation_cutoff: float = 0, warn: bool = False
+    molecule_paths: List[Path], conservation_cutoff: float = 0
 ) -> List[pyjess.Molecule]:
     """Load query molecules"""
     molecules = []
@@ -561,11 +561,13 @@ def load_molecules(
             molecules.append(
                 molecule
             )  # load a molecule and filter it by conservation_cutoff
-        elif warn:
-            warnings.warn(f"received an empty molecule from {molecule_path}")
+        else:
+            raise ValueError(
+                f"Received an empty molecule from {molecule_path}. Is this file in PDB format?"
+            ) from None
 
-    if not molecules and warn:
-        warnings.warn("received no molecules from input")
+    if not molecules:
+        raise FileNotFoundError("Received no molecules from -i or -l input!") from None
 
     return molecules
 
@@ -573,7 +575,7 @@ def load_molecules(
 @dataclass
 class QueryMolecule:
     molecule: pyjess.Molecule
-    lock: rwlock.Lockable = field(default_factory=rwlock.RWLockRead)
+    lock: rwlock.RWLockRead = field(default_factory=rwlock.RWLockRead)
     # the lock is similar to: threading.Lock = threading.Lock()
     hit_found: bool = False
     hit_size: int = 0

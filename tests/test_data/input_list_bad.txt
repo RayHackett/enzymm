@@ -1,0 +1,2 @@
+tests/test_data/1AMY.pdb
+tests/test_data/doesnt_exist.pdb
