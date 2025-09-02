@@ -212,9 +212,9 @@ class ModelEnsemble:
                 raise KeyError(
                     f"Missing appropriate model parameters to predict correctness. No models for the template effective size {template_effective_size} and pairwise distance {pairwise_distance} were provided"
                 ) from exc
-            except IndexError as exc:
-                raise IndexError(
-                    "Missing coefficients for both RMSD and Residue Orientation. Expecting models with 2 coeficients."
+            except TypeError as exc:
+                raise TypeError(
+                    "Provide the model with the expected model parameters. Likely expecting coeficients for `rmsd` and `orientation`"
                 ) from exc
 
 
