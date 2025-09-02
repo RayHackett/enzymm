@@ -343,7 +343,9 @@ class Match:
         file.write("END\n\n")
 
     def dump(
-        self, file: IO[str], header: bool = False, predict_correctness: bool = True
+        self,
+        file: IO[str],
+        header: bool = False,
     ):
         """
         Dump the information associated with a `Match` to a '.tsv' like line.
@@ -351,7 +353,6 @@ class Match:
         Arguments:
             file: `file-like` object to write to
             header: `bool` If a header line should be written too
-            predict_correctness: 'bool' Wether to predict if the match is correct or not
 
         Note:
             Coordinate information is not written.
@@ -426,7 +427,7 @@ class Match:
             str(round(self.orientation, 5)),
             str(self.preserved_resid_order),
             str(self.complete),
-            str(self.predicted_correct) if predict_correctness else "",
+            str(self.predicted_correct),
             (",".join("_".join(t) for t in self.matched_residues)),
         ]
 

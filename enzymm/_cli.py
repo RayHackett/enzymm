@@ -277,7 +277,6 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
                     match.dump(
                         tsvfile,
                         header=(i == 0),
-                        predict_correctness=not args.unfiltered,
                     )  # one line per match, write header only for the first match
 
         # TODO with multiple matches per query we have two options:
