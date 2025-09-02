@@ -82,6 +82,13 @@ class HomologousPDB:
 
     """
 
+    # NOTE
+    # I purposefully left out UniProt Identifers because for some PDBchains are
+    # not easily assigned to a UniProt Identifer. Sifts does a great job but
+    # some chains are not in UniProt / are not mapped
+    # even worse, some chains have multiple covalently attached UniProts
+    # and are chimeric (sometimes even across different species)
+
     # because we iteratively add residues, the HomologousPDB dataclass
     # cannot be frozen
     mcsa_id: int

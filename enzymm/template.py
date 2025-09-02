@@ -850,10 +850,22 @@ class Template(pyjess.Template):
             res.chain_id == list(self.residues)[0].chain_id for res in self.residues
         )
 
-    # TODO add annotation for homo-meric or hetero-meric!
-    # these would have to be m-csa derived. in the entry json,
-    # such catalytic sites are labeled under reaction as polymeric.
-    # homoeric multimeric sites are not labeled polymeric
+        # NOTE
+        # Some catalytic sites are at the interface between chains.
+        # Sometimes these interaces are between heteromers, sometimes between homomers
+        # Sometimes an enzyme is also only active as a multimer even though each chain
+        # has its own catalytic site. These are allosteric effects.
+
+        # Currently templates only describe momomeric catalytic sites
+        # and catalytic sites at the interface between homomers.
+        # Each template has its own UniProt ID
+
+        # For some M-CSA entries the reference has an interfacial site
+        # but some of the PDB homologs / Template derived structures are not interfacial
+        # and vice versa. This means that assembly of the template structure
+        # and the reference are not necessarily the same. Example: M-CSA 9 reference vs
+        # PDB: 1o93 with residues 58 and 259
+        # For this reason, we chose to ignore chain assignments in template matching.
 
     @cached_property
     def relative_order(
@@ -1565,22 +1577,23 @@ def _get_paths_by_extension(directory_path: Path, extension: str) -> List[Path]:
 
 
 def load_templates(
-    template_dir: Path | None,
+    template_dir: Optional[Path] = None,
     warn: bool = False,
     verbose: bool = False,
-    cpus: int = (
-        len(os.sched_getaffinity(0)) if sys.platform == "linux" else os.cpu_count() or 1
-    ),
+    cpus: int = 1,  # faster with one thread
+    # cpus: int = (
+    #     len(os.sched_getaffinity(0)) if sys.platform == "linux" else os.cpu_count() or 1
+    # ),
     with_annotations: bool = True,
 ) -> Iterator[Template | AnnotatedTemplate]:
     """
     Load templates from a given directory, recursively.
 
     Arguments:
-        template_dir: `~pathlib.Path` | `None` Directory which to search recursively for files with the '.pdb' extension. If `None`, defaults to templates included in this library.
+        template_dir: `~pathlib.Path` | `None` Directory which to search recursively for files with the '.pdb' extension. By default, set to `None`, it will load templates included in this library.
         warn: `bool` If warnings about annoation issues in templates should be printed. Default `False`
         verbose: `bool` If loading should be verbose. Default `False`
-        cpus: `int` The number of CPU threads to use. If (default), use all threads. If <0, leave this number of threads free.
+        cpus: `int` The number of CPU threads to use. By default, use 1 thread. If <0, leave this number of threads free.
         with_annotations: `bool` If True (default) M-CSA derived templates with a PDB-id and M-CSA id will be annotated with extra information.
 
     Yields:
