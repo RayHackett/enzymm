@@ -13,7 +13,7 @@ import pyjess
 
 import enzymm
 from . import test_data
-from enzymm import template, jess_run
+from enzymm import template, jess_run, __version__
 
 
 class TestMatch(unittest.TestCase):
@@ -147,12 +147,12 @@ class TestMatch(unittest.TestCase):
 
     def test_match_dump(self):
         buffer = io.StringIO()
-        self.match1.dump(buffer, header=True)
+        self.match1.dump(buffer, header=False)
         with resource_files(test_data).joinpath("results.tsv").open() as f:
             self.assertEqual(buffer.getvalue(), f.read())
 
     def test_match_dumps(self):
-        dumps_string = "query_id	pairwise_distance	match_index	template_pdb_id	template_pdb_chains	template_cluster_id	template_cluster_member	template_cluster_size	template_effective_size	template_dimension	template_mcsa_id	template_uniprot_id	template_ec	template_cath	template_multimeric	query_multimeric	query_atom_count	query_residue_count	rmsd	log_evalue	orientation	preserved_order	completeness	predicted_correct	matched_residues	number_of_mutated_residues	number_of_side_chain_residues_(template,reference)	number_of_metal_ligands_(template,reference)	number_of_ptm_residues_(template, reference)	total_reference_residues\n1AMY	1.5	0	1uh3	A	1	1	1	5	5	285	Q60053	3.2.1.10,3.2.1.135	2.60.40.10,2.60.40.1180,3.20.20.80	False	False	3339	403	0.32093	-3.08424	0.15327	True	True	True	GLU_A_204,ASP_A_87,ASP_A_179,HIS_A_288,ASP_A_289	0	5,5	0,0	0,0	5\n"
+        dumps_string = f"# Enzymm Version {__version__} running PyJess Version {pyjess.__version__}\nquery_id	pairwise_distance	match_index	template_pdb_id	template_pdb_chains	template_cluster_id	template_cluster_member	template_cluster_size	template_effective_size	template_dimension	template_mcsa_id	template_uniprot_id	template_ec	template_cath	template_multimeric	query_multimeric	query_atom_count	query_residue_count	rmsd	log_evalue	orientation	preserved_order	completeness	predicted_correct	matched_residues	number_of_mutated_residues	number_of_side_chain_residues_(template,reference)	number_of_metal_ligands_(template,reference)	number_of_ptm_residues_(template, reference)	total_reference_residues\n1AMY	1.5	0	1uh3	A	1	1	1	5	5	285	Q60053	3.2.1.10,3.2.1.135	2.60.40.10,2.60.40.1180,3.20.20.80	False	False	3339	403	0.32093	-3.08424	0.15327	True	True	True	GLU_A_204,ASP_A_87,ASP_A_179,HIS_A_288,ASP_A_289	0	5,5	0,0	0,0	5\n"
         self.assertEqual(self.match1.dumps(header=True), dumps_string)
 
     def test_match_dump2pdb(self):

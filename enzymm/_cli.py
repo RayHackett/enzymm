@@ -270,7 +270,7 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
             )
 
         with open(out_tsv, "w", newline="", encoding="utf-8") as tsvfile:
-            tsvfile.write(f"# Version {__version__}\n")
+            tsvfile.write(f"# Command: {' '.join(sys.argv)}\n")
             for index, (molecule, matches) in enumerate(processed_molecules.items()):
                 for jndex, match in enumerate(matches):
                     i = index + jndex

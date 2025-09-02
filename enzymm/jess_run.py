@@ -36,6 +36,7 @@ try:
 except ImportError:
     from importlib_resources import files as resource_files  # type: ignore
 
+from enzymm import __version__
 from enzymm.template import Template, AnnotatedTemplate, Vec3, check_template
 from enzymm.utils import chunks, ranked_argsort, DummyPool
 from enzymm.utils import PROTEINOGENIC_AMINO_ACIDS, SPECIAL_AMINO_ACIDS
@@ -363,6 +364,9 @@ class Match:
         cluster = self.hit.template.cluster
 
         if header:
+            file.write(
+                f"# Enzymm Version {__version__} running PyJess Version {pyjess.__version__}\n"
+            )
             writer.writerow(
                 [
                     "query_id",
@@ -926,15 +930,8 @@ class Matcher:
             max_dynamic_distance=max_dynamic_distance,
             max_candidates=max_candidates,
             best_match=True,
-            ignore_chain=False,
+            ignore_chain=False,  # "residue",
         )  # query is pyjess.Query object which is an iterator over pyjess.Hits
-
-        # TODO ignore_chain is a bit ambigous. it will disable checks within the same residue too. this means that a single residue from a template could match 2 atoms from one chain and a 3third atom from another chain assuming they are in close enough proximity
-        # we want the ignore chain only on the inter-residue level not on the intra-residue level!!!
-
-        # ignore_chain=True disables checks for chain relationship
-        # i.e. if two atoms are on a different chain in the template
-        # they must also be on different chains in the target
 
         # best_match=True reports only the single best match between template and target
         # For this to make sense consider that:
