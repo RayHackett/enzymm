@@ -11,7 +11,17 @@ import os
 import json
 from multiprocessing.pool import ThreadPool
 import functools
-from typing import List, Tuple, Dict, Optional, IO, ClassVar
+from typing import (
+    List,
+    Tuple,
+    Dict,
+    Optional,
+    IO,
+    Iterable,
+    Sequence,
+    Callable,
+    ClassVar,
+)
 from functools import cached_property
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -32,6 +42,7 @@ from enzymm.utils import PROTEINOGENIC_AMINO_ACIDS, SPECIAL_AMINO_ACIDS
 
 __all__ = [
     "LogisticRegressionModel",
+    "ModelEnsemble",
     "Match",
     "Matcher",
 ]
@@ -47,14 +58,164 @@ class LogisticRegressionModel:
     Trained on data for matches with a particular size at a particular pairwise distance
 
     Attributes:
-        coeficients: `list` of `floats` beta coefficients
+        coef: `list` of `floats` beta coefficients
         intercept: `float` beta0 intercept
         threshold: `float` optimal threshold for this model
     """
 
-    coefficents: List[float]
+    coef: List[float]
     intercept: float
     threshold: float
+
+    @cached_property
+    def logit_threshold(self) -> float:
+        """Precomputed logit value of the threshold"""
+        return math.log(self.threshold / (1 - self.threshold))
+
+    def __call__(
+        self,
+        rmsd: float,
+        orientation: float,
+    ) -> bool:
+        """
+        Make a prediction with the Logistc Regression Model based on RMSD and residue orientation.
+
+        Attributes:
+            rmsd `float`: RMSD value of the match
+            orientation `float`: residue orientation of the match
+
+        Returns:
+            `bool`: If the match is predicted as correct or not
+        """
+
+        predicted_logit = (
+            self.intercept + self.coef[0] * rmsd + self.coef[1] * orientation
+        )
+        # We compare logits
+        return predicted_logit >= self.logit_threshold
+
+
+@dataclass(frozen=True)
+class ModelEnsemble:
+    """
+    Ensemble of Models which each produce a binary prediction. The ensemble takes a majority vote.
+
+    Attributes:
+        ensemble: `Dict[int, Dict[float, List[Callable[..., bool]]]] Dictonary of template_effective_size of Dictonaries of pairwise_distance of a List of callable models.
+        min_true_template_size: `int` Minimum effective size of a template to be considered always correct.
+        minimum_effective_size: `int` Smallest template_effective_size for which there are models. Smaller template will be treated as if they had 3 residues.
+
+    Note:
+        The `ensemble` dictionary should cover at least 3 and 4 residue matches
+        at pairwise distances in the "usual" range - about 0.7 to 2.0A!
+        The call method will raise an error otherwise!
+
+    """
+
+    ensemble: Dict[int, Dict[float, List[Callable[..., bool]]]]
+    min_true_template_size: int
+    minimum_effective_size: int
+
+    @classmethod
+    def from_json(
+        cls,
+        json_file: IO[str],
+        model_cls: Callable,
+    ) -> ModelEnsemble:
+        """Build an ensemble model directly from an open JSON file"""
+
+        model_dict = json.load(json_file)
+
+        ensemble: Dict[int, Dict[float, List[Callable[..., bool]]]] = {}
+        for template_size, pairwise_dict in model_dict["match_size"].items():
+            ensemble[int(template_size)] = {}
+            for pairwise_distance, model_list in pairwise_dict[
+                "pairwise_distance"
+            ].items():
+                ensemble[int(template_size)][float(pairwise_distance)] = [
+                    model_cls(**param_dict)  # just unpacks the key, value pairs
+                    for param_dict in model_list["model_list"]
+                ]
+
+        min(ensemble.keys())
+
+        return cls(
+            ensemble=ensemble,
+            minimum_effective_size=min(ensemble.keys()),
+            min_true_template_size=max(ensemble.keys()) + 1,
+        )
+
+    def number_of_models(
+        self,
+        *,
+        template_effective_size: int,
+        pairwise_distance: float,
+    ) -> int:
+        """
+        Number of models for a given template_effective_size and pairwise_distance
+
+        Attributes:
+            template_effective_size: `int` Number of side chain residues in the template
+            pairwise_distance: `float` Pairwise distance of the match
+
+        Returns:
+            `int`: Number of models
+        """
+        return len(self.ensemble[template_effective_size][pairwise_distance])
+
+    def __call__(
+        self,
+        *,
+        template_effective_size: int,
+        pairwise_distance: float,
+        model_kwargs: Dict[str, float],
+    ) -> bool:
+        """
+        Make an ensemble prediction at a given template_effective_size and pairwise_distance
+
+        Attributes:
+            template_effective_size: `int` Number of side chain residues in the template
+            pairwise_distance: `float` Pairwise distance of the match
+            model_paramters: `float` Named floats to pass parameters to the individual models
+
+        Returns:
+            `bool`: Wether the match is predicted correct or false by the ensemble model
+        """
+
+        if template_effective_size >= self.min_true_template_size:
+            # Matches with 5+ residues are considered true
+            return True
+        else:
+            try:
+
+                # treat templates with smaller effective sizes as if they had 3 residues
+                if template_effective_size < self.minimum_effective_size:
+                    template_effective_size = 3
+
+                predictions = []
+                for model in self.ensemble[template_effective_size][pairwise_distance]:
+                    predictions.append(model(**model_kwargs))
+
+                # majority decision from all models
+                return bool(
+                    sum(predictions)
+                    >= -(
+                        -self.number_of_models(
+                            template_effective_size=template_effective_size,
+                            pairwise_distance=pairwise_distance,
+                        )
+                        // 2
+                    )
+                )
+
+            except KeyError as exc:
+                raise KeyError(
+                    f"Missing appropriate model parameters to predict correctness. No models for the template effective size {template_effective_size} and pairwise distance {pairwise_distance} were provided"
+                ) from exc
+            except IndexError as exc:
+                raise IndexError(
+                    "Missing coefficients for both RMSD and Residue Orientation. Expecting models with 2 coeficients."
+                ) from exc
 
 
 @dataclass
@@ -74,12 +235,10 @@ class Match:
     """
 
     hit: pyjess.Hit
-    complete: bool = field(default=False)
-    pairwise_distance: float = field(default=0)
-    index: int = field(default=0)
-    _logistic_regression_models: ClassVar[
-        Dict[str, Dict[str, List[LogisticRegressionModel]]]
-    ]
+    complete: bool = False
+    pairwise_distance: float = 0
+    index: int = 0
+    ensemble_model: ClassVar[ModelEnsemble]
 
     def __reduce_ex__(self, protocol):
         return (
@@ -311,53 +470,12 @@ class Match:
 
     @property
     def predicted_correct(self) -> bool:
-        """`bool`: If the match is predicted as correct based on logistic regression models."""
-        if (
-            str(self.hit.template.effective_size)
-            not in self._logistic_regression_models
-        ):  # Since no models for 5+ residue matches is provided, these are predicted as true
-            return True
-        else:
-            try:
-                predictions = []
-                for model in self._logistic_regression_models[
-                    str(self.hit.template.effective_size)
-                ][str(self.pairwise_distance)]:
-                    value = 1 / (
-                        1
-                        + math.e
-                        ** -(
-                            model.intercept
-                            + model.coefficents[0] * self.hit.rmsd
-                            + model.coefficents[1] * self.orientation
-                        )
-                    )
-                    predictions.append(value >= model.threshold)
-
-                # majority decision from all models
-                return bool(
-                    sum(predictions)
-                    >= round(
-                        (
-                            len(
-                                self._logistic_regression_models[
-                                    str(self.hit.template.effective_size)
-                                ][str(self.pairwise_distance)]
-                            )
-                            / 2
-                        ),
-                        0,
-                    )
-                )
-
-            except KeyError as exc:
-                raise KeyError(
-                    f"Missing appropriate model parameters to predict correctness. Encountered either unexpected dictionary structure or no models for the pairwise distance {self.pairwise_distance} were provided"
-                ) from exc
-            except IndexError as exc:
-                raise IndexError(
-                    "Missing coefficients for both RMSD and Residue Orientation. Expecting models with 2 coeficients."
-                ) from exc
+        """`bool`: If the match is predicted as correct based the ensemble model"""
+        return self.ensemble_model(
+            pairwise_distance=self.pairwise_distance,
+            template_effective_size=self.hit.template.effective_size,
+            model_kwargs={"rmsd": self.hit.rmsd, "orientation": self.orientation},
+        )
 
     @cached_property
     def atom_triplets(self) -> List[Tuple[pyjess.Atom, pyjess.Atom, pyjess.Atom]]:
@@ -510,28 +628,11 @@ class Match:
         return len(all_residue_numbers)
 
 
-# Load the logistic regression models from the json into a dictionary
 with resource_files(__package__).joinpath("data", "logistic_regression_models.json").open() as f:  # type: ignore
-    logistic_regression_models: Dict[str, Dict[str, List[LogisticRegressionModel]]] = {}
-    model_dict = json.load(f)
-
-    for template_size, pairwise_dict in model_dict["match_size"].items():
-        logistic_regression_models[template_size] = {}
-        for pairwide_distance, model_list in pairwise_dict["pairwise_distance"].items():
-            list_of_log_regression_models = []
-            for param_dict in model_list["model_list"]:
-                list_of_log_regression_models.append(
-                    LogisticRegressionModel(
-                        coefficents=param_dict["coef"],
-                        intercept=param_dict["intercept"],
-                        threshold=param_dict["threshold"],
-                    )
-                )
-            logistic_regression_models[template_size][
-                pairwide_distance
-            ] = list_of_log_regression_models
-
-    Match._logistic_regression_models = logistic_regression_models
+    Match.ensemble_model = ModelEnsemble.from_json(
+        f,
+        model_cls=LogisticRegressionModel,
+    )
 
 
 def load_molecules(
@@ -603,7 +704,7 @@ class Matcher:
 
     def __init__(
         self,
-        templates: List[Template],
+        templates: Sequence[Template],
         jess_params: Optional[Dict[int, Dict[str, float]]] = None,
         conservation_cutoff: int = 0,
         warn: bool = False,
@@ -814,16 +915,19 @@ class Matcher:
     @staticmethod
     def _run_jess(
         molecule: pyjess.Molecule,
-        templates: List[Template],
+        templates: Iterable[Template],
         rmsd_threshold: float = 2.0,
         distance_cutoff: float = 1.5,
         max_dynamic_distance: float = 1.5,
-        max_candidates: int = 10000,
+        max_candidates: Optional[int] = None,
     ) -> List[Match]:
         """`list` of `Match`: Match the `list` of `Template` to one `~pyjess.Molecule`"""
 
-        # killswitch is controlled by max_candidates. Internal default is currently 1000
-        # killswitch serves to limit the iterations in cases where the template would be too general,
+        # killswitch is controlled by max_candidates. Internal default is None
+        # Which disabled the killswitch. by setting it to an integer like 1000 or 10000
+        # Only that many matches (total matches not best matches!)
+        # for a given query-template pair are returned
+        # killswitch limits the iterations when the template would be too general,
         # and the program would run in an almost endless loop
 
         jess = pyjess.Jess(
@@ -836,8 +940,11 @@ class Matcher:
             max_dynamic_distance=max_dynamic_distance,
             max_candidates=max_candidates,
             best_match=True,
-            ignore_chain=True,
+            ignore_chain=False,
         )  # query is pyjess.Query object which is an iterator over pyjess.Hits
+
+        # TODO ignore_chain is a bit ambigous. it will disable checks within the same residue too. this means that a single residue from a template could match 2 atoms from one chain and a 3third atom from another chain assuming they are in close enough proximity
+        # we want the ignore chain only on the inter-residue level not on the intra-residue level!!!
 
         # ignore_chain=True disables checks for chain relationship
         # i.e. if two atoms are on a different chain in the template
@@ -891,11 +998,11 @@ class Matcher:
     def _single_query_run(
         self,
         molecule: pyjess.Molecule,
-        templates: List[Template],
+        templates: Iterable[Template],
         rmsd_threshold: float,
         distance_cutoff: float,
         max_dynamic_distance: float,
-        max_candidates: int = 10000,
+        max_candidates: Optional[int] = None,
     ) -> List[Match]:
 
         matches = self._run_jess(

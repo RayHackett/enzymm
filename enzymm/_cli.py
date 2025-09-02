@@ -29,7 +29,8 @@ def build_parser() -> argparse.ArgumentParser:
         usage="""
             Minimal use: enzymm -i query.pdb -o result.tsv
             
-            Recommended use: enzymm -l query_pdbs.list -o results.tsv -v --pdbs --include-query -n -1
+            Recommended use: enzymm -l query_pdbs.list -o results.tsv -v --pdbs pdb_folder --include-query -n -1
+
             """,
         description="EnzyMM - EnzymeMotifMiner - version {__version__}\nGeometric matching of catalytic motifs in protein structures.",
     )
@@ -180,9 +181,7 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
             2
         ]  # if equal to distance dynamic is off: this option is currenlty dysfunctional
 
-        known_distances = [
-            float(i) for i in Match._logistic_regression_models["3"].keys()
-        ]
+        known_distances = [float(i) for i in Match.ensemble_model.ensemble[3].keys()]
         if distance not in known_distances and not args.unfiltered:
             raise ValueError(
                 "Filtering paraterms only established for pairwise distances in 0.7, 0.8, ... , 2.0A "
@@ -232,7 +231,7 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
                 template_dir=args.template_dir,
                 warn=args.warn,
                 verbose=args.verbose,
-                cpus=args.n_jobs,
+                cpus=1,  # args.n_jobs,
                 with_annotations=not args.skip_annotation,
             )
         )

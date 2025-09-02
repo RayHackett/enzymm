@@ -351,7 +351,7 @@ class TestMatcher(unittest.TestCase):
 
         processed_molecules_4 = self.template_matcher4.run(molecules=[self.molecule])
         self.assertEqual(
-            len(processed_molecules_4[self.molecule]), 3
+            len(processed_molecules_4[self.molecule]), 2
         )  # match-small-templates
 
     def test_Matcher_single_run(self):
