@@ -186,36 +186,22 @@ class ModelEnsemble:
             # Matches with 5+ residues are considered true
             return True
         else:
-            try:
 
-                # treat templates with smaller effective sizes as if they had 3 residues
-                if template_effective_size < self.minimum_effective_size:
-                    template_effective_size = 3
+            # treat templates with smaller effective sizes as if they had 3 residues
+            if template_effective_size < self.minimum_effective_size:
+                template_effective_size = 3
 
-                predictions = []
-                for model in self.ensemble[template_effective_size][pairwise_distance]:
-                    predictions.append(model(**model_kwargs))
+            predictions = []
+            for model in self.ensemble[template_effective_size][pairwise_distance]:
+                predictions.append(model(**model_kwargs))
 
-                # majority decision from all models
-                return bool(
-                    sum(predictions)
-                    >= -(
-                        -self.number_of_models(
-                            template_effective_size=template_effective_size,
-                            pairwise_distance=pairwise_distance,
-                        )
-                        // 2
-                    )
-                )
+            num_models = self.number_of_models(
+                template_effective_size=template_effective_size,
+                pairwise_distance=pairwise_distance,
+            )
 
-            except KeyError as exc:
-                raise KeyError(
-                    f"Missing appropriate model parameters to predict correctness. No models for the template effective size {template_effective_size} and pairwise distance {pairwise_distance} were provided"
-                ) from exc
-            except TypeError as exc:
-                raise TypeError(
-                    "Provide the model with the expected model parameters. Likely expecting coeficients for `rmsd` and `orientation`"
-                ) from exc
+            # majority decision from all models
+            return sum(predictions) >= (num_models + 1) // 2
 
 
 @dataclass
