@@ -41,8 +41,8 @@ class TestIntegration(unittest.TestCase):
         )  # check if all the expected templates were found
 
     def test_get_template_paths(self):
-        data_path = resource_files(enzymm).joinpath("data/")
-        found_paths = sorted(template._get_paths_by_extension(data_path, ".json"))
+        data_path = Path(resource_files(enzymm).joinpath("data/"))
+        found_paths = sorted(data_path.glob("*.json"))
         expected_paths = sorted(
             [
                 Path(data_path, "pdb_sifts.json"),
@@ -53,10 +53,6 @@ class TestIntegration(unittest.TestCase):
             ]
         )
         self.assertEqual(found_paths, expected_paths)
-
-    def test__get_paths_by_extension(self):
-        with self.assertRaises(FileNotFoundError):
-            template._get_paths_by_extension(Path(resource_files(test_data)), ".xyz")
 
 
 class TestVec3(unittest.TestCase):

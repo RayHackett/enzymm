@@ -231,7 +231,6 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
                 template_dir=args.template_dir,
                 warn=args.warn,
                 verbose=args.verbose,
-                cpus=1,  # args.jobs,
                 with_annotations=not args.skip_annotation,
             )
         )

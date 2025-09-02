@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import os
-import sys
 import contextlib
-import glob
 import warnings
 import io
 import math
@@ -27,7 +25,6 @@ from typing import (
 )
 from functools import cached_property
 from dataclasses import dataclass
-from multiprocessing.pool import ThreadPool
 
 import pyjess
 
@@ -36,7 +33,7 @@ try:
 except ImportError:
     from importlib_resources import files as resource_files  # type: ignore
 
-from enzymm.utils import chunks, ranked_argsort, DummyPool
+from enzymm.utils import chunks, ranked_argsort
 from enzymm.mcsa_info import load_mcsa_catalytic_residue_homologs_info
 from enzymm.mcsa_info import ReferenceCatalyticResidue, NonReferenceCatalyticResidue
 
@@ -1560,30 +1557,10 @@ CATALYTIC_RESIDUE_HOMOLOGS = load_mcsa_catalytic_residue_homologs_info(
 #     cofactors.update(cofactor_dict[Template_EC])
 
 
-# Find all template files which end in .pdb
-def _get_paths_by_extension(directory_path: Path, extension: str) -> List[Path]:
-    pattern = f"{directory_path}/**/*{extension}"
-    file_paths = glob.glob(pattern, recursive=True)
-    files = []
-    for file in file_paths:
-        files.append(Path(file))
-
-    if files:
-        return files
-    else:
-        raise FileNotFoundError(
-            f"No template files with the {extension} extension found in the {directory_path.resolve()} directory"
-        )
-
-
 def load_templates(
     template_dir: Optional[Path] = None,
     warn: bool = False,
     verbose: bool = False,
-    cpus: int = 1,  # faster with one thread
-    # cpus: int = (
-    #     len(os.sched_getaffinity(0)) if sys.platform == "linux" else os.cpu_count() or 1
-    # ),
     with_annotations: bool = True,
 ) -> Iterator[Template | AnnotatedTemplate]:
     """
@@ -1593,7 +1570,6 @@ def load_templates(
         template_dir: `~pathlib.Path` | `None` Directory which to search recursively for files with the '.pdb' extension. By default, set to `None`, it will load templates included in this library.
         warn: `bool` If warnings about annoation issues in templates should be printed. Default `False`
         verbose: `bool` If loading should be verbose. Default `False`
-        cpus: `int` The number of CPU threads to use. By default, use 1 thread. If <0, leave this number of threads free.
         with_annotations: `bool` If True (default) M-CSA derived templates with a PDB-id and M-CSA id will be annotated with extra information.
 
     Yields:
@@ -1613,41 +1589,24 @@ def load_templates(
     if verbose:
         print(f"Loading Template files from {str(template_dir.resolve())}")
 
-    template_paths = _get_paths_by_extension(template_dir, ".pdb")
+    template_paths = template_dir.rglob("*.pdb")
 
-    def _load_and_annotate(template_path: Path, warn: bool, with_annotations: bool):
+    for path in template_paths:
         try:
-            with template_path.open() as f:
-                return AnnotatedTemplate.load(
-                    file=f, warn=warn, with_annotations=with_annotations
+            with path.open() as f:
+                yield AnnotatedTemplate.load(
+                    file=f,
+                    warn=warn,
+                    with_annotations=with_annotations,
                 )
         except ValueError as exc:
             raise ValueError(
-                f"Passed Template file {template_path.resolve()} contained ATOM lines which are not in Jess Template format."
+                f"Passed Template file {path.resolve()} contained ATOM lines which are not in Jess Template format."
             ) from exc
         except KeyError as exc:
             raise ValueError(
-                f"Passed Template file {template_path.resolve()} contained issues with some residues."
+                f"Passed Template file {path.resolve()} contained issues with some residues."
             ) from exc
-
-    if cpus <= 0:
-        os_cpu_count = (
-            len(os.sched_getaffinity(0)) if sys.platform == "linux" else os.cpu_count()
-        )
-        if os_cpu_count is not None:
-            cpus = max(1, os_cpu_count + cpus)
-        else:
-            cpus = 1
-
-    pool: DummyPool | ThreadPool = DummyPool() if cpus == 1 else ThreadPool(cpus)
-    with pool:
-        args = [(path, warn, with_annotations) for path in template_paths]
-        try:
-            template_iterator = pool.starmap(_load_and_annotate, args)
-            for loaded_template in template_iterator:
-                yield loaded_template
-        except ValueError as exc:
-            raise exc
 
 
 # TODO adapt this too for AnnotatedTemplate objects

@@ -160,7 +160,6 @@ class Test_CLI(unittest.TestCase):
         with self.assertRaises(ValueError):
             main(self.bad_argument_4, stderr=io.StringIO())
         retcode3 = main(self.bad_argument_5, stderr=io.StringIO())
-        print(retcode3)
         self.assertEqual(retcode3, errno.ENOENT)
         with self.assertRaises(ValueError):
             main(self.bad_argument_6, stderr=io.StringIO())
