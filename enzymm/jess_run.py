@@ -930,8 +930,12 @@ class Matcher:
             max_dynamic_distance=max_dynamic_distance,
             max_candidates=max_candidates,
             best_match=True,
-            ignore_chain=False,  # "residue",
+            ignore_chain="residues",
         )  # query is pyjess.Query object which is an iterator over pyjess.Hits
+
+        # ignore_chain=None will behave like the previous False - will observe relative chain assignments in the template.
+        # ignore_chain="atoms" works like the previous True - might result in matches in which residues can be split across chains.
+        # ignore_chain="residues" will check for chain membership only between residues. Atoms within a residue always belong to the same chain.
 
         # best_match=True reports only the single best match between template and target
         # For this to make sense consider that:
