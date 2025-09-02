@@ -29,7 +29,7 @@ def build_parser() -> argparse.ArgumentParser:
         usage="""
             Minimal use: enzymm -i query.pdb -o result.tsv
             
-            Recommended use: enzymm -l query_pdbs.list -o results.tsv -v --pdbs pdb_folder --include-query -n -1
+            Recommended use: enzymm -l query_pdbs.list -o results.tsv -v --pdbs pdb_folder --include-query
 
             """,
         description="EnzyMM - EnzymeMotifMiner - version {__version__}\nGeometric matching of catalytic motifs in protein structures.",
@@ -72,8 +72,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     # optional arguments
     parser.add_argument(
-        "-j",
-        "--jess",
+        "-p",
+        "--parameters",
         nargs=3,
         default=None,
         type=float,
@@ -94,15 +94,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Atoms with a value in the B-factor column below this cutoff will be excluded form matching to the templates. Useful for predicted structures.",
     )
     parser.add_argument(
-        "-n",
-        "--n-jobs",
+        "-j",
+        "--jobs",
         type=int,
         default=(
             len(os.sched_getaffinity(0))
             if sys.platform == "linux"
             else os.cpu_count() or 1
         ),  # len(os.sched_getaffinity(0)) doesnt work on mac/win
-        help="The number of threads to run in parallel. Pass 0 to select all. Negative numbers: leave this many threads free.",
+        help="The number of threads to spawn for jobs in parallel. Pass 0 to select all cores. Negative numbers: leave this many cores free.",
     )
 
     # Boolean optional arguments
@@ -169,8 +169,8 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
         raise ValueError("No input files were passed. Use -i and/or -l.")
 
     jess_params = None
-    if args.jess:
-        jess_params_list = [i for i in args.jess]
+    if args.parameters:
+        jess_params_list = [i for i in args.parameters]
         # jess parameters
         # we use different parameters for different template residue numbers - higher number more generous parameters
         rmsd = jess_params_list[0]  # in Angstrom, typcically set to 2
@@ -231,7 +231,7 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
                 template_dir=args.template_dir,
                 warn=args.warn,
                 verbose=args.verbose,
-                cpus=1,  # args.n_jobs,
+                cpus=1,  # args.jobs,
                 with_annotations=not args.skip_annotation,
             )
         )
@@ -245,7 +245,7 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
             verbose=args.verbose,
             skip_smaller_hits=args.skip_smaller_hits,
             match_small_templates=args.match_small_templates,
-            cpus=args.n_jobs,
+            cpus=args.jobs,
             filter_matches=not args.unfiltered,
             console=rich.console.Console(file=stderr),
         )
@@ -259,13 +259,9 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
         if not out_tsv.parent.exists():
             out_tsv.parent.mkdir(parents=True, exist_ok=True)
             if args.warn:
-                warnings.warn(
-                    f"{out_tsv.parent.resolve()} directory tree to output tsv file did not exist and was created"
-                )
+                warnings.warn(f"{out_tsv.parent.resolve()} dir to output was created")
         elif out_tsv.exists() and args.warn:
-            warnings.warn(
-                f"The specified output tsv file {out_tsv.resolve()} already exists and will be overwritten!"
-            )
+            warnings.warn(f"The output file {out_tsv.resolve()} will be overwritten!")
 
         if args.verbose:
             print(f"Writing output to {out_tsv.resolve()}")
