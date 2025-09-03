@@ -33,7 +33,12 @@ try:
 except ImportError:
     from importlib_resources import files as resource_files  # type: ignore
 
-from enzymm.utils import chunks, ranked_argsort
+from enzymm.utils import (
+    chunks,
+    ranked_argsort,
+    PROTEINOGENIC_AMINO_ACIDS,
+    PTMS_NAMED_IN_TEMPLATES,
+)
 from enzymm.mcsa_info import load_mcsa_catalytic_residue_homologs_info
 from enzymm.mcsa_info import ReferenceCatalyticResidue, NonReferenceCatalyticResidue
 
@@ -252,12 +257,14 @@ class Residue:
             "PTM": ("CA", "CB"),
             "ANY": ("C", "O"),
         }
-        try:
+        if atoms[0].residue_names[0] in PROTEINOGENIC_AMINO_ACIDS:
             vectup = vector_atom_type_dict[atoms[0].residue_names[0]]
-        except KeyError as exc:
+        elif atoms[0].residue_names[0] in PTMS_NAMED_IN_TEMPLATES:
+            vectup = vector_atom_type_dict["PMT"]
+        else:
             raise KeyError(
                 f"Residue orientation is not defined for the residue type {atoms[0].residue_names[0]}"
-            ) from exc
+            )
 
         # In residues with two identical atoms, the vector is calculated from the middle atom to the mid point between the identical pair
         if vectup[1] == "mid":
@@ -1589,9 +1596,7 @@ def load_templates(
     if verbose:
         print(f"Loading Template files from {str(template_dir.resolve())}")
 
-    template_paths = template_dir.rglob("*.pdb")
-
-    for path in template_paths:
+    for path in template_dir.rglob("*.pdb"):
         try:
             with path.open() as f:
                 yield AnnotatedTemplate.load(

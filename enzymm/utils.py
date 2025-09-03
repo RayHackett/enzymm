@@ -127,20 +127,38 @@ PROTEINOGENIC_AMINO_ACIDS = [
     "VAL",
 ]
 
+PTMS_NAMED_IN_TEMPLATES = [
+    "LLP",
+    "TPQ",
+    "SEC",
+    "KCX",
+    "NEP",
+    "FGP",
+    "SEP",
+    "SMC",
+    "CSS",
+]
+
 # some common special residues in pdb structures
 SPECIAL_AMINO_ACIDS = [
     "ASX",
     "GLX",
+    "LLP",
+    "TPQ",
     "SEC",
     "PYL",
+    "KCX",
+    "NEP",
+    "FGP",
     "UNK",
     "MSE",
     "SEP",
+    "SMC",
     "TPO",
     "PTR",
     "HYP",
     "CME",
-    "CSO",
+    "CSS" "CSO",
     "CSD",
     "PCA",
     "MLY",
