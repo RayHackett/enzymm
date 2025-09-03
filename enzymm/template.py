@@ -33,12 +33,7 @@ try:
 except ImportError:
     from importlib_resources import files as resource_files  # type: ignore
 
-from enzymm.utils import (
-    chunks,
-    ranked_argsort,
-    PROTEINOGENIC_AMINO_ACIDS,
-    PTMS_NAMED_IN_TEMPLATES,
-)
+from enzymm.utils import chunks, ranked_argsort
 from enzymm.mcsa_info import load_mcsa_catalytic_residue_homologs_info
 from enzymm.mcsa_info import ReferenceCatalyticResidue, NonReferenceCatalyticResidue
 
@@ -257,14 +252,13 @@ class Residue:
             "PTM": ("CA", "CB"),
             "ANY": ("C", "O"),
         }
-        if atoms[0].residue_names[0] in PROTEINOGENIC_AMINO_ACIDS:
-            vectup = vector_atom_type_dict[atoms[0].residue_names[0]]
-        elif atoms[0].residue_names[0] in PTMS_NAMED_IN_TEMPLATES:
-            vectup = vector_atom_type_dict["PMT"]
-        else:
-            raise KeyError(
-                f"Residue orientation is not defined for the residue type {atoms[0].residue_names[0]}"
-            )
+        vectup = vector_atom_type_dict.get(atoms[0].residue_names[0], ("CA", "CB"))
+
+        # NOTE
+        # the provided templates define 3 functional atoms per proteinogenic residue
+        # for posttranslationally modified residues templates specify C, CA and CB atoms
+        # which is why i selected that as the default.
+        # if you define further residue types, adapting orientation angles is required
 
         # In residues with two identical atoms, the vector is calculated from the middle atom to the mid point between the identical pair
         if vectup[1] == "mid":

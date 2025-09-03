@@ -728,7 +728,7 @@ class TestResidue(unittest.TestCase):
             cls.bad_atom_names_3 = f.read()
 
     def test_unkown_resids(self):
-        with self.assertRaises(KeyError):
+        with self.assertRaises(ValueError):
             template.Template.loads(self.template_unkown_residue_text, warn=True)
 
     def test_bad_atoms_in_orientation(self):
