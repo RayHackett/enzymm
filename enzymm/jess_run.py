@@ -116,6 +116,7 @@ class ModelEnsemble:
     ensemble: Dict[int, Dict[float, List[Callable[..., bool]]]]
     min_true_template_size: int
     minimum_effective_size: int
+    pairwise_distances: List[float]
 
     @classmethod
     def from_json(
@@ -138,12 +139,25 @@ class ModelEnsemble:
                     for param_dict in model_list["model_list"]
                 ]
 
-        min(ensemble.keys())
+        # all pairwise distances should exist at every template size
+        it = iter(ensemble.values())
+        first_keys = set(next(it).keys())
+        if any(set(inner.keys()) != first_keys for inner in it):
+            raise ValueError(
+                "Models for the same pairwise distances should exist for all template_sizes"
+            )
+
+        if not all(size in ensemble.keys() for size in [3, 4]):
+            raise ValueError(
+                "Models should make de-minis make predictions of 3 and 4 residue templates"
+            )
 
         return cls(
             ensemble=ensemble,
             minimum_effective_size=min(ensemble.keys()),
             min_true_template_size=max(ensemble.keys()) + 1,
+            # I implicitly assume that all the pairwise distances exist for both 3 and 4 residue templates.
+            pairwise_distances=sorted(ensemble[3].keys()),
         )
 
     def number_of_models(
@@ -170,7 +184,7 @@ class ModelEnsemble:
         template_effective_size: int,
         pairwise_distance: float,
         model_kwargs: Dict[str, float],
-    ) -> bool:
+    ) -> bool | None:
         """
         Make an ensemble prediction at a given template_effective_size and pairwise_distance
 
@@ -186,8 +200,11 @@ class ModelEnsemble:
         if template_effective_size >= self.min_true_template_size:
             # Matches with 5+ residues are considered true
             return True
-        else:
 
+        if pairwise_distance not in self.pairwise_distances:
+            return None
+
+        else:
             # treat templates with smaller effective sizes as if they had 3 residues
             if template_effective_size < self.minimum_effective_size:
                 template_effective_size = 3
@@ -427,7 +444,7 @@ class Match:
             str(round(self.orientation, 5)),
             str(self.preserved_resid_order),
             str(self.complete),
-            str(self.predicted_correct),
+            str(self.predicted_correct) if self.predicted_correct else "",
             (",".join("_".join(t) for t in self.matched_residues)),
         ]
 
@@ -460,8 +477,15 @@ class Match:
         )
 
     @property
-    def predicted_correct(self) -> bool:
-        """`bool`: If the match is predicted as correct based the ensemble model"""
+    def predicted_correct(self) -> bool | None:
+        """
+        `bool | None`: If the match is predicted as correct based the ensemble model
+
+        Note:
+            Returns None if no prediction could be made
+
+        """
+
         return self.ensemble_model(
             pairwise_distance=self.pairwise_distance,
             template_effective_size=self.hit.template.effective_size,
@@ -629,7 +653,10 @@ with resource_files(__package__).joinpath("data", "logistic_regression_models.js
 def load_molecules(
     molecule_paths: List[Path], conservation_cutoff: float = 0
 ) -> List[pyjess.Molecule]:
-    """Load query molecules"""
+    # TODO currently only PDB files work by default
+    # change format in molecule.load()
+    # pyjess will autodetect cif soonish
+    """Load query molecules from a list of paths to PDB or CIF/mmCIF structure files."""
     molecules = []
     stem_counter: Dict[str, int] = collections.defaultdict(int)
     for molecule_path in molecule_paths:
@@ -655,7 +682,7 @@ def load_molecules(
             )  # load a molecule and filter it by conservation_cutoff
         else:
             raise ValueError(
-                f"Received an empty molecule from {molecule_path}. Is this file in PDB format?"
+                f"Received an empty molecule from {molecule_path}. Is this file in PDB or CIF/mmCIF format?"
             ) from None
 
     if not molecules:
@@ -975,7 +1002,7 @@ class Matcher:
         if self.filter_matches:
             filtered_matches = []
             for match in all_matches:
-                if match.predicted_correct:
+                if match.predicted_correct is None or match.predicted_correct:
                     filtered_matches.append(match)
             return filtered_matches
 

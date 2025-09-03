@@ -278,6 +278,34 @@ class TestMatcher(unittest.TestCase):
             filter_matches=True,
         )
 
+        cls.filtered_matcher_different_cutoffs = jess_run.Matcher(
+            templates=cls.template_list,
+            jess_params={
+                3: {"rmsd": 2, "distance": 0.6, "max_dynamic_distance": 0.6},
+                4: {"rmsd": 2, "distance": 2.5, "max_dynamic_distance": 2.5},
+                5: {"rmsd": 2, "distance": 0.6, "max_dynamic_distance": 0.6},
+                6: {"rmsd": 2, "distance": 0.6, "max_dynamic_distance": 0.6},
+                7: {"rmsd": 2, "distance": 2.0, "max_dynamic_distance": 2.0},
+                8: {"rmsd": 2, "distance": 2.5, "max_dynamic_distance": 2.5},
+            },
+            filter_matches=True,
+            skip_smaller_hits=False,
+        )
+
+        cls.unfiltered_matcher_different_cutoffs = jess_run.Matcher(
+            templates=cls.template_list,
+            jess_params={
+                3: {"rmsd": 2, "distance": 0.6, "max_dynamic_distance": 0.6},
+                4: {"rmsd": 2, "distance": 2.5, "max_dynamic_distance": 2.5},
+                5: {"rmsd": 2, "distance": 0.6, "max_dynamic_distance": 0.6},
+                6: {"rmsd": 2, "distance": 0.6, "max_dynamic_distance": 0.6},
+                7: {"rmsd": 2, "distance": 2.0, "max_dynamic_distance": 2.0},
+                8: {"rmsd": 2, "distance": 2.5, "max_dynamic_distance": 2.5},
+            },
+            filter_matches=False,
+            skip_smaller_hits=False,
+        )
+
         with resource_files(test_data).joinpath("1AMY.pdb").open() as f:
             cls.molecule = pyjess.Molecule.load(f)
 
@@ -398,3 +426,18 @@ class TestMatcher(unittest.TestCase):
                 self.assertEqual(match.hit.template.pdb_id, "1bf2")
             else:
                 ValueError("Shouldn't get here in the tests")
+
+    def test_other_distances(self):
+        # Test how pairwise distances outside the range of 0.7 to 2.0 are handeled
+        unfiltered_matches = self.unfiltered_matcher_different_cutoffs.run_single(
+            molecule=self.molecule
+        )
+        # here we expect returned matches all of which cannot be predicted on.
+        # so they are none
+        self.assertIsNone(unfiltered_matches[0].predicted_correct)
+
+        filtered_matches = self.filtered_matcher_different_cutoffs.run_single(
+            molecule=self.molecule
+        )
+        # filtering does not remove predicted_correct=None matches
+        self.assertIsNone(filtered_matches[0].predicted_correct)
