@@ -26,7 +26,7 @@ ATOM      1  OG ZSER B 115      33.576  44.961  71.348 S     2.82
 ATOM      3  CA ZSER B 120      38.456  36.362  67.756 S     0.38 
 ATOM      3  CB ZSER B 120      38.775  37.433  68.799 S     0.38 
 ATOM      1  OG ZSER B 120      38.280  38.700  68.408 S     0.38 
-ATOM      0  CA ZPTM B  70      40.143  43.261  66.923 KD    0.30 
-ATOM      0  CB ZPTM B  70      38.622  43.274  67.152 KD    0.30 
-ATOM      0  C  ZPTM B  70      40.517  43.993  65.631 KD    0.30 
+ATOM      0  CA ZKCX B  70      40.143  43.261  66.923 KD    0.30 
+ATOM      0  CB ZKCX B  70      38.622  43.274  67.152 KD    0.30 
+ATOM      0  C  ZKCX B  70      40.517  43.993  65.631 KD    0.30 
 END
