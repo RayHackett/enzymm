@@ -17,9 +17,9 @@ ATOM      8  CD2ZHIS A 141      84.487  39.421  33.042 H     1.78
 ATOM      0  CD ZLYS A  44      71.401  28.952  30.803 K     1.32 
 ATOM      0  CE ZLYS A  44      71.608  29.584  32.158 K     1.32 
 ATOM      0  NZ ZLYS A  44      72.528  30.730  32.100 K     1.32 
-ATOM      0  CA ZPTM A 140      85.715  38.514  28.789 U     2.83 
-ATOM      0  CB ZPTM A 140      85.467  37.146  29.447 U     2.83 
-ATOM      0  C  ZPTM A 140      86.266  39.522  29.814 U     2.83 
+ATOM      0  CA ZSEC A 140      85.715  38.514  28.789 UC    2.83 
+ATOM      0  CB ZSEC A 140      85.467  37.146  29.447 UC    2.83 
+ATOM      0  C  ZSEC A 140      86.266  39.522  29.814 UC    2.83 
 ATOM      0  CZ ZARG A 333      88.435  35.968  35.278 R     2.51 
 ATOM      3  NH1ZARG A 333      87.448  35.772  34.406 R     2.51 
 ATOM      3  NH2ZARG A 333      89.696  35.768  34.884 R     2.51 
