@@ -14,9 +14,9 @@ REMARK ORGANISM_ID 546
 ATOM      3  CE1ZPHE A 448     -31.133 -12.547  17.802 F     0.37 
 ATOM      3  CE2ZPHE A 448     -28.732 -12.597  17.753 F     0.37 
 ATOM      0  CZ ZPHE A 448     -29.932 -12.063  17.313 F     0.37 
-ATOM      0  CA ZPTM A 257     -18.689 -11.938   2.798 K     0.51 
-ATOM      0  CB ZPTM A 257     -20.095 -12.478   2.481 K     0.51 
-ATOM      0  C  ZPTM A 257     -17.679 -12.116   1.644 K     0.51 
+ATOM      0  CA ZLLP A 257     -18.689 -11.938   2.798 K     0.51 
+ATOM      0  CB ZLLP A 257     -20.095 -12.478   2.481 K     0.51 
+ATOM      0  C  ZLLP A 257     -17.679 -12.116   1.644 K     0.51 
 ATOM      3  CE1ZTYR B  71     -21.314  -9.527  11.855 Y     0.76 
 ATOM      3  CZ ZTYR B  71     -22.655  -9.658  12.131 Y     0.76 
 ATOM      1  OH ZTYR B  71     -23.553  -9.077  11.263 Y     0.76 
