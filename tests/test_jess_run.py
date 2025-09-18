@@ -18,8 +18,6 @@ from enzymm import template, jess_run, __version__
 
 class TestMatch(unittest.TestCase):
 
-    maxDiff = None
-
     @classmethod
     def setUpClass(cls):
         with open(
@@ -35,9 +33,7 @@ class TestMatch(unittest.TestCase):
         with resource_files(test_data).joinpath("1AMY.pdb").open() as f:
             molecule = pyjess.Molecule.load(f)
 
-        query = jess_1.query(
-            molecule, 2, 1.5, 1.5, max_candidates=10000, best_match=True
-        )
+        query = jess_1.query(molecule, 2, 1.5, 1.5, best_match=True)
         best_hits = list(query)
 
         cls.match1 = jess_run.Match(
@@ -54,10 +50,10 @@ class TestMatch(unittest.TestCase):
             cls.template2 = template.AnnotatedTemplate.loads(template_text2, warn=False)
             jess_2 = pyjess.Jess([cls.template2])
 
-        query = jess_2.query(molecule, 2, 1, 1, max_candidates=10000, best_match=True)
+        query = jess_2.query(molecule, 2.0, 1.0, 1.0, best_match=True)
         best_hits = list(query)
 
-        cls.match2 = jess_run.Match(hit=best_hits[0])
+        cls.match2 = jess_run.Match(hit=best_hits[0], pairwise_distance=1.0)
 
     def test_match(self):
         self.assertEqual(self.match1.hit.molecule().id, "1AMY")
@@ -72,12 +68,15 @@ class TestMatch(unittest.TestCase):
         self.assertEqual(self.match1.hit.template.ec, self.template1.ec)
         self.assertEqual(self.match1.hit.template.cath, self.template1.cath)
         self.assertEqual(self.match1.hit.template.multimeric, self.template1.multimeric)
-        self.assertEqual(self.match1.multimeric, False)
+        self.assertIsNotNone(self.match1.multimeric)
+        self.assertFalse(self.match1.multimeric)
         self.assertEqual(self.match1.query_atom_count, 3339)
         self.assertEqual(self.match1.query_residue_count, 403)
         self.assertAlmostEqual(self.match1.hit.rmsd, 0.32093143)
         self.assertAlmostEqual(self.match1.hit.log_evalue, -3.08424478)
         self.assertAlmostEqual(self.match1.orientation, 0.15327054322)
+        self.assertIsNotNone(self.match1.predicted_correct)
+        self.assertTrue(self.match1.predicted_correct)
         self.assertEqual(
             self.match1.template_vector_list,
             [res.orientation_vector for res in self.template1.residues],
@@ -108,8 +107,8 @@ class TestMatch(unittest.TestCase):
             self.assertTrue(math.isclose(a.y, e.y, rel_tol=1e-9, abs_tol=1e-9))
             self.assertTrue(math.isclose(a.z, e.z, rel_tol=1e-9, abs_tol=1e-9))
 
-        self.assertEqual(self.match1.preserved_resid_order, True)
-        self.assertEqual(self.match1.complete, True)
+        self.assertTrue(self.match1.preserved_resid_order)
+        self.assertTrue(self.match1.complete)
         self.assertEqual(
             self.match1.matched_residues,
             [
@@ -130,16 +129,19 @@ class TestMatch(unittest.TestCase):
         self.assertEqual(self.match2.hit.template.ec, self.template2.ec)
         self.assertEqual(self.match2.hit.template.cath, self.template2.cath)
         self.assertEqual(self.match2.hit.template.multimeric, self.template2.multimeric)
-        self.assertEqual(self.match2.multimeric, False)
+        self.assertIsNotNone(self.match2.multimeric)
+        self.assertFalse(self.match2.multimeric)
         self.assertAlmostEqual(self.match2.hit.rmsd, 1.7353479120)
         self.assertAlmostEqual(self.match2.hit.log_evalue, 1.8517964201)
         self.assertAlmostEqual(self.match2.orientation, 1.6503123465442575)
+        self.assertIsNotNone(self.match2.predicted_correct)
+        self.assertFalse(self.match2.predicted_correct)
         self.assertEqual(
             self.match2.template_vector_list,
             [res.orientation_vector for res in self.template2.residues],
         )
-        self.assertEqual(self.match2.preserved_resid_order, False)
-        self.assertEqual(self.match2.complete, False)
+        self.assertFalse(self.match2.preserved_resid_order)
+        self.assertFalse(self.match2.complete)
         self.assertEqual(
             self.match2.matched_residues,
             [("TRP", "A", "38"), ("HIS", "A", "288"), ("ASP", "A", "289")],
@@ -407,22 +409,22 @@ class TestMatcher(unittest.TestCase):
 
         for match in unfiltered_matches:
             if match.index == 1:
-                self.assertEqual(match.complete, True)
+                self.assertTrue(match.complete)
                 self.assertEqual(match.hit.template.pdb_id, "1uh3")
             elif match.index == 2:
-                self.assertEqual(match.complete, True)
+                self.assertTrue(match.complete)
                 self.assertEqual(match.hit.template.pdb_id, "2cxg")
             elif match.index == 3:
-                self.assertEqual(match.complete, False),
+                self.assertFalse(match.complete),
                 self.assertEqual(match.hit.template.pdb_id, "2qy1")
             elif match.index == 4:
-                self.assertEqual(match.complete, True)
+                self.assertTrue(match.complete)
                 self.assertEqual(match.hit.template.pdb_id, "1uh3")
             elif match.index == 5:
-                self.assertEqual(match.complete, True)
+                self.assertTrue(match.complete)
                 self.assertEqual(match.hit.template.pdb_id, "1uh3")
             elif match.index == 6:
-                self.assertEqual(match.complete, False)
+                self.assertFalse(match.complete)
                 self.assertEqual(match.hit.template.pdb_id, "1bf2")
             else:
                 ValueError("Shouldn't get here in the tests")

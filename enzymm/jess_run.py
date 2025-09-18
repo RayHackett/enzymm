@@ -201,7 +201,9 @@ class ModelEnsemble:
             # Matches with 5+ residues are considered true
             return True
 
-        if pairwise_distance not in self.pairwise_distances:
+        rounded_pairwise_dist = round(pairwise_distance, 1)
+
+        if rounded_pairwise_dist not in self.pairwise_distances:
             return None
 
         else:
@@ -210,12 +212,12 @@ class ModelEnsemble:
                 template_effective_size = 3
 
             predictions = []
-            for model in self.ensemble[template_effective_size][pairwise_distance]:
+            for model in self.ensemble[template_effective_size][rounded_pairwise_dist]:
                 predictions.append(model(**model_kwargs))
 
             num_models = self.number_of_models(
                 template_effective_size=template_effective_size,
-                pairwise_distance=pairwise_distance,
+                pairwise_distance=rounded_pairwise_dist,
             )
 
             # majority decision from all models
@@ -232,16 +234,16 @@ class Match:
 
     Attributes:
         hit: `~pyjess.Hit` instance
-        complete: `bool` If the query matched all other templates within the same cluster
         pairwise_distance: `float` Pairwise distance at which this match was found
+        complete: `bool` If the query matched all other templates within the same cluster. Default False
         index: `int` internal index of this match. Default 0
 
     """
 
     hit: pyjess.Hit
-    complete: bool = False
-    pairwise_distance: float = 0
+    pairwise_distance: float
     index: int = 0
+    complete: bool = False
     ensemble_model: ClassVar[ModelEnsemble]
 
     def __reduce_ex__(self, protocol):
@@ -444,7 +446,7 @@ class Match:
             str(round(self.orientation, 5)),
             str(self.preserved_resid_order),
             str(self.complete),
-            str(self.predicted_correct) if self.predicted_correct else "",
+            str(self.predicted_correct) if self.predicted_correct is not None else "",
             (",".join("_".join(t) for t in self.matched_residues)),
         ]
 
@@ -653,9 +655,6 @@ with resource_files(__package__).joinpath("data", "logistic_regression_models.js
 def load_molecules(
     molecule_paths: List[Path], conservation_cutoff: float = 0
 ) -> List[pyjess.Molecule]:
-    # TODO currently only PDB files work by default
-    # change format in molecule.load()
-    # pyjess will autodetect cif soonish
     """Load query molecules from a list of paths to PDB or CIF/mmCIF structure files."""
     molecules = []
     stem_counter: Dict[str, int] = collections.defaultdict(int)
@@ -669,8 +668,16 @@ def load_molecules(
             unique_id = stem
 
         molecule = pyjess.Molecule.load(
-            str(molecule_path), id=unique_id
-        )  # by default it will stop at ENDMDL
+            str(molecule_path),
+            id=unique_id,
+            format="detect",
+        )
+        # NOTE
+        # by default it will stop at ENDMDL
+        # atom and residue numbers will use the automatically assigned numbers
+        # cif or pdb file format should be auto detected.
+        # HETATM records will not be skipped!
+
         if conservation_cutoff:
             molecule.conserved(conservation_cutoff)
             # molecule = molecule.conserved(args.conservation_cutoff)
