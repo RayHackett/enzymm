@@ -56,7 +56,7 @@ def build_parser() -> argparse.ArgumentParser:
         "-i",
         "--input",
         type=Path,
-        help="File path to a PDB file to use as query",
+        help="File path to a PDB or mmCIF file to use as query",
         action="append",
         dest="files",
         default=[],
@@ -65,7 +65,7 @@ def build_parser() -> argparse.ArgumentParser:
         "-l",
         "--list",
         type=Path,
-        help="File containing a list of PDB files to read",
+        help="File containing a list of PDB or mmCIF files to read",
         action=ReadListAction,
         dest="files",
     )
