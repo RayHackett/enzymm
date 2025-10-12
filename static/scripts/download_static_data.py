@@ -15,6 +15,10 @@ import time
 from enzymm.utils import SetEncoder  # type: ignore
 from template_info import get_list_of_template_pdbchains
 
+# NOTE that importing get_list_of_template_pdbchains consitutes a ciruclar dependency
+# ideally you therefore save this to a new file
+# while still keeping the original in the data folder
+
 from enzymm.mcsa_info import (
     HomologousPDB,
     ReferenceCatalyticResidue,
@@ -202,6 +206,13 @@ def make_pdb_sifts_df(outdir: Path):
         "".join(i.strip().split(".")) for i in get_list_of_template_pdbchains()
     )
 
+    # add superseeded pdbchains:
+    # 8f9y superseeded 5esy, 7zsz superseeded 7ayl
+    template_pdbchains.update(["8f9yA", "7zszA"])
+
+    ## add chases where cif chain names map oddly:
+    template_pdbchains.update(["1qumA", "1vmdB", "1vasA", "1asyA", "1dmuA", "1pviA"])
+
     pdb_enzyme_uniprot_df = pdb_enzyme_uniprot_df[
         pdb_enzyme_uniprot_df["PDBCHAIN"].isin(template_pdbchains)
     ]
@@ -240,9 +251,14 @@ def make_pdb_sifts_df(outdir: Path):
     #         }
     #     sifts_dict[row.PDBCHAIN]["interpro"].add(row.INTERPRO_ID)
 
+    for pdbchain, inner_dict in sifts_dict.items():
+        inner_dict["cath"] = sorted(inner_dict["cath"])
+        inner_dict["ec"] = sorted(inner_dict["ec"])
+        # inner_dict['interpro'] = sorted(inner_dict['interpro'])
+
     # merge the dataframes
     Path(outdir).mkdir(parents=True, exist_ok=True)
-    with open(Path(outdir, "pdb_sifts.json"), "w") as f:
+    with open(Path(outdir, "pdb_sifts_new.json"), "w") as f:
         json.dump(sifts_dict, f, indent=4, sort_keys=True, cls=SetEncoder)
 
 
@@ -331,10 +347,6 @@ def download_mcsa_homolog_info(outdir: Path):
     # download the information on catalytic residues found by homology to M-CSA entries
     file = Path(outdir, "catalytic_residue_homologs_information.json")
 
-    # load the templates without annotations to get a list of pdbchains
-    # NOTE that importing get_list_of_template_pdbchains consitutes a ciruclar dependency
-    # ideally you therefore save this to a new file
-    # while still keeping the original in the data folder
     template_pdbchains = set(
         "".join(i.strip().split(".")) for i in get_list_of_template_pdbchains()
     )
@@ -721,13 +733,13 @@ def download_mcsa_homolog_info(outdir: Path):
 
 
 def download_static_data(
-    outdir: Path = Path("/home/ray/Documents/template_matching/enzymm/data"),
+    outdir: Path = Path("../../data/"),
 ):
-    get_mcsa_ec(outdir)
-    get_mcsa_cath(outdir)
-    check_other_files(outdir)
+    # get_mcsa_ec(outdir)
+    # get_mcsa_cath(outdir)
+    # check_other_files(outdir)
     make_pdb_sifts_df(outdir)
-    download_mcsa_homolog_info(outdir)
+    # download_mcsa_homolog_info(outdir)
 
     print("All files for annotation of jess results are there!")
 

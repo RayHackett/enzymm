@@ -60,7 +60,7 @@ def get_list_of_template_pdbids_with_assembly() -> List[str]:
     return list(template_pdbids)
 
 
-def get_list_of_template_pdbchains() -> List[str]:
+def get_list_of_template_pdbchains(separator: str = ".") -> List[str]:
 
     templates = list(load_templates(template_dir=None, with_annotations=False))
 
@@ -74,7 +74,7 @@ def get_list_of_template_pdbchains() -> List[str]:
             chains.add(resid.chain_id)
 
         for chain in chains:
-            template_pdb_chains.add(template.pdb_id.lower() + "." + chain)  # type: ignore
+            template_pdb_chains.add(template.pdb_id.lower() + separator + chain)  # type: ignore
 
     return list(template_pdb_chains)
 
