@@ -740,11 +740,11 @@ class TestResidue(unittest.TestCase):
             template.Template.loads(self.bad_atom_names_3, warn=True)
 
     def test_attributes(self):
-        self.assertEqual(self.residue1.residue_name, "GLU")
+        self.assertEqual(self.residue1.name, "GLU")
         self.assertEqual(self.residue1.allowed_residues, "E")
         self.assertEqual(self.residue1.specific, True)
         self.assertEqual(self.residue1.backbone, False)
-        self.assertEqual(self.residue1.residue_number, 147)
+        self.assertEqual(self.residue1.number, 147)
         self.assertEqual(self.residue1.chain_id, "A")
         result = (
             self.residue1.orientation_vector
