@@ -238,6 +238,11 @@ class Match:
         complete: `bool` If the query matched all other templates within the same cluster. Default False
         index: `int` internal index of this match. Default 0
 
+    NOTE:
+        To get the matched atoms, iterate over `Match.hit.atoms(transform: bool)`
+        To get the template atoms, iterate over `Match.hit.template`
+        To get the template residues, iterate over `Match.hit.template.residues`
+
     """
 
     hit: pyjess.Hit
@@ -272,19 +277,54 @@ class Match:
             buffer.getvalue()
         )  # returns entire content temporary file object as a string
 
-    def dump2pdb(
-        self, file: IO[str], include_query: bool = False, transform: bool = False
-    ):
+    @staticmethod
+    def write_atom_line(atom: pyjess.Atom) -> str:
+        one_char_elements = {
+            "H",
+            "B",
+            "C",
+            "N",
+            "O",
+            "F",
+            "P",
+            "S",
+            "K",
+            "V",
+            "Y",
+            "I",
+            "W",
+            "U",
+        }
+        if atom.element in one_char_elements:
+            return f"ATOM  {atom.serial:>5}  {atom.name:<3s}{atom.altloc if atom.altloc is not None else '':<1}{atom.residue_name:<3}{atom.chain_id:>2}{atom.residue_number:>4}{atom.insertion_code:1s}   {atom.x:>8.3f}{atom.y:>8.3f}{atom.z:>8.3f}{atom.occupancy:>6.2f}{atom.temperature_factor:>6.2f}      {atom.segment:<4s}{atom.element:>2s} \n"
+        else:
+            return f"ATOM  {atom.serial:>5} {atom.name:<4s}{atom.altloc if atom.altloc is not None else '':<1}{atom.residue_name:<3}{atom.chain_id:>2}{atom.residue_number:>4}{atom.insertion_code:1s}   {atom.x:>8.3f}{atom.y:>8.3f}{atom.z:>8.3f}{atom.occupancy:>6.2f}{atom.temperature_factor:>6.2f}      {atom.segment:<4s}{atom.element:>2s} \n"
+
+    def dump_query(self, file: IO[str], transform: bool = False):
+        """
+        Dump the 3D coordinates of the hit.molecule to a '.pdb' file.
+
+        Arguments:
+            file: file type object to write to
+            transform: `bool` If the atoms should be written to the template reference frame.
+
+        Note:
+            By default, atoms are written in the coordinate reference frame of the query.
+        """
+        file.write(f"HEADER MOLECULE_ID {self.hit.molecule().id}\n")
+        for atom in self.hit.molecule(transform=transform):
+            file.write(self.write_atom_line(atom))
+
+    def dump_template(self, file: IO[str], transform: bool = False):
+        raise NotImplementedError
+
+    def dump2pdb(self, file: IO[str], transform: bool = False):
         """
         Dump the 3D coordinates of the `Match` to a '.pdb' file.
 
         Arguments:
             file: file type object to write to
-            include_query: `bool` If the full query molecule should be written too.
             transform: `bool` If the matched atoms should be written to the template reference frame.
-
-        Note:
-            The query is never transformed to the target reference frame.
 
         Note:
             By default, atoms are written in the coordinate reference frame of the query.
@@ -300,34 +340,6 @@ class Match:
         # with --transform and --include query, rotate the query to the template reference too
         # simply by using the roation matrix or by selecting the atoms in the query
         # and aligning to the matched residues object.
-
-        def write_atom_line(atom: pyjess.Atom) -> str:
-            one_char_elements = {
-                "H",
-                "B",
-                "C",
-                "N",
-                "O",
-                "F",
-                "P",
-                "S",
-                "K",
-                "V",
-                "Y",
-                "I",
-                "W",
-                "U",
-            }
-            if atom.element in one_char_elements:
-                return f"ATOM  {atom.serial:>5}  {atom.name:<3s}{atom.altloc if atom.altloc is not None else '':<1}{atom.residue_name:<3}{atom.chain_id:>2}{atom.residue_number:>4}{atom.insertion_code:1s}   {atom.x:>8.3f}{atom.y:>8.3f}{atom.z:>8.3f}{atom.occupancy:>6.2f}{atom.temperature_factor:>6.2f}      {atom.segment:<4s}{atom.element:>2s} \n"
-            else:
-                return f"ATOM  {atom.serial:>5} {atom.name:<4s}{atom.altloc if atom.altloc is not None else '':<1}{atom.residue_name:<3}{atom.chain_id:>2}{atom.residue_number:>4}{atom.insertion_code:1s}   {atom.x:>8.3f}{atom.y:>8.3f}{atom.z:>8.3f}{atom.occupancy:>6.2f}{atom.temperature_factor:>6.2f}      {atom.segment:<4s}{atom.element:>2s} \n"
-
-        if include_query:  # write the original query molecule too
-            file.write(f"HEADER MOLECULE_ID {self.hit.molecule().id}\n")
-            for atom in self.hit.molecule(transform=transform):
-                file.write(write_atom_line(atom))
-            file.write("END\n\n")
 
         file.write(
             f"HEADER {self.predicted_correct} MATCH {self.hit.molecule().id} {self.index}\n"
@@ -358,8 +370,7 @@ class Match:
         for atom in self.hit.atoms(
             transform=transform
         ):  # if transform == True then coordinates are transformed to the template reference frame
-            file.write(write_atom_line(atom))
-        file.write("END\n\n")
+            file.write(self.write_atom_line(atom))
 
     def dump(
         self,
@@ -611,7 +622,7 @@ class Match:
     def orientation(self) -> float:  # average angle
         """
         `float`: The arithmetic mean of per-residue orientation angles
-        for matched pairs of template and query residues
+        for matched pairs of template and query residues in radians
         """
         if len(self.template_vector_list) != len(self.match_vector_list):
             raise ValueError(
@@ -731,7 +742,6 @@ class Matcher:
         self,
         templates: Sequence[Template],
         jess_params: Optional[Dict[int, Dict[str, float]]] = None,
-        conservation_cutoff: int = 0,
         warn: bool = False,
         verbose: bool = False,
         skip_smaller_hits: bool = False,
@@ -750,7 +760,6 @@ class Matcher:
         Arguments:
             templates: `list` of `Template` to match
             jess_params: `dict` Dictionary of PyJess parameters to apply. Will superseed defaults.
-            conservation_cutoff: `float` Atoms below this cutoff will not be matched. Default 0.
             warn: `bool` If warnings about issues during matching should be printed. Default `False`
             verbose: `bool` If progress statements on matching should be printed. Default `False`
             skip_smaller_hits: `bool` Continue searching the query against smaller templates, after a match against any larger one was found. Default `False`
@@ -774,7 +783,6 @@ class Matcher:
 
         self.templates = templates
         self.cpus = cpus
-        self.conservation_cutoff = conservation_cutoff
         self.warn = warn
         self.verbose = verbose
         self.skip_smaller_hits = skip_smaller_hits
@@ -819,9 +827,6 @@ class Matcher:
         self.verbose_print(
             f"Skip_smaller_hits search is set to {self.skip_smaller_hits}"
         )
-
-        if self.conservation_cutoff:
-            self.verbose_print(f"Conservation Cutoff set to {self.conservation_cutoff}")
 
         # check each template and if it passes add it to the dictionary of templates
         self.templates_by_effective_size: Dict[int, List[Template]] = (
@@ -874,7 +879,7 @@ class Matcher:
         Make a print statement only in verbose mode
         """
         if self.verbose:
-            print(*args)
+            self.console.print(*args)
 
     def _get_jess_parameters(self, template_size: int) -> Tuple[float, float, float]:
         if template_size < 3:
@@ -941,9 +946,9 @@ class Matcher:
     def _run_jess(
         molecule: pyjess.Molecule,
         templates: Iterable[Template],
-        rmsd_threshold: float = 2.0,
-        distance_cutoff: float = 1.5,
-        max_dynamic_distance: float = 1.5,
+        rmsd_threshold: float,
+        distance_cutoff: float,
+        max_dynamic_distance: float,
         max_candidates: Optional[int] = None,
     ) -> List[Match]:
         """`list` of `Match`: Match the `list` of `Template` to one `~pyjess.Molecule`"""

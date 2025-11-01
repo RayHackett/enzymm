@@ -239,7 +239,6 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
         matcher = Matcher(
             templates=templates,
             jess_params=jess_params,
-            conservation_cutoff=args.conservation_cutoff,
             warn=args.warn,
             verbose=args.verbose,
             skip_smaller_hits=args.skip_smaller_hits,
@@ -299,16 +298,15 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
             with open(
                 Path(outdir, f"{filename}_matches.pdb"), "w", encoding="utf-8"
             ) as pdbfile:
-                if (
-                    args.include_query
-                ):  # write the molecule structure to the top of the pdb output too
-                    for i, match in enumerate(matches):
-                        match.dump2pdb(
-                            pdbfile, include_query=(i == 0), transform=args.transform
-                        )
-                else:
-                    for match in matches:
-                        match.dump2pdb(pdbfile, transform=args.transform)
+                if args.include_query:
+                    # write the molecule structure to the top of the pdb output too
+                    pdbfile.write("MODEL        0\n")
+                    matches[0].dump_query(file=pdbfile, transform=args.transform)
+                    pdbfile.write("ENDMDL\n\n")
+                for i, match in enumerate(matches):
+                    pdbfile.write(f"MODEL        {i}\n")
+                    match.dump2pdb(pdbfile, transform=args.transform)
+                    pdbfile.write("ENDMDL\n\n")
 
         if args.pdbs:
             args.pdbs.mkdir(parents=True, exist_ok=False)
