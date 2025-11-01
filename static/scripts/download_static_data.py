@@ -539,14 +539,14 @@ def download_mcsa_homolog_info(outdir: Path):
                             mcsa_id=mcsa_id,
                             pdb_id=hom_residue["pdb_id"],
                             reference_pdbchain=reference_pdbchain,
-                            chain_name=hom_residue["chain_name"],
-                            assembly_chain_name=hom_residue["assembly_chain_name"],
+                            chain_id=hom_residue["chain_name"],
+                            assembly_chain_id=hom_residue["assembly_chain_name"],
                             assembly=hom_residue["assembly"],
                             residues={},
                         )
 
                         # hopefuly this is sufficiently unique
-                        pdb_identifier = pdb_entry.pdb_id + pdb_entry.chain_name
+                        pdb_identifier = pdb_entry.pdb_id + pdb_entry.chain_id
 
                         if pdb_identifier not in mcsa_pdb_resids[mcsa_id]:
                             mcsa_pdb_resids[mcsa_id][pdb_identifier] = pdb_entry
@@ -571,9 +571,9 @@ def download_mcsa_homolog_info(outdir: Path):
                                 mcsa_pdb_resids[mcsa_id][pdb_identifier].residues[
                                     index
                                 ] = ReferenceCatalyticResidue(
-                                    code=hom_residue["code"],
-                                    resid=hom_residue["resid"],
-                                    auth_resid=hom_residue["auth_resid"],
+                                    name=hom_residue["code"],
+                                    number=hom_residue["resid"],
+                                    auth_number=hom_residue["auth_resid"],
                                     function_location_abv=(
                                         residue["function_location_abv"]
                                         if residue["function_location_abv"]
@@ -595,9 +595,9 @@ def download_mcsa_homolog_info(outdir: Path):
                                 mcsa_pdb_resids[mcsa_id][pdb_identifier].residues[
                                     index
                                 ] = NonReferenceCatalyticResidue(
-                                    code=hom_residue["code"],
-                                    resid=hom_residue["resid"],
-                                    auth_resid=hom_residue["auth_resid"],
+                                    name=hom_residue["code"],
+                                    number=hom_residue["resid"],
+                                    auth_number=hom_residue["auth_resid"],
                                     reference=(mcsa_id, reference_pdbchain, index),
                                 )
                         else:
@@ -624,7 +624,7 @@ def download_mcsa_homolog_info(outdir: Path):
         # missing residue 280 in 1esdA
         # is also not included in the table in the M-CSA!
         mcsa_pdb_resids[556]["1esdA"].residues[280] = NonReferenceCatalyticResidue(
-            code="Trp", resid=280, auth_resid=280, reference=(556, "1escA", 280)
+            name="Trp", number=280, auth_number=280, reference=(556, "1escA", 280)
         )
 
         # templates in truth use the assembly_chain_id but too frequently they use

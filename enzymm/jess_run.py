@@ -334,7 +334,7 @@ class Match:
         # this requires a dump method for pyjess.TemplateAtoms
         # if NOT transform, rotate the template atoms into the query reference frame.
         # if transform then in pymol once could fetch the template reference pdb
-        # select the template atoms in the reference_pdb (selection called ref_site)
+        # select the template atoms in the reference pdb (selection called ref_site)
         # then call align ref_site, csa*** name of template
         # TODO once writing one match to a single file is done
         # with --transform and --include query, rotate the query to the template reference too

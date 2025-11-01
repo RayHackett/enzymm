@@ -4,7 +4,7 @@ from pathlib import Path
 import json
 import pandas as pd  # type: ignore
 import csv
-from typing import List, Tuple, Set, Dict, Optional, Iterator, ClassVar, Any
+from typing import List, Tuple, Set, Dict, Optional, ClassVar, Any
 from dataclasses import dataclass
 
 from template_info import get_list_of_template_pdbchains

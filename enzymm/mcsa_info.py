@@ -17,20 +17,20 @@ class HomologousResidue:
     Base class for a PDB residue identical or homologous to a template residue.
 
     Attributes:
-        code : `str` Three letter amino-acid code
-        resid : `int` residue id in the PDB
-        auth_resid : `int` Author assigned residue id
+        name : `str` Three letter amino-acid code
+        number : `int` residue id in the PDB
+        auth_number : `int` Author assigned residue id
 
     """
 
-    code: str  # three letter code
-    resid: int
-    auth_resid: int
+    name: str
+    number: int
+    auth_number: int
     # domain_name: Optional[str]
     # domain_cath_id: Optional[str]
 
     def __post_init__(self):
-        object.__setattr__(self, "code", self.code.upper())
+        object.__setattr__(self, "name", self.name.upper())
 
 
 @dataclass(frozen=False)
@@ -75,8 +75,8 @@ class HomologousPDB:
         reference_pdbchain : `str` : PDB identifier of the M-CSA reference PDB structure
         is_reference : `bool` : If this structure is an M-CSA reference
         pdb_id : `str` : PDB identifier of the PDB structure
-        chain_name : `str` : Chain identifier in the PDB
-        assembly_chain_name : `str` : Author assigned assembly chain identifier
+        chain_id : `str` : Chain identifier in the PDB
+        assembly_chain_id : `str` : Author assigned assembly chain identifier
         assembly : `int` : Assembly number (usually but not always the biological assembly)
         residues : `Dict[int, HomologousResidue]` : Dictionary mapping residue indices to residues. If "is_reference" then values are `ReferenceCatalyticResidue` else they are `NonReferenceCatalyticResidue`
 
@@ -91,12 +91,13 @@ class HomologousPDB:
 
     # because we iteratively add residues, the HomologousPDB dataclass
     # cannot be frozen
+
     mcsa_id: int
     reference_pdbchain: str
     is_reference: bool
     pdb_id: str
-    chain_name: str
-    assembly_chain_name: str
+    chain_id: str
+    assembly_chain_id: str
     assembly: int
     residues: Dict[int, HomologousResidue]  # can fully contain
 
@@ -109,8 +110,8 @@ class HomologousPDB:
             self.reference_pdbchain,
             self.is_reference,
             self.pdb_id,
-            self.chain_name,
-            self.assembly_chain_name,
+            self.chain_id,
+            self.assembly_chain_id,
             self.assembly,
             tuple(self.residues),
         )
@@ -160,9 +161,9 @@ def load_mcsa_catalytic_residue_homologs_info(
                     index = int(index)
                     try:
                         residues[index] = ReferenceCatalyticResidue(
-                            code=residue["code"],
-                            resid=residue["resid"],
-                            auth_resid=residue["auth_resid"],
+                            name=residue["code"],
+                            number=residue["resid"],
+                            auth_number=residue["auth_resid"],
                             function_location_abv=residue["function_location_abv"],
                             ptm=residue["ptm"],
                             roles=residue["roles"],
@@ -170,9 +171,9 @@ def load_mcsa_catalytic_residue_homologs_info(
                         )
                     except KeyError:
                         residues[index] = NonReferenceCatalyticResidue(
-                            code=residue["code"],
-                            resid=residue["resid"],
-                            auth_resid=residue["auth_resid"],
+                            name=residue["code"],
+                            number=residue["resid"],
+                            auth_number=residue["auth_resid"],
                             reference=tuple(residue["reference"]),
                         )
             # If it is not a reference, all residues are NonReference
@@ -180,9 +181,9 @@ def load_mcsa_catalytic_residue_homologs_info(
                 for index, residue in pdb_data["residues"].items():
                     index = int(index)
                     residues[index] = NonReferenceCatalyticResidue(
-                        code=residue["code"],
-                        resid=residue["resid"],
-                        auth_resid=residue["auth_resid"],
+                        name=residue["code"],
+                        number=residue["resid"],
+                        auth_number=residue["auth_resid"],
                         reference=tuple(residue["reference"]),
                     )
             out[mcsa_id][pdb_id] = HomologousPDB(
@@ -190,8 +191,8 @@ def load_mcsa_catalytic_residue_homologs_info(
                 reference_pdbchain=pdb_data["reference_pdbchain"],
                 is_reference=pdb_data["is_reference"],
                 pdb_id=pdb_data["pdb_id"],
-                chain_name=pdb_data["chain_name"],
-                assembly_chain_name=pdb_data["assembly_chain_name"],
+                chain_id=pdb_data["chain_name"],
+                assembly_chain_id=pdb_data["assembly_chain_name"],
                 assembly=pdb_data["assembly"],
                 residues=residues,
             )

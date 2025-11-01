@@ -22,6 +22,7 @@ from typing import (
     Iterable,
     ContextManager,
     ClassVar,
+    Sized,
 )
 from functools import cached_property
 from dataclasses import dataclass
@@ -35,7 +36,11 @@ except ImportError:
 
 from enzymm.utils import chunks, ranked_argsort
 from enzymm.mcsa_info import load_mcsa_catalytic_residue_homologs_info
-from enzymm.mcsa_info import ReferenceCatalyticResidue, NonReferenceCatalyticResidue
+from enzymm.mcsa_info import (
+    ReferenceCatalyticResidue,
+    NonReferenceCatalyticResidue,
+    HomologousPDB,
+)
 
 
 @dataclass(frozen=True)
@@ -180,7 +185,7 @@ class Vec3:
 
 
 @dataclass(frozen=True, init=False)
-class Residue:
+class Residue(Iterable[pyjess.TemplateAtom], Sized):
     """
     Class for storing template residues (defined as 3 atoms) with relevant information.
     """
@@ -207,6 +212,12 @@ class Residue:
         object.__setattr__(self, "_atoms", atoms)
         object.__setattr__(self, "_vec", vec)
         object.__setattr__(self, "_indices", indices)
+
+    def __iter__(self) -> Iterator[pyjess.TemplateAtom]:
+        return iter(self._atoms)
+
+    def __len__(self) -> int:
+        return len(self._atoms)
 
     @staticmethod
     def calc_residue_orientation(
@@ -336,7 +347,7 @@ class Residue:
         return self._atoms
 
     @property
-    def residue_name(self) -> str:
+    def name(self) -> str:
         """
         `str`: Get the amino-acid type as three letter code from the first atom.
         """
@@ -387,14 +398,12 @@ class Residue:
         True if the atom may match backbone atoms.
         Check if the atom has 'ANY' or 'XXX' in its residue_names attribute
         """
-
-        # TODO check what X or XXX means in pyjess!
         return (
             "ANY" in self.atoms[0].residue_names or "XXX" in self.atoms[0].residue_names
         )
 
     @property
-    def residue_number(self) -> int:
+    def number(self) -> int:
         """
         `int`: Get the pdb residue number from the first atom.
         """
@@ -429,19 +438,46 @@ class AnnotatedResidue(Residue):
     Child class inheriting from `Residue` for M-CSA annotated template residues.
 
     Attributes:
-        is_mutated : `bool` : Wether the residue in the M-CSA reference PDB structure was mutated.
-        is_metal_ligand : `str` : Wether the residue in the M-CSA reference PDB structure was metal coordinating.
-        roles : `Tuple[str]` : Tuple of EMO codes describing catalytic roles.
         reference_idx: `int` : Residue indentifier of the reference residue.
-        has_ptm: `bool` : Wether the residue in the M-CSA reference PDB structure was post-translationally modified.
-
+        reference_pdb: `HomologousPDB` :  The PDB reference of the residue.
+        reference_residue: `ReferenceCatalyticResidue` : The reference residue.
     """
 
-    is_mutated: bool
-    is_metal_ligand: bool
-    roles: Tuple[str, ...]
     reference_idx: int
-    has_ptm: bool
+    reference_pdb: HomologousPDB
+    reference_residue: ReferenceCatalyticResidue
+
+    @property
+    def is_mutated(self) -> bool:
+        """Wether the residue in the M-CSA reference PDB structure was mutated"""
+        if (
+            self.name not in ["ANY", "PTM"]
+            and self.specific
+            and self.reference_residue.function_location_abv is not None
+        ):
+            return self.name != self.reference_residue.name
+        else:
+            return False
+
+    @property
+    def is_metal_ligand(self) -> bool:
+        """Wether the residue in the M-CSA reference PDB structure was metal coordinating"""
+        return "metal_ligand" in self.reference_residue.roles_summary
+
+    @property
+    def has_ptm(self) -> bool:
+        """Wether the residue in the M-CSA reference PDB structure was post-translationally modified"""
+        return bool(self.reference_residue.ptm)
+
+    @property
+    def roles(self) -> List[str]:
+        """List of EMO (Enyzme Mechanism Ontology) terms of catalytic roles"""
+        return list(self.reference_residue.roles)
+
+    @property
+    def roles_summary(self) -> List[str]:
+        """List of text descriptions describing catalytic roles"""
+        return list(self.reference_residue.roles_summary)
 
 
 @dataclass(frozen=True)
@@ -526,6 +562,10 @@ class Template(pyjess.Template):
             residues can be constructed from a list of ~pyjess.TemplateAtoms via the
             staticmethod ~Residue.construct_residues_from_atoms(atoms=atoms)
 
+        NOTE:
+            Iterating over `Template` gives `pyjess.TemplateAtoms`.
+            If you want to get `Residue`, iterate over `Template.residues`
+
         Returns:
             `Template`
         """
@@ -556,6 +596,13 @@ class Template(pyjess.Template):
         self.enzyme_discription = enzyme_discription
         self.ec = tuple(sorted({*ec, *self._add_ec_annotations()}))
         self.cath = tuple(sorted({*cath, *self._add_cath_annotations()}))
+
+    def __getitem__(self, val):
+        # disable slicing of templates!
+        if isinstance(val, slice):
+            raise NotImplementedError
+        else:
+            return super.__getitem__(val)
 
     def _state(self) -> Tuple:
         """Used only for computing a hash and for equality comparisons"""
@@ -803,7 +850,7 @@ class Template(pyjess.Template):
 
         # for residue in self.residues:
         #     file.write(
-        #         f"REMARK ORIENTATION_VECTOR OF RESIDUE {residue.residue_number}: between atom {residue.orientation_vector_indices[0]} and {residue.orientation_vector_indices[1]} {residue.orientation_vector.x:.3f} {residue.orientation_vector.y:.3f} {residue.orientation_vector.z:.3f}\n"
+        #         f"REMARK ORIENTATION_VECTOR OF RESIDUE {residue.number}: between atom {residue.orientation_vector_indices[0]} and {residue.orientation_vector_indices[1]} {residue.orientation_vector.x:.3f} {residue.orientation_vector.y:.3f} {residue.orientation_vector.z:.3f}\n"
         #     )
 
         for residue in self.residues:
@@ -811,7 +858,6 @@ class Template(pyjess.Template):
                 raise NotImplementedError(
                     "Still need to write a dump method for templates in PyJess"
                 )
-                # TODO atom.dump(file)
 
         file.write("END\n")
 
@@ -878,7 +924,7 @@ class Template(pyjess.Template):
             return [0]
         else:
             # Now extract relative template order
-            return ranked_argsort([res.residue_number for res in self.residues])
+            return ranked_argsort([res.number for res in self.residues])
 
     def _add_cath_annotations(self) -> List[str]:
         """`list`: Pull CATH Ids associated with that template from SIFTS and from the M-CSA"""
@@ -1398,17 +1444,17 @@ class AnnotatedTemplate(Template):
             match_found = False
             for index, hom_residue in template_pdbchain.residues.items():
                 # TODO check if it would even make a difference
-                # TODO Ask ioannis about this: Should I check auth_resid or resid first?
-                if residue.residue_number == hom_residue.auth_resid:
+                # Should I check auth_resid or resid first?
+                if residue.number == hom_residue.auth_number:
                     match_found = True
                     break
-                elif residue.residue_number == hom_residue.resid:
+                elif residue.number == hom_residue.number:
                     match_found = True
                     break
 
             if not match_found:
                 raise ValueError(
-                    f"Missing a comparison residue for M-CSA id {template.mcsa_id} and pdbchain {template.pdb_id+residue.chain_id} for residue {residue.residue_name, residue.residue_number}"  # type: ignore
+                    f"Missing a comparison residue for M-CSA id {template.mcsa_id} and pdbchain {template.pdb_id+residue.chain_id} for residue {residue.name, residue.number}"  # type: ignore
                 ) from None
 
             # after the for loop breaks, index contains the residue index
@@ -1427,33 +1473,14 @@ class AnnotatedTemplate(Template):
 
             ############################################################################
 
-            # We check mutation only if
-            # the type of the template residue matters
-            # and it is interacting via its sidechain
-            is_mutated = False
-            if (
-                residue.residue_name not in ["ANY", "PTM"]
-                and residue.specific
-                and ref_residue.function_location_abv is not None
-            ):
-                is_mutated = residue.residue_name != ref_residue.code
-
-            # if template.mcsa_id == 661 and template.pdb_id == "4cyr" and ref_residue.resid == 51:
-            #     print(ref_pdbchain, ref_residue.resid, ref_residue.code, ref_residue.ptm, bool(ref_residue.ptm))
-
-            #     if isinstance(hom_residue, NonReferenceCatalyticResidue):
-            #         print("is non_reference")
-
             annotated_residues.append(
                 AnnotatedResidue(
                     _atoms=residue._atoms,
                     _vec=residue._vec,
                     _indices=residue._indices,
                     reference_idx=index,
-                    is_metal_ligand="metal ligand" in ref_residue.roles_summary,
-                    is_mutated=is_mutated,
-                    has_ptm=bool(ref_residue.ptm),
-                    roles=tuple(ref_residue.roles),
+                    reference_pdb=reference_pdb,
+                    reference_residue=ref_residue,
                 )
             )
 
@@ -1493,7 +1520,7 @@ class AnnotatedTemplate(Template):
             for residue_id, residue in reference_pdb.residues.items():  # type: ignore
                 if isinstance(residue, ReferenceCatalyticResidue):
                     # skip if the residue doesnt exist in the reference
-                    if residue.code is None:
+                    if residue.name is None:
                         continue
                     number_reference_residues += 1
                     # function_location_abv is only set if it is NOT a side chain interaction
