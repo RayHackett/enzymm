@@ -3,6 +3,34 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
+
+## [v0.2.0] - 2025-09-17
+[v0.2.0-alpha.1]: https://github.com/rayhackett/enzymm/compare/v0.1.7..v0.2.0
+
+### Added
+- Support for mmCIF files through [`gemmi`](https://gemmi.readthedocs.io/). integration in PyJess version `>= 0.7.0`
+- Support for [Selenocysteine](https://en.wikipedia.org/wiki/Selenocysteine) and [Pyrrolysine](https://en.wikipedia.org/wiki/Pyrrolysine) residues in templates
+- Added reference_residue and reference_pdb attributes to AnnotatedResidue Class
+- Added iter and len methods to Residue and Template Classes in line with PyJess
+
+### Changed
+- **breaking**: Command line argument `-j`/`--jess` replaced with `-p`/`--parameters`
+- **breaking**: Command line argument `-n`/`--n-jobs` replaced with `-j`/`--jobs`
+- **breaking**: Residue.residue_name attribute replaced with Residue.name
+- **breaking**: Residue.residue_number attribute replaced with Residue.number
+- **breaking**: Missing input files will now raise errors instead of just a warning
+- **breaking**: Bugfix related to max_candidates in PyJess where supplying many templates might supress some matches (requires PyJess version `>= 0.7.0`)
+- Will now match sites across chain interfaces even if not specified in the template (requires PyJess version `>= 0.7.0`)
+
+### Fixed
+- Should run a lot faster due to many [optimizations](https://pyjess.readthedocs.io/en/latest/guide/optimizations.html) to PyJess version `>= 0.6.0`
+- Improved handling of logistic regression models and model ensembles through new classes
+- Included PyJess version in the output tsv file
+- Included Command line argument (if run from cli) in the output tsv file
+- enzymm.template.load_templates() will now load supplied templates by default without further kwargs
+- enzymm.template.load_templates() will now by default use only one thread (improves performance)
+- Removed useless argument conservation_score of Matcher. Behaviour unchanged.
+
 ## Unreleased
 ## [v0.2.0-alpha.1] - 2025-09-02
 [v0.2.0-alpha.1]: https://github.com/rayhackett/enzymm/compare/v0.1.7..v0.2.0-alpha.1
