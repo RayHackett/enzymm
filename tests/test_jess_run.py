@@ -159,23 +159,13 @@ class TestMatch(unittest.TestCase):
 
     def test_match_dump2pdb(self):
         buffer = io.StringIO()
-        self.match1.dump2pdb(buffer, transform=False, include_query=False)
-        with resource_files(test_data).joinpath(
-            "1AMY_matches_no_query.pdb"
-        ).open() as f:
-            self.assertEqual(buffer.getvalue(), f.read())
-
-    def test_match_dump2pdb_with_query(self):
-        buffer = io.StringIO()
-        self.match1.dump2pdb(buffer, transform=False, include_query=True)
-        with resource_files(test_data).joinpath(
-            "1AMY_matches_query_included.pdb"
-        ).open() as f:
+        self.match1.dump2pdb(buffer, transform=False)
+        with resource_files(test_data).joinpath("1AMY_matches.pdb").open() as f:
             self.assertEqual(buffer.getvalue(), f.read())
 
     def test_match_dump2pdb_transformed(self):
         buffer = io.StringIO()
-        self.match1.dump2pdb(buffer, transform=True, include_query=False)
+        self.match1.dump2pdb(buffer, transform=True)
         with resource_files(test_data).joinpath(
             "1AMY_matches_template.pdb"
         ).open() as f:

@@ -462,7 +462,7 @@ class AnnotatedResidue(Residue):
     @property
     def is_metal_ligand(self) -> bool:
         """Wether the residue in the M-CSA reference PDB structure was metal coordinating"""
-        return "metal_ligand" in self.reference_residue.roles_summary
+        return "metal ligand" in self.reference_residue.roles_summary
 
     @property
     def has_ptm(self) -> bool:
@@ -602,7 +602,7 @@ class Template(pyjess.Template):
         if isinstance(val, slice):
             raise NotImplementedError
         else:
-            return super.__getitem__(val)
+            return super().__getitem__(val)
 
     def _state(self) -> Tuple:
         """Used only for computing a hash and for equality comparisons"""
