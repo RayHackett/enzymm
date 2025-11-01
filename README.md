@@ -61,7 +61,8 @@ apptainer pull oras://ghcr.io/rayhackett/enzymm:latest
 ## 🔎 Running EnzyMM
 
 Once `EnzyMM` is installed, you can run it from the terminal. The user can either provide a path to a single protein structure `-i` or to run multiple queries at once, the path to a text file `-l` which itself contains a list of paths to protein structures.
-Optionally, an output directory for pdb structures of the identified matches per query protein can be supplied with the `--pdbs` flag.
+Structures are accepted in both CIF/mmCIF and PDB file format.
+Optionally, an output directory for PDB structures of the identified matches per query protein can be supplied with the `--pdbs` flag.
 
 ```bash
 $ enzymm -i some_structure.pdb -o results.tsv --pdbs dir_to_save_matches
@@ -69,14 +70,14 @@ $ enzymm -i some_structure.pdb -o results.tsv --pdbs dir_to_save_matches
 
 Additional parameters of interest are:
 
-- `--n-jobs` or `-n`, which controls the number of threads used to parallelize the search.
+- `--jobs` or `-j`, which controls the number of threads used to parallelize the search.
   By default, it will use one thread less than available on your system using
   [`os.cpu_count`](https://docs.python.org/3/library/os.html#os.cpu_count).
 - `--unfiltered` or `-u`, which disables filtering of matches by RMSD and residue orientation.
   By default, filtering is enabled.
 - `--skip-smaller-hits`, which skips searches with smaller templates on a query
   if a match to a larger template has already been found.
-- `--jess` or `-j`, which controls the RMSD threshold and pairwise distance threshold applied. By default sensible thresholds are selected. Refer to the Docs for details
+- `--parameters` or `-p`, which controls the RMSD threshold and pairwise distance threshold applied. By default sensible thresholds are selected. Refer to the Docs for details
 - `--template-dir` or `-t`, though which the user may supply their own template library. By default, a library of catalytic templates derived from the M-CSA is loaded.
 - `--conservation-cutoff` or `-c`, which can be set to exclude atoms with B-factors or pLDDT scores below this threshold from matching. This is not set by default.
 
@@ -89,7 +90,7 @@ Please refer to the Docs for further reference.
 
 - `{output}.tsv`: A `.tsv` file containing a summary of all results. One row is printed per match.
 
-For visual exploration of matches, you can optionally save an alignment of the template and the matched query residues to a pdb file which can be viewed with any pdb viewer.
+For visual exploration of matches, you can optionally save an alignment of the template and the matched query residues to a PDB file which can be viewed with any molecular viewer.
 To do so, supply an output directory after the `--pdbs` flag for the `.pdb` files.
 
 This will also create:
@@ -99,7 +100,7 @@ This will also create:
 Add additional information to each `.pdb` file with the following flags:
 
 - `--transform`, which causes the query to be aligned to the the template instead of vice versa.
-- `--include-query`, which also writes the entire query pdb structure to the `.pdb` file
+- `--include-query`, which also writes the entire query PDB structure to the `.pdb` file
 
 Currently, `--transform` and `--include-query` should not be used together.
 Hopefully I'll get around to fixing this soon.
@@ -116,7 +117,7 @@ Ideally include a little test example so I can quickly troubleshoot.
 
 ### 🏗️ Contributing
 Contributions are more than welcome!
-Raise an issue or shoot me an email under `r.e.hackett` AT `lumc.nl`  
+Raise an issue, make a pull request or shoot me an email under `r.e.hackett` AT `lumc.nl`  
 I'm happy to help.
 
 ## 📋 Changelog
