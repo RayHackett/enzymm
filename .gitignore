@@ -181,3 +181,4 @@ pyrightconfig.json
 bin/
 
 .vscode
+.zed
