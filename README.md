@@ -13,6 +13,7 @@
 [![Wheel](https://img.shields.io/pypi/wheel/enzymm?style=flat-square&maxAge=3600)](https://pypi.org/project/enzymm/#files)
 [![Docker](https://img.shields.io/badge/Docker-GHCR-blue?logo=docker)](https://github.com/users/rayhackett/packages/container/package/enzymm)
 [![Apptainer](https://img.shields.io/badge/Apptainer-SIF-blue?logo=apptainer&style=flat)](https://github.com/rayhackett/enzymm/releases/latest)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/enzymm?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/enzymm)
 <!-- [![Paper](https://img.shields.io/badge/paper-JOSS-9400ff?style=flat-square&maxAge=86400)](https://doi.org/10.21105/joss.04296) -->
 <!-- [![Citations](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fbadge.dimensions.ai%2Fdetails%2Fid%2Fpub.1147419140%2Fmetadata.json&query=%24.times_cited&style=flat-square&label=citations&maxAge=86400)](https://badge.dimensions.ai/details/id/pub.1147419140) -->
 <!-- [![Bioconda](https://img.shields.io/conda/vn/bioconda/pyhmmer?logo=anaconda&style=flat-square&maxAge=3600)](https://anaconda.org/bioconda/pyhmmer) -->
@@ -134,7 +135,7 @@ Though conceived at the [EMBL-EBI](https://www.ebi.ac.uk/) in Hinxton, UK in the
 ## 🔖 Citations
 `EnyzMM` is academic software but relies on many previous approaches.  
 `EnzyMM` itself can not yet be cited but a preprint is in preparation.
-We intend to publish during the summer of 2025.  
+We intend to publish during the autumn of 2025.  
 
 We kindly ask you to cite both:  
 - PyJess, for instance as:
