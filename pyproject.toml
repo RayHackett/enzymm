@@ -12,7 +12,7 @@ license = { file = "LICENSE" }
 authors = [
   { name = "Raymund Hackett", email = "r.e.hackett@lumc.nl" },
 ]
-keywords = ["enzyme", "catalytic", "structure", "protein", "bioinformatics]  # up to 5
+keywords = ["enzyme", "catalytic", "structure", "protein", "bioinformatics"]  # up to 5
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
