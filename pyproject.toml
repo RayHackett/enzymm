@@ -12,15 +12,22 @@ license = { file = "LICENSE" }
 authors = [
   { name = "Raymund Hackett", email = "r.e.hackett@lumc.nl" },
 ]
-keywords = ["enzyme", "catalytic", "active site", "protein"]  # up to 5
+keywords = ["enzyme", "catalytic", "structure", "protein", "bioinformatics]  # up to 5
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
-    "Programming Language :: Python",
-    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Topic :: Scientific/Engineering :: Chemistry",
@@ -39,12 +46,21 @@ include = ["enzymm*"]
 exclude = ["enzymm.jess", "docs", "tests", "nextflow", "static"]
 
 [project.urls]
+"Homepage" = "https://github.com/rayhackett/enzymm/"
+"Documentation" = "https://enzymm.readthedocs.io/en/stable/"
 "Bug Tracker" = "https://github.com/RayHackett/enzymm/issues"
 "Changelog" = "https://github.com/RayHackett/enzymm/blob/main/CHANGELOG.md"
-"CI" = "https://github.com/RayHackett/enzymm/actions"
+"Coverage" = "https://codecov.io/gh/rayhackett/enzymm/"
+"Builds" = "https://github.com/RayHackett/enzymm/actions"
+"PyPI" = "https://pypi.org/project/enzymm"
+"PiWheels" = "https://piwheels.org/project/enzymm/"
+"Docker" = "https://github.com/users/rayhackett/packages/container/package/enzymm"
 
 [project.scripts]
 enzymm = "enzymm._cli:main"
+
+[project.entry-points.console_scripts]
+enzymm = "enyzmm._cli:main"
 
 [tool.setuptools.dynamic]
 version = {attr = "enzymm.__version__"}

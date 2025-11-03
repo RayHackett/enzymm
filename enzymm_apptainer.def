@@ -22,6 +22,7 @@ From: python:3.13-alpine
 %files
     pyproject.toml /app/
     CHANGELOG.md /app/
+    CONTRIBUTING.md /app/
     README.md /app/
     MANIFEST.in /app/
     LICENSE /app/
