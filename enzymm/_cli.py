@@ -19,7 +19,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     class ReadListAction(argparse.Action):
         def __call__(self, parser, namespace, values, option_string=None):
-            with values.open("r") as f:
+            with values.open("r") as f:  # type: ignore
                 for line in f:
                     dest = getattr(namespace, self.dest)
                     dest.append(Path(line.strip()))
@@ -32,67 +32,17 @@ def build_parser() -> argparse.ArgumentParser:
             Recommended use: enzymm -l query_pdbs.list -o results.tsv -v --pdbs pdb_folder --include-query
 
             """,
-        description="EnzyMM - EnzymeMotifMiner - version {__version__}\nGeometric matching of catalytic motifs in protein structures.",
+        description=(
+            f"EnzyMM - The Enzyme Motif Miner - version {__version__}\n\n"
+            "Geometric matching of catalytic motifs in protein structures \n\n"
+            "MIT License\n\n"
+            "Copyright (c) 2025 Raymund Hackett <r.e.hackett@lumc.nl>\n"
+        ),
     )
     parser.add_argument(
         "-V", "--version", action="version", version=f"enzymm {__version__}"
     )
-    parser.add_argument(
-        "-o",
-        "--output",
-        required=True,
-        type=Path,
-        help="Output tsv file to which results should get written",
-    )
-    parser.add_argument(
-        "--pdbs",
-        type=Path,
-        help="Output directory to which results should get written",
-        default=None,
-    )
 
-    # inputs: either a list of paths, or directly a path (or any combination)
-    parser.add_argument(
-        "-i",
-        "--input",
-        type=Path,
-        help="File path to a PDB or mmCIF file to use as query",
-        action="append",
-        dest="files",
-        default=[],
-    )
-    parser.add_argument(
-        "-l",
-        "--list",
-        type=Path,
-        help="File containing a list of PDB or mmCIF files to read",
-        action=ReadListAction,
-        dest="files",
-    )
-
-    # optional arguments
-    parser.add_argument(
-        "-p",
-        "--parameters",
-        nargs=3,
-        default=None,
-        type=float,
-        help="Fixed Jess parameters for all templates. Jess space seperated parameters rmsd, distance, max_dynamic_distance",
-    )
-    parser.add_argument(
-        "-t",
-        "--template-dir",
-        type=Path,
-        default=None,
-        help="Path to directory containing jess templates. This directory will be recursively searched.",
-    )
-    parser.add_argument(
-        "-c",
-        "--conservation-cutoff",
-        type=float,
-        default=0,
-        help="Atoms with a value in the B-factor column below this cutoff will be excluded form matching to the templates. Useful for predicted structures.",
-    )
     parser.add_argument(
         "-j",
         "--jobs",
@@ -105,54 +55,114 @@ def build_parser() -> argparse.ArgumentParser:
         help="The number of threads to spawn for jobs in parallel. Pass 0 to select all cores. Negative numbers: leave this many cores free.",
     )
 
-    # Boolean optional arguments
-    parser.add_argument(
+    group = parser.add_argument_group("Mandatory Parameters")
+    group.add_argument(
+        "-o",
+        "--output",
+        required=True,
+        type=Path,
+        help="Output tsv file to which results should get written",
+    )
+
+    group = parser.add_argument_group("Inputs - Use either or combine")
+    # inputs: either a list of paths, or directly a path (or any combination)
+    group.add_argument(
+        "-i",
+        "--input",
+        type=Path,
+        help="File path to a PDB or mmCIF file to use as query",
+        action="append",
+        dest="files",
+        default=[],
+    )
+    group.add_argument(
+        "-l",
+        "--list",
+        type=Path,
+        help="File containing a list of PDB or mmCIF files to read",
+        action=ReadListAction,
+        dest="files",
+    )
+
+    group = parser.add_argument_group("Optional Arguments")
+    # optional arguments
+    group.add_argument(
+        "--pdbs",
+        type=Path,
+        help="Output directory to which results should get written",
+        default=None,
+    )
+    group.add_argument(
+        "-p",
+        "--parameters",
+        nargs=3,
+        default=None,
+        type=float,
+        help="Fixed Jess parameters for all templates. Jess space seperated parameters rmsd, distance, max_dynamic_distance",
+    )
+    group.add_argument(
+        "-t",
+        "--template-dir",
+        type=Path,
+        default=None,
+        help="Path to directory containing jess templates. This directory will be recursively searched.",
+    )
+    group.add_argument(
+        "-c",
+        "--conservation-cutoff",
+        type=float,
+        default=0,
+        help="Atoms with a value in the B-factor column below this cutoff will be excluded form matching to the templates. Useful for predicted structures.",
+    )
+
+    group = parser.add_argument_group("Flags")
+    group.add_argument(
         "-v",
         "--verbose",
         default=False,
         action="store_true",
         help="If process information and time progress should be printed to the command line",
     )
-    parser.add_argument(
+    group.add_argument(
         "-w",
         "--warn",
         default=False,
         action="store_true",
         help="If warings about bad template processing or suspicous and missing annotations should be raised",
     )
-    parser.add_argument(
+    group.add_argument(
         "-q",
         "--include-query",
         default=False,
         action="store_true",
         help="Include the query structure together with the hits in the pdb output",
     )
-    parser.add_argument(
+    group.add_argument(
         "-u",
         "--unfiltered",
         default=False,
         action="store_true",
         help="If set, matches which logistic regression predicts as false based on RMSD and resdiue orientation will be retained. By default, matches predicted as false are removed.",
     )
-    parser.add_argument(
+    group.add_argument(
         "--transform",
         default=False,
         action="store_true",
         help="If set, will transform the coordinate system of the hits to that of the template in the pdb output",
     )
-    parser.add_argument(
+    group.add_argument(
         "--skip-smaller-hits",
         default=False,
         action="store_true",
         help="If set, will not search with smaller templates if larger templates have already found hits.",
     )
-    parser.add_argument(
+    group.add_argument(
         "--match-small-templates",
         default=False,
         action="store_true",
         help="If set, templates with less then 3 defined sidechain residues will still be matched.",
     )
-    parser.add_argument(
+    group.add_argument(
         "--skip-annotation",
         default=False,
         action="store_true",

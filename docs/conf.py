@@ -27,6 +27,8 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
     "sphinx.ext.intersphinx",
+    "sphinxarg.ext",
+    "myst_parser",
     "sphinx_rtd_theme",
 ]
 

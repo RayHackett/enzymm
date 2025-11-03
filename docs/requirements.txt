@@ -1,1 +1,4 @@
+sphinx >=5.0
 sphinx_rtd_theme
+sphinx-argparse
+myst_parser
