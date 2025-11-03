@@ -13,6 +13,9 @@ This project targets Python 3.7 or later.
 Python objects should be typed; Since this library also targets older python versions,
 please use the typing module as you would prior to python 3.9.
 
+### Format
+
+Code is formated with [Black](https://github.com/psf/black)
 
 ## Setting up a local repository
 

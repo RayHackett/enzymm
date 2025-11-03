@@ -140,7 +140,7 @@ Both PyJess and the original JESS code are distributed under the
 `MIT License <https://choosealicense.com/licenses/mit/>`_ as well.
 
 Though conceived at the `EMBL-EBI <https://www.ebi.ac.uk/>`_ in Hinxton,
-UK in the `Thornton Group <https://www.ebi.ac.uk/research/thornton/>`_,**EnzyMM** is now
+UK in the `Thornton Group <https://www.ebi.ac.uk/research/thornton/>`_, **EnzyMM** is now
 developed by Raymund Hackett and the `Zeller Group <https://zellerlab.org/>`_ at
 the `Leiden University Medical Center <https://www.lumc.nl/en/>`_ 
 in Leiden in the Netherlands with continuing support from the Thornton Group.
