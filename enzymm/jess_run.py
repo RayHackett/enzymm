@@ -28,7 +28,14 @@ from pathlib import Path
 
 import rich
 import pyjess
-from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn, TaskID, Task
+from rich.progress import (
+    ProgressColumn,
+    Progress,
+    SpinnerColumn,
+    TimeElapsedColumn,
+    TaskID,
+    Task,
+)
 from readerwriterlock import rwlock
 
 try:
@@ -102,7 +109,7 @@ class ModelEnsemble:
     Ensemble of Models which each produce a binary prediction. The ensemble takes a majority vote.
 
     Attributes:
-        ensemble: `Dict[int, Dict[float, List[Callable[..., bool]]]] Dictonary of template_effective_size of Dictonaries of pairwise_distance of a List of callable models.
+        ensemble: `Dict[int, Dict[float, List[Callable[..., bool]]]]` Dictonary of template_effective_size of Dictonaries of pairwise_distance of a List of callable models.
         min_true_template_size: `int` Minimum effective size of a template to be considered always correct.
         minimum_effective_size: `int` Smallest template_effective_size for which there are models. Smaller template will be treated as if they had 3 residues.
 
@@ -305,7 +312,7 @@ class Match:
         Dump the 3D coordinates of the hit.molecule to a '.pdb' file.
 
         Arguments:
-            file: file type object to write to
+            file: `file-like` object to write to
             transform: `bool` If the atoms should be written to the template reference frame.
 
         Note:
@@ -323,7 +330,7 @@ class Match:
         Dump the 3D coordinates of the `Match` to a '.pdb' file.
 
         Arguments:
-            file: file type object to write to
+            file:` file-like` object to write to
             transform: `bool` If the matched atoms should be written to the template reference frame.
 
         Note:
@@ -346,7 +353,7 @@ class Match:
         )
 
         file.write(
-            f'REMARK TEMPLATE_PDB {str(self.hit.template.pdb_id)}_{",".join(set(res.chain_id for res in self.hit.template.residues))}\n'
+            f"REMARK TEMPLATE_PDB {str(self.hit.template.pdb_id)}_{','.join(set(res.chain_id for res in self.hit.template.residues))}\n"
         )
 
         # alias for improved readability
@@ -479,7 +486,7 @@ class Match:
 
     def get_identifying_attributes(self) -> Tuple[int, int, int]:
         """
-        `tuple` of (M-CSA id, cluster id and template dimension).`
+        `tuple` of (`int` , `int` , `int`) (M-CSA id, cluster id and template dimension).`
         """
         # return the tuple (hit.template.m-csa, hit.template.cluster.id, hit.template.dimension)
         template = self.hit.template
@@ -656,7 +663,11 @@ class Match:
         return len(all_residue_numbers)
 
 
-with resource_files(__package__).joinpath("data", "logistic_regression_models.json").open() as f:  # type: ignore
+with (
+    resource_files(__package__)  # type: ignore
+    .joinpath("data", "logistic_regression_models.json")  # type: ignore
+    .open()
+) as f:
     Match.ensemble_model = ModelEnsemble.from_json(
         f,
         model_cls=LogisticRegressionModel,
@@ -712,13 +723,13 @@ def load_molecules(
 @dataclass
 class QueryMolecule:
     molecule: pyjess.Molecule
-    lock: rwlock.RWLockRead = field(default_factory=rwlock.RWLockRead)
+    lock: rwlock.RWLockRead = field(default_factory=rwlock.RWLockRead)  # type: ignore
     # the lock is similar to: threading.Lock = threading.Lock()
     hit_found: bool = False
     hit_size: int = 0
 
 
-class StructuresColumn(rich.progress.ProgressColumn):
+class StructuresColumn(ProgressColumn):
     def render(self, task: Task):
         job_batches = task.fields.get("job_batches", 1)
         return f"Structures {task.completed // job_batches}/{task.total // job_batches}"
@@ -927,10 +938,14 @@ class Matcher:
             # or say like: This template cluster was always complete while this template cluster was only complete X times out of Y Queries matched to one member
             #
             # check if all the cluster members up to and including cluster_size are present in the group,
-            indexed_possible_cluster_members = list(range(cluster_matches[0].hit.template.cluster.size))  # type: ignore
+            indexed_possible_cluster_members = list(
+                range(cluster_matches[0].hit.template.cluster.size)
+            )  # type: ignore
             possible_cluster_members = [x + 1 for x in indexed_possible_cluster_members]
 
-            found_cluster_members = [match.hit.template.cluster.member for match in cluster_matches]  # type: ignore
+            found_cluster_members = [
+                match.hit.template.cluster.member for match in cluster_matches
+            ]  # type: ignore
             found_cluster_members.sort()
 
             if found_cluster_members == possible_cluster_members:
@@ -1009,7 +1024,6 @@ class Matcher:
         self,
         all_matches: List[Match],
     ):
-
         # keep only matches predicted as correct
         if self.filter_matches:
             filtered_matches = []
@@ -1031,7 +1045,6 @@ class Matcher:
         max_dynamic_distance: float,
         max_candidates: Optional[int] = None,
     ) -> List[Match]:
-
         matches = self._run_jess(
             molecule=molecule,
             templates=templates,
@@ -1064,7 +1077,7 @@ class Matcher:
 
         # batches of templates with only one size of templates within each batch
         # batches must be pure in terms of template size
-        ordered_template_batches: List[Tuple[Tuple[pyjess.Template, ...], int]] = []
+        ordered_template_batches: List[Tuple[Tuple[Template, ...], int]] = []
         for template_size in self.template_effective_sizes:
             for batch in chunks(
                 iterable=self.templates_by_effective_size[template_size], n=100
@@ -1073,7 +1086,6 @@ class Matcher:
 
         job_batches = []
         for template_batch, template_size in ordered_template_batches:
-
             rmsd, distance, max_dynamic_distance = self._get_jess_parameters(
                 template_size
             )
@@ -1094,7 +1106,6 @@ class Matcher:
             progress: Progress,
             task: TaskID,
         ):
-
             template_size = batch_partial.keywords["templates"][0].effective_size
 
             if self.skip_smaller_hits:
@@ -1126,7 +1137,6 @@ class Matcher:
             StructuresColumn(),
             console=self.console,
         ) as progress:
-
             task = progress.add_task(
                 "Searching Structures",
                 total=len(job_batches) * len(molecules),

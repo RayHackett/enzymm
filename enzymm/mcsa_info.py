@@ -36,13 +36,13 @@ class HomologousResidue:
 @dataclass(frozen=False)
 class ReferenceCatalyticResidue(HomologousResidue):
     """
-    Class for a reference PDB residue for a template residue.
+    Child Class of `HomologousResidue` for a reference PDB residue for a template residue.
 
     Attributes:
         function_location_abv : `str` Functional part of the residue. Empty string means side chain. Else "main", "main-C", "main-N" or "ptm"
         ptm : `str` Empty string or for post translationally modified residues, the 3-letter code of the ptm in the PDB
-        roles : `List[str]` List of EMO codes describing functional roles
-        roles_summary : `List[str]` List text discriptions of functional roles
+        roles : `list` of `str` of EMO codes describing functional roles
+        roles_summary : `list` of `str` discriptions of functional roles
 
     """
 
@@ -55,10 +55,10 @@ class ReferenceCatalyticResidue(HomologousResidue):
 @dataclass(frozen=False)
 class NonReferenceCatalyticResidue(HomologousResidue):
     """
-    Class for a non-reference PDB residue for a template residue.
+    Child Class of `HomologousResidue` for a non-reference PDB residue for a template residue.
 
     Attributes:
-        reference : `Tuple[int, str, int]` : Tuple of mcsa_id, pdb_id, residue_index to find the reference
+        reference : `tuple` of (`int` , `str` , `int`) : Tuple of mcsa_id, pdb_id, residue_index to find the reference
 
     """
 
@@ -78,7 +78,7 @@ class HomologousPDB:
         chain_id : `str` : Chain identifier in the PDB
         assembly_chain_id : `str` : Author assigned assembly chain identifier
         assembly : `int` : Assembly number (usually but not always the biological assembly)
-        residues : `Dict[int, HomologousResidue]` : Dictionary mapping residue indices to residues. If "is_reference" then values are `ReferenceCatalyticResidue` else they are `NonReferenceCatalyticResidue`
+        residues : `dict` of [`int` , `HomologousResidue`] : Dictionary mapping residue indices to residues. If "is_reference" then values are `ReferenceCatalyticResidue` else they are `NonReferenceCatalyticResidue`
 
     """
 

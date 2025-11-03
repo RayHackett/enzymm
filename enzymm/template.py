@@ -13,6 +13,7 @@ from typing import (
     Any,
     Sequence,
     List,
+    Set,
     Tuple,
     Dict,
     Optional,
@@ -62,7 +63,7 @@ class Vec3:
     def __post_init__(self):
         if math.isnan(self.x) or math.isnan(self.y) or math.isnan(self.z):
             raise ValueError(
-                "Cannot create a Vec3 with NaN values. Likely the Jess superposition failed."
+                "Cannot create a `Vec3` with NaN values. Likely the Jess superposition failed."
             )
 
     @classmethod
@@ -221,7 +222,7 @@ class Residue(Iterable[pyjess.TemplateAtom], Sized):
 
     @staticmethod
     def calc_residue_orientation(
-        atoms: Tuple[pyjess.TemplateAtom, pyjess.TemplateAtom, pyjess.TemplateAtom]
+        atoms: Tuple[pyjess.TemplateAtom, pyjess.TemplateAtom, pyjess.TemplateAtom],
     ) -> Tuple[Vec3, Tuple[int, int]]:
         """
         Method to calculate the residue orientation depending on the residue type.
@@ -317,8 +318,7 @@ class Residue(Iterable[pyjess.TemplateAtom], Sized):
     def construct_residues_from_atoms(
         cls, atoms: Iterable[pyjess.TemplateAtom]
     ) -> List[Residue]:
-
-        residues = []
+        residues: List[Residue] = []
         for atom_triplet in chunks(atoms, 3):  # yield chunks of 3 atom lines each
             if len(atom_triplet) != 3:
                 raise ValueError(
@@ -384,7 +384,7 @@ class Residue(Iterable[pyjess.TemplateAtom], Sized):
         return "".join(set(convert_to_single[i] for i in self.atoms[0].residue_names))
 
     @property
-    def specific(self) -> int:
+    def specific(self) -> bool:
         """
         `bool`: Atoms with a match_mode greater 100 are unspecific. <100 is specific.
         """
@@ -426,7 +426,7 @@ class Residue(Iterable[pyjess.TemplateAtom], Sized):
     @property
     def orientation_vector_indices(self) -> Tuple[int, int]:
         """
-        `tuple`: Return the indices of the atoms
+        `tuple` of (`int`, `int`): Return the indices of the atoms
         between which the orientation vector was calculated according to the residue type.
         """
         return self._indices
@@ -439,8 +439,8 @@ class AnnotatedResidue(Residue):
 
     Attributes:
         reference_idx: `int` : Residue indentifier of the reference residue.
-        reference_pdb: `HomologousPDB` :  The PDB reference of the residue.
-        reference_residue: `ReferenceCatalyticResidue` : The reference residue.
+        reference_pdb: `~enzymm.mcsa_info.HomologousPDB` :  The PDB reference of the residue.
+        reference_residue: `~enzymm.mcsa_info.ReferenceCatalyticResidue` : The reference residue.
     """
 
     reference_idx: int
@@ -471,12 +471,12 @@ class AnnotatedResidue(Residue):
 
     @property
     def roles(self) -> List[str]:
-        """List of EMO (Enyzme Mechanism Ontology) terms of catalytic roles"""
+        """`list` of `str` of EMO (Enyzme Mechanism Ontology) terms of catalytic roles"""
         return list(self.reference_residue.roles)
 
     @property
     def roles_summary(self) -> List[str]:
-        """List of text descriptions describing catalytic roles"""
+        """`list` of `str` describing catalytic roles"""
         return list(self.reference_residue.roles_summary)
 
 
@@ -504,7 +504,7 @@ class Template(pyjess.Template):
     """
     Class for storing templates and associated information.
 
-    Inherits and extends from `pyjess.Template`
+    Inherits and extends from `~pyjess.Template`
     """
 
     _CATH_MAPPING: ClassVar[Dict[str, List[str]]]
@@ -547,23 +547,23 @@ class Template(pyjess.Template):
             experimental_method: `str` Experimental method by which the Protein Structure of the template was resolved
             enzyme_description: `str` Text Discription of the Protein from which the template was generated
             represented_sites: `int` The number of Enzymes which this template is representative for
-            ec: `list` of EC numbers associated with Enzymes this template represents
-            cath: `list` of CATH numbers associated with Enzymes this template represents
+            ec: `list` of `str` of EC numbers associated with Enzymes this template represents
+            cath: `list` of `str` of CATH numbers associated with Enzymes this template represents
 
         NOTE:
             It is recommended not to pass an id string.
             If id is `None`, the id string will be set to:
 
-            > {`~Template.effective_size`}-Residues_{~`Template.template_id_string`}_Cluster_{`Cluster.id`}-{`Cluster.member`}-{`Cluster.size`}
+            > {`Template.effective_size`}-Residues_{`Template.template_id_string`}_Cluster_{`Cluster.id`}-{`Cluster.member`}-{`Cluster.size`}
 
             This identifier string should be unique.
 
         NOTE:
-            residues can be constructed from a list of ~pyjess.TemplateAtoms via the
-            staticmethod ~Residue.construct_residues_from_atoms(atoms=atoms)
+            residues can be constructed from a `list` of `~pyjess.TemplateAtoms` via the
+            staticmethod `Residue.construct_residues_from_atoms(atoms=atoms)`
 
         NOTE:
-            Iterating over `Template` gives `pyjess.TemplateAtoms`.
+            Iterating over `Template` gives `~pyjess.TemplateAtom`.
             If you want to get `Residue`, iterate over `Template.residues`
 
         Returns:
@@ -626,7 +626,6 @@ class Template(pyjess.Template):
         )
 
     def __reduce_ex__(self, protocol):
-
         return (
             functools.partial(
                 Template,
@@ -705,7 +704,7 @@ class Template(pyjess.Template):
         Returns:
             `Template`
         """
-        atoms = []
+        atoms: List[pyjess.TemplateAtom] = []
         metadata: dict[str, object] = {"ec": list(), "cath": list()}
 
         _PARSERS = {
@@ -736,7 +735,7 @@ class Template(pyjess.Template):
             context = contextlib.nullcontext(file)  # type: ignore
 
         with context as f:
-            seen_lines = set()
+            seen_lines: Set[str] = set()
             for line in filter(str.strip, f):
                 tokens = line.split()
                 if tokens[0] == "REMARK":
@@ -927,7 +926,7 @@ class Template(pyjess.Template):
             return ranked_argsort([res.number for res in self.residues])
 
     def _add_cath_annotations(self) -> List[str]:
-        """`list`: Pull CATH Ids associated with that template from SIFTS and from the M-CSA"""
+        """`list` of `str`: Pull CATH Ids associated with that template from SIFTS and from the M-CSA"""
         cath_list = []
         if self.mcsa_id:
             cath_list.extend(
@@ -951,7 +950,7 @@ class Template(pyjess.Template):
         return cath_list
 
     def _add_ec_annotations(self) -> List[str]:
-        """`list`: Pull EC Annotations associated with that template from SIFTS and from the M-CSA"""
+        """`list` of `str`: Pull EC Annotations associated with that template from SIFTS and from the M-CSA"""
         ec_list = []
         if self.mcsa_id is not None:
             ec_list.append(
@@ -976,7 +975,7 @@ class Template(pyjess.Template):
 
     @classmethod
     def _parse_pdb_id(
-        cls, tokens: List[str], metadata: dict[str, object], warn: bool = True
+        cls, tokens: List[str], metadata: Dict[str, object], warn: bool = True
     ):
         if len(tokens[2]) != 4:
             raise ValueError(
@@ -986,13 +985,13 @@ class Template(pyjess.Template):
 
     @classmethod
     def _parse_template_id_string(
-        cls, tokens: List[str], metadata: dict[str, object], warn: bool = True
+        cls, tokens: List[str], metadata: Dict[str, object], warn: bool = True
     ):
         metadata["template_id_string"] = tokens[2]
 
     @classmethod
     def _parse_uniprot_id(
-        cls, tokens: List[str], metadata: dict[str, object], warn: bool = True
+        cls, tokens: List[str], metadata: Dict[str, object], warn: bool = True
     ):
         match = re.search(
             r"[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2}",
@@ -1005,7 +1004,7 @@ class Template(pyjess.Template):
 
     @classmethod
     def _parse_mcsa_id(
-        cls, tokens: List[str], metadata: dict[str, object], warn: bool = True
+        cls, tokens: List[str], metadata: Dict[str, object], warn: bool = True
     ):
         try:
             metadata["mcsa_id"] = int(tokens[2])
@@ -1014,7 +1013,7 @@ class Template(pyjess.Template):
 
     @classmethod
     def _parse_cluster(
-        cls, tokens: List[str], metadata: dict[str, object], warn: bool = True
+        cls, tokens: List[str], metadata: Dict[str, object], warn: bool = True
     ):
         try:
             cluster = Cluster(*list(map(int, tokens[2].split("_"))))
@@ -1026,19 +1025,19 @@ class Template(pyjess.Template):
 
     @classmethod
     def _parse_organism_name(
-        cls, tokens: List[str], metadata: dict[str, object], warn: bool = True
+        cls, tokens: List[str], metadata: Dict[str, object], warn: bool = True
     ):
         metadata["organism"] = " ".join(tokens[2:])
 
     @classmethod
     def _parse_organism_id(
-        cls, tokens: List[str], metadata: dict[str, object], warn: bool = True
+        cls, tokens: List[str], metadata: Dict[str, object], warn: bool = True
     ):
         metadata["organism_id"] = tokens[2]
 
     @classmethod
     def _parse_resolution(
-        cls, tokens: List[str], metadata: dict[str, object], warn: bool = True
+        cls, tokens: List[str], metadata: Dict[str, object], warn: bool = True
     ):
         try:
             metadata["resolution"] = float(tokens[2])
@@ -1047,13 +1046,13 @@ class Template(pyjess.Template):
 
     @classmethod
     def _parse_experimental_method(
-        cls, tokens: List[str], metadata: dict[str, object], warn: bool = True
+        cls, tokens: List[str], metadata: Dict[str, object], warn: bool = True
     ):
         metadata["experimental_method"] = " ".join(tokens[2:])
 
     @classmethod
     def _parse_ec(
-        cls, tokens: List[str], metadata: dict[str, object], warn: bool = True
+        cls, tokens: List[str], metadata: Dict[str, object], warn: bool = True
     ):
         matches = [
             match.group()
@@ -1080,7 +1079,7 @@ class Template(pyjess.Template):
 
     @classmethod
     def _parse_cath(
-        cls, tokens: List[str], metadata: dict[str, object], warn: bool = True
+        cls, tokens: List[str], metadata: Dict[str, object], warn: bool = True
     ):
         matches = [
             match.group()
@@ -1095,13 +1094,13 @@ class Template(pyjess.Template):
 
     @classmethod
     def _parse_enzyme_discription(
-        cls, tokens: List[str], metadata: dict[str, object], warn: bool = True
+        cls, tokens: List[str], metadata: Dict[str, object], warn: bool = True
     ):
         metadata["enzyme_discription"] = " ".join(tokens[2:])
 
     @classmethod
     def _parse_represented_sites(
-        cls, tokens: List[str], metadata: dict[str, object], warn: bool = True
+        cls, tokens: List[str], metadata: Dict[str, object], warn: bool = True
     ):
         try:
             metadata["represented_sites"] = int(tokens[2])
@@ -1112,6 +1111,9 @@ class Template(pyjess.Template):
 
 
 class AnnotatedTemplate(Template):
+    """
+    Child class inheriting from `Template` for M-CSA annotated catalytic site templates.
+    """
 
     residues: Tuple[AnnotatedResidue, ...]
     pdb_id: str
@@ -1146,7 +1148,7 @@ class AnnotatedTemplate(Template):
         Initialize an annotated template with descriptions of catalytic activity from the M-CSA.
 
         Keyword Arguments:
-            residues: `sequence` of `~Residue` instances
+            residues: `Sequence` of `~Residue` instances
             id: `str` Internal Template ID string. Default `None`
             pdb_id: `str` The PDB ID of the template
             template_id_string: `str` String in the ID line of a template
@@ -1159,24 +1161,24 @@ class AnnotatedTemplate(Template):
             experimental_method: `str` Experimental method by which the Protein Structure of the template was resolved
             enzyme_description: `str` Text Discription of the Protein from which the template was generated
             represented_sites: `int` The number of Enzymes which this template is representative for
-            ec: `list` of EC numbers associated with Enzymes this template represents
-            cath: `list` of CATH numbers associated with Enzymes this template represents
+            ec: ` `list` of `str` of EC numbers associated with Enzymes this template represents
+            cath: `list` of `str` of CATH numbers associated with Enzymes this template represents
             number_of_mutated_residues: `int` The number of side chain specific residues which have been mutated relative to the reference
-            number_of_metal_ligands: `tuple(`int`, `int`)` Number of metal chelating residues in the template and the reference
-            number_of_ptm_residues: `tuple(`int`, `int`)` Number of post translationally modified residues in the template and the reference
-            number_of_side_chain_residues: `tuple(`int`, `int`)` Number of side chain interacting residues in the template and the reference
+            number_of_metal_ligands: `tuple` of (`int` , `int`) Number of metal chelating residues in the template and the reference
+            number_of_ptm_residues: `tuple` of (`int` , `int`) Number of post translationally modified residues in the template and the reference
+            number_of_side_chain_residues: `tuple` of (`int`, `int`) Number of side chain interacting residues in the template and the reference
             total_reference_residues: `int` Total number of residues (main and side chain) in the reference structure
 
         NOTE:
-            In order for a template file to be loaded as an AnnotatedTemplate,
-            it must need both an M-CSA id and a pdb_id.
-            This pdb_id must be found in the PDB-homologs of the M-CSA!
+            In order for a template file to be loaded as an `~AnnotatedTemplate`,
+            it must have both an `mcsa_id` and a `pdb_id`.
+            This `pdb_id` must be found in the PDB-homologs of the M-CSA!
 
         NOTE:
-            It is recommended not to pass an id string.
-            If id is `None`, the id string will be set to
+            It is recommended to not pass an `id` string.
+            If `id` is `None`, the `id` will be set to
 
-            > {`~Template.effective_size`}-Residues_{~`Template.template_id_string`}_Cluster_{`Cluster.id`}-{`Cluster.member`}-{`Cluster.size`}
+            > {`~Template.effective_size`}-Residues_{`~Template.template_id_string`}_Cluster_{`Cluster.id`}-{`Cluster.member`}-{`Cluster.size`}
 
             This identifier string should be unique.
 
@@ -1214,7 +1216,7 @@ class AnnotatedTemplate(Template):
         self.total_reference_residues = total_reference_residues
         self.assembly = assembly
 
-    def __reduce_ex__(self, protocol):
+    def __reduce_ex__(self, protocol):  # type: ignore
         return (
             functools.partial(
                 AnnotatedTemplate,
@@ -1244,7 +1246,6 @@ class AnnotatedTemplate(Template):
         )
 
     def _state(self) -> Tuple:
-
         residues = Residue.construct_residues_from_atoms(
             atoms=[atom for r in self.residues for atom in r._atoms]
         )
@@ -1329,7 +1330,7 @@ class AnnotatedTemplate(Template):
             with_annotations: `bool` If True (default) M-CSA derived templates with a PDB-id and M-CSA id will be annotated with extra information.
 
         Returns:
-            `Template|AnnotatedTemplate`
+            `Template` | `AnnotatedTemplate`
         """
         return cls.load(
             io.StringIO(text), id=id, warn=warn, with_annotations=with_annotations
@@ -1353,7 +1354,7 @@ class AnnotatedTemplate(Template):
             with_annotations: `bool` If True (default) M-CSA derived templates with a PDB-id and M-CSA id will be annotated with extra information.
 
         Returns:
-            `Template`|`AnnotatedTemplate`
+            `Template` | `AnnotatedTemplate`
         """
 
         template = Template.load(
@@ -1400,7 +1401,6 @@ class AnnotatedTemplate(Template):
     def derive_mcsa_annotations(
         template: Template,
     ) -> Tuple[List[AnnotatedResidue], Dict[str, Any]]:
-
         # NOTE
         # be careful how to interpret and handle this data.
         # Some templates are build from the reference pdb structure in the entry
@@ -1436,26 +1436,30 @@ class AnnotatedTemplate(Template):
                     # but which is correctly assigned here too
                 except KeyError:
                     raise KeyError(
-                        f"Failed to find template pdb in catalytic residue homologs for M-CSA id {template.mcsa_id} and pdbchain {template.pdb_id+residue.chain_id}"  # type: ignore
+                        f"Failed to find template pdb in catalytic residue homologs for M-CSA id {template.mcsa_id} and pdbchain {template.pdb_id + residue.chain_id}"  # type: ignore
                     ) from None
 
             assembly_ids.add(template_pdbchain.assembly)
 
-            match_found = False
-            for index, hom_residue in template_pdbchain.residues.items():
-                # TODO check if it would even make a difference
-                # Should I check auth_resid or resid first?
-                if residue.number == hom_residue.auth_number:
-                    match_found = True
-                    break
-                elif residue.number == hom_residue.number:
-                    match_found = True
-                    break
+            # find a matching (index, hom_residue) or None
+            result = next(
+                (
+                    (i, r)
+                    for i, r in template_pdbchain.residues.items()
+                    if residue.number in (r.auth_number, r.number)
+                ),
+                None,
+            )
 
-            if not match_found:
+            if result is None:
                 raise ValueError(
-                    f"Missing a comparison residue for M-CSA id {template.mcsa_id} and pdbchain {template.pdb_id+residue.chain_id} for residue {residue.name, residue.number}"  # type: ignore
-                ) from None
+                    f"Missing a comparison residue for M-CSA id {template.mcsa_id} "
+                    f"and pdbchain {template.pdb_id + residue.chain_id} "
+                    f"for residue {(residue.name, residue.number)}"
+                )
+
+            # after the check, this unpack is guaranteed and correctly typed
+            index, hom_residue = result
 
             # after the for loop breaks, index contains the residue index
             # and hom_residue contains the corresponding residue annotations
@@ -1468,6 +1472,10 @@ class AnnotatedTemplate(Template):
                     ref_pdbchain
                 ]
                 ref_residue = reference_pdb.residues[index]  # type: ignore
+            else:
+                raise ValueError(
+                    f"hom_residue was of type {type(hom_residue)}. Expected child of 'HomologousResidue'."
+                )
 
             reference_homologs.add(reference_pdb)
 
@@ -1480,7 +1488,7 @@ class AnnotatedTemplate(Template):
                     _indices=residue._indices,
                     reference_idx=index,
                     reference_pdb=reference_pdb,
-                    reference_residue=ref_residue,
+                    reference_residue=ref_residue,  # type: ignore
                 )
             )
 
@@ -1558,14 +1566,14 @@ class AnnotatedTemplate(Template):
 # Populate the mapping of MCSA IDs to CATH numbers so that it can be accessed
 # by individual templates in the `Template.cath` property.
 # Source: M-CSA which provides cath annotations for either residue homologs or for m-csa entries
-with resource_files(__package__).joinpath("data/MCSA_CATH_mapping.json").open() as f:
+with resource_files(__package__).joinpath("data/MCSA_CATH_mapping.json").open() as f:  # type: ignore
     Template._CATH_MAPPING = json.load(f)
 
-with resource_files(__package__).joinpath("data/MCSA_EC_mapping.json").open() as f:
+with resource_files(__package__).joinpath("data/MCSA_EC_mapping.json").open() as f:  # type: ignore
     Template._EC_MAPPING = json.load(f)
 
 # Source: CATH, EC and InterPro from PDB-SIFTS through mapping to the pdbchain
-with resource_files(__package__).joinpath("data/pdb_sifts.json").open() as f:
+with resource_files(__package__).joinpath("data/pdb_sifts.json").open() as f:  # type: ignore
     Template._PDB_SIFTS = json.load(f)
 
 CATALYTIC_RESIDUE_HOMOLOGS = load_mcsa_catalytic_residue_homologs_info(
@@ -1601,11 +1609,11 @@ def load_templates(
         with_annotations: `bool` If True (default) M-CSA derived templates with a PDB-id and M-CSA id will be annotated with extra information.
 
     Yields:
-        `Template`|`AnnotatedTemplate`
+        `Template` | `AnnotatedTemplate`
     """
     if template_dir is None:
         template_dir = Path(
-            str(resource_files(__package__).joinpath("jess_templates_20230210"))
+            str(resource_files(__package__).joinpath("jess_templates_20230210"))  # type: ignore
         )
 
     elif isinstance(template_dir, Path):
