@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [v0.2.0] - 2025-09-17
-[v0.2.0-alpha.1]: https://github.com/rayhackett/enzymm/compare/v0.1.7..v0.2.0
+[v0.2.0]: https://github.com/rayhackett/enzymm/compare/v0.1.7..v0.2.0
 
 ### Added
 - Support for mmCIF files through [`gemmi`](https://gemmi.readthedocs.io/). integration in PyJess version `>= 0.7.0`
@@ -31,28 +31,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - enzymm.template.load_templates() will now by default use only one thread (improves performance)
 - Removed useless argument conservation_score of Matcher. Behaviour unchanged.
 
-## Unreleased
-## [v0.2.0-alpha.1] - 2025-09-02
-[v0.2.0-alpha.1]: https://github.com/rayhackett/enzymm/compare/v0.1.7..v0.2.0-alpha.1
-
-### Changed
-- Command line argument `-j`/`--jess` replaced with `-p`/`--parameters`
-- Command line argument `-n`/`--n-jobs` replaced with `-j`/`--jobs`
-- Missing input files will now raise errors instead of just a warning
-- Bugfix where supplying many templates might supress some matches (requires PyJess version `>= 0.7.0a1`)
-- Will now match sites across chain interfaces even if not specified in the template (requires PyJess version `>= 0.7.0a2`)
-
-### Fixed
-
-- Should run a lot faster due to many [optimizations](https://pyjess.readthedocs.io/en/latest/guide/optimizations.html) to PyJess version `>= 0.6.0`
-- Improved handling of logistic regression models and model ensembles through new classes
-- Included PyJess version in the output tsv file
-- Included Command line argument (if run from cli) in the output tsv file
-- enzymm.template.load_templates() will now load supplied templates by default without further kwargs
-- enzymm.template.load_templates() will now by default use only one thread (improves performance)
-
 ## [v0.1.7] - 2025-08-21
-[v0.1.6]: https://github.com/rayhackett/enzymm/compare/v0.1.6..v0.1.7
+[v0.1.7]: https://github.com/rayhackett/enzymm/compare/v0.1.6..v0.1.7
 
 ### Fixed
 - Improved thread-based parallelism over both molecules and batches of templates to avoid waiting for costly molecule/template searches
