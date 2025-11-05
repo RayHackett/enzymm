@@ -1,23 +1,24 @@
 
 # EnzyMM - The Enzyme Motif Miner [![Star me](https://img.shields.io/github/stars/rayhackett/enzymm.svg?style=social&label=Star&maxAge=3600)](https://github.com/rayhackett/enzymm/stargazers)
 
-[![Actions](https://img.shields.io/github/actions/workflow/status/RayHackett/enzymm/test.yml?branch=main&style=flat-square&maxAge=300)](https://github.com/RayHackett/Enzymm/actions/workflows/test.yml)
-[![Coverage](https://img.shields.io/codecov/c/gh/rayhackett/enzymm?logo=codecov&style=flat-square&maxAge=3600)](https://codecov.io/gh/rayhackett/enzymm/)
+[![Actions](https://img.shields.io/github/actions/workflow/status/RayHackett/enzymm/test.yml?branch=main&style=flat&maxAge=300)](https://github.com/RayHackett/Enzymm/actions/workflows/test.yml)
+[![Coverage](https://img.shields.io/codecov/c/gh/rayhackett/enzymm?logo=codecov&style=flat&maxAge=3600)](https://codecov.io/gh/rayhackett/enzymm/)
 [![version](https://img.shields.io/github/v/tag/rayhackett/enzymm?label=version&sort=semver)](https://github.com/rayhackett/enzymm/tags)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square&maxAge=2678400)](https://choosealicense.com/licenses/mit/)
-[![Source](https://img.shields.io/badge/source-GitHub-303030.svg?maxAge=2678400&style=flat-square)](https://github.com/RayHackett/enzymm/)
-[![Changelog](https://img.shields.io/badge/keep%20a-changelog-8A0707.svg?maxAge=2678400&style=flat-square)](https://github.com/rayHackett/enzymm/blob/main/CHANGELOG.md)
-[![Issues](https://img.shields.io/github/issues/RayHackett/enzymm.svg?style=flat-square&maxAge=600)](https://github.com/RayHackett/enzymm/issues)
-[![Python Versions](https://img.shields.io/pypi/pyversions/enzymm.svg?style=flat-square&maxAge=600&logo=python)](https://pypi.org/project/enzymm/#files)
-[![PyPI](https://img.shields.io/pypi/v/enzymm.svg?style=flat-square&maxAge=3600)](https://pypi.python.org/pypi/enzymm)
-[![Wheel](https://img.shields.io/pypi/wheel/enzymm?style=flat-square&maxAge=3600)](https://pypi.org/project/enzymm/#files)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat&maxAge=2678400)](https://choosealicense.com/licenses/mit/)
+[![Source](https://img.shields.io/badge/source-GitHub-303030.svg?maxAge=2678400&style=flat)](https://github.com/RayHackett/enzymm/)
+[![Changelog](https://img.shields.io/badge/keep%20a-changelog-green.svg?maxAge=2678400&style=flat)](https://github.com/rayHackett/enzymm/blob/main/CHANGELOG.md)
+[![Docs](https://img.shields.io/readthedocs/enzymm/latest?style=flat&maxAge=600)](https://enzymm.readthedocs.io)
+[![Issues](https://img.shields.io/github/issues/RayHackett/enzymm.svg?style=flat&maxAge=600)](https://github.com/RayHackett/enzymm/issues)
+[![Python Versions](https://img.shields.io/pypi/pyversions/enzymm.svg?style=flat&maxAge=600&logo=python)](https://pypi.org/project/enzymm/#files)
+[![PyPI](https://img.shields.io/pypi/v/enzymm.svg?style=flat&maxAge=3600)](https://pypi.python.org/pypi/enzymm)
+[![Wheel](https://img.shields.io/pypi/wheel/enzymm?style=flat&maxAge=3600)](https://pypi.org/project/enzymm/#files)
 [![Docker](https://img.shields.io/badge/Docker-GHCR-blue?logo=docker)](https://github.com/users/rayhackett/packages/container/package/enzymm)
 [![Apptainer](https://img.shields.io/badge/Apptainer-SIF-blue?logo=apptainer&style=flat)](https://github.com/rayhackett/enzymm/releases/latest)
-[![PyPI Downloads](https://static.pepy.tech/personalized-badge/enzymm?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/enzymm)
-<!-- [![Paper](https://img.shields.io/badge/paper-JOSS-9400ff?style=flat-square&maxAge=86400)](https://doi.org/10.21105/joss.04296) -->
-<!-- [![Citations](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fbadge.dimensions.ai%2Fdetails%2Fid%2Fpub.1147419140%2Fmetadata.json&query=%24.times_cited&style=flat-square&label=citations&maxAge=86400)](https://badge.dimensions.ai/details/id/pub.1147419140) -->
-<!-- [![Bioconda](https://img.shields.io/conda/vn/bioconda/pyhmmer?logo=anaconda&style=flat-square&maxAge=3600)](https://anaconda.org/bioconda/pyhmmer) -->
-<!-- [![AUR](https://img.shields.io/aur/version/python-pyhmmer?logo=archlinux&style=flat-square&maxAge=3600)](https://aur.archlinux.org/packages/python-pyhmmer) -->
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/enzymm?period=total&units=INTERNATIONAL_SYSTEM&left_color=grey&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/enzymm)
+<!-- [![Paper](https://img.shields.io/badge/paper-JOSS-9400ff?style=flat&maxAge=86400)](https://doi.org/10.21105/joss.04296) -->
+<!-- [![Citations](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fbadge.dimensions.ai%2Fdetails%2Fid%2Fpub.1147419140%2Fmetadata.json&query=%24.times_cited&style=flat&label=citations&maxAge=86400)](https://badge.dimensions.ai/details/id/pub.1147419140) -->
+<!-- [![Bioconda](https://img.shields.io/conda/vn/bioconda/pyhmmer?logo=anaconda&style=flat&maxAge=3600)](https://anaconda.org/bioconda/pyhmmer) -->
+<!-- [![AUR](https://img.shields.io/aur/version/python-pyhmmer?logo=archlinux&style=flat&maxAge=3600)](https://aur.archlinux.org/packages/python-pyhmmer) -->
 
 ## ️Overview
 
@@ -28,6 +29,8 @@ As catalytic sites are both highly conserved and absolutely critical for the fun
 As a database driven method, `EnzyMM` is inherently limited by the coverage of residue arrangements in its template library. The provided template library covers nearly the entire M-CSA and thus around 3/4 of enzyme mechanisms classified by the Enzyme Commission to the 3rd level. Catalytic arrangements not found in the PDBe won't be included in the M-CSA. Of course, the user can also provide their own library of templates. While primarily intended for catalytic sites, you are invited to search with your own library of templates.  
 
 For the actual geometric matching `EnzyMM` relies on [PyJess](https://github.com/althonos/pyjess) - a [Cython](https://cython.org/) wrapper of [Jess](https://github.com/iriziotis/jess).
+
+If you just want to try `EnzyMM` we provide a webserver at https://www.ebi.ac.uk/thornton-srv/m-csa/enzymm .
 
 
 ## 🔧 Installing EnzyMM
