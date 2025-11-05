@@ -63,7 +63,8 @@ class LogisticRegressionModel:
 
     f(Xn) = 1/(1+e^-(beta0 + beta1*x1 + beta2*x2 + ...))
 
-    Trained on data for matches with a particular size at a particular pairwise distance
+    Trained on data for matches with a particular size at a particular
+    pairwise distance
 
     Attributes:
         coef: `list` of `floats` beta coefficients
@@ -86,7 +87,8 @@ class LogisticRegressionModel:
         orientation: float,
     ) -> bool:
         """
-        Make a prediction with the Logistc Regression Model based on RMSD and residue orientation.
+        Make a prediction with the Logistc Regression Model based on RMSD and
+        residue orientation.
 
         Attributes:
             rmsd `float`: RMSD value of the match
@@ -106,12 +108,17 @@ class LogisticRegressionModel:
 @dataclass(frozen=True)
 class ModelEnsemble:
     """
-    Ensemble of Models which each produce a binary prediction. The ensemble takes a majority vote.
+    Ensemble of Models which each produce a binary prediction. The ensemble takes
+    a majority vote.
 
     Attributes:
-        ensemble: `Dict[int, Dict[float, List[Callable[..., bool]]]]` Dictonary of template_effective_size of Dictonaries of pairwise_distance of a List of callable models.
-        min_true_template_size: `int` Minimum effective size of a template to be considered always correct.
-        minimum_effective_size: `int` Smallest template_effective_size for which there are models. Smaller template will be treated as if they had 3 residues.
+        ensemble: `Dict[int, Dict[float, List[Callable[..., bool]]]]` Dictonary of
+            template_effective_size of Dictonaries of pairwise_distance of a List of
+            callable models.
+        min_true_template_size: `int` Minimum effective size of a template to
+            be considered always correct.
+        minimum_effective_size: `int` Smallest template_effective_size for which there
+            are models. Smaller template will be treated as if they had 3 residues.
 
     Note:
         The `ensemble` dictionary should cover at least 3 and 4 residue matches
@@ -176,8 +183,9 @@ class ModelEnsemble:
         """
         Number of models for a given template_effective_size and pairwise_distance
 
-        Attributes:
-            template_effective_size: `int` Number of side chain residues in the template
+        Arguments:
+            template_effective_size: `int` Number of side chain residues in
+                the template
             pairwise_distance: `float` Pairwise distance of the match
 
         Returns:
@@ -193,15 +201,19 @@ class ModelEnsemble:
         model_kwargs: Dict[str, float],
     ) -> bool | None:
         """
-        Make an ensemble prediction at a given template_effective_size and pairwise_distance
+        Make an ensemble prediction at a given template_effective_size and
+        pairwise_distance
 
-        Attributes:
-            template_effective_size: `int` Number of side chain residues in the template
+        Arguments:
+            template_effective_size: `int` Number of side chain residues in
+                the template
             pairwise_distance: `float` Pairwise distance of the match
-            model_paramters: `float` Named floats to pass parameters to the individual models
+            model_paramters: `float` Named floats to pass parameters to the
+                individual models
 
         Returns:
-            `bool`: Wether the match is predicted correct or false by the ensemble model
+            `bool`: Wether the match is predicted correct or false by the
+                ensemble model
         """
 
         if template_effective_size >= self.min_true_template_size:
@@ -242,7 +254,8 @@ class Match:
     Attributes:
         hit: `~pyjess.Hit` instance
         pairwise_distance: `float` Pairwise distance at which this match was found
-        complete: `bool` If the query matched all other templates within the same cluster. Default False
+        complete: `bool` If the query matched all other templates within the same
+            cluster. Default False
         index: `int` internal index of this match. Default 0
 
     NOTE:
@@ -331,10 +344,12 @@ class Match:
 
         Arguments:
             file:` file-like` object to write to
-            transform: `bool` If the matched atoms should be written to the template reference frame.
+            transform: `bool` If the matched atoms should be written to the template
+                reference frame.
 
         Note:
-            By default, atoms are written in the coordinate reference frame of the query.
+            By default, atoms are written in the coordinate reference frame of
+            the query.
         """
 
         # TODO option to include template atoms too. esp. with --transform
@@ -486,7 +501,8 @@ class Match:
 
     def get_identifying_attributes(self) -> Tuple[int, int, int]:
         """
-        `tuple` of (`int` , `int` , `int`) (M-CSA id, cluster id and template dimension).`
+        `tuple` of (`int` , `int` , `int`) (M-CSA id, cluster id and template
+        dimension).
         """
         # return the tuple (hit.template.m-csa, hit.template.cluster.id, hit.template.dimension)
         template = self.hit.template
@@ -543,7 +559,9 @@ class Match:
     def matched_residues(self) -> List[Tuple[str, str, str]]:
         """
         `list`:  with information on all matched query residues.
-        Elements have are `tuple` (`~pyjess.Atom.residue_name`, `~pyjess.Atom.chain_id`, `~pyjessAtom.residue_number`)
+            Elements have are `tuple`
+            (`~pyjess.Atom.residue_name`, `~pyjess.Atom.chain_id`,
+            `~pyjessAtom.residue_number`)
         """
         return [
             (
@@ -567,10 +585,12 @@ class Match:
     @property
     def preserved_resid_order(self) -> bool:
         """
-        `bool`: If the residues in the template and in the matched query structure have the same relative order.
+        `bool`: If the residues in the template and in the matched query
+        structure have the same relative order.
 
         Note:
-            This is a good filtering parameter but excludes hits on examples of convergent evolution or circular permutations
+            This is a good filtering parameter but excludes hits on examples of
+            convergent evolution or circular permutations
 
         Note:
             Will always return `False` if either template or query is multimeric
@@ -770,13 +790,21 @@ class Matcher:
 
         Arguments:
             templates: `list` of `Template` to match
-            jess_params: `dict` Dictionary of PyJess parameters to apply. Will superseed defaults.
-            warn: `bool` If warnings about issues during matching should be printed. Default `False`
-            verbose: `bool` If progress statements on matching should be printed. Default `False`
-            skip_smaller_hits: `bool` Continue searching the query against smaller templates, after a match against any larger one was found. Default `False`
-            match_small_templates: `bool` If matches for Templates with fewer than 3 side-chain residues should be reported. Default `False`
-            cpus: `int` The number of cpus for multithreading. If 0 (default), use all. If <0 leave this number of threads free.
-            filter_matches: `bool` If matches should be filtered by wether they are predicted to be correct. Default `True`
+            jess_params: `dict` Dictionary of PyJess parameters to apply.
+                Will superseed defaults.
+            warn: `bool` If warnings about issues during matching should be printed.
+                Default `False`
+            verbose: `bool` If progress statements on matching should be printed.
+                Default `False`
+            skip_smaller_hits: `bool` Continue searching the query against smaller
+                templates, after a match against any larger one was found.
+                Default `False`
+            match_small_templates: `bool` If matches for Templates with fewer than
+                3 side-chain residues should be reported. Default `False`
+            cpus: `int` The number of cpus for multithreading. If 0 (default),
+                use all. If <0 leave this number of threads free.
+            filter_matches: `bool` If matches should be filtered by
+                wether they are predicted to be correct. Default `True`
 
         Note:
             Default jess parameters depend on the size of the template::
@@ -966,7 +994,7 @@ class Matcher:
         max_dynamic_distance: float,
         max_candidates: Optional[int] = None,
     ) -> List[Match]:
-        """`list` of `Match`: Match the `list` of `Template` to one `~pyjess.Molecule`"""
+        """`list` of `Match`: Match `list` of `Template` to one `~pyjess.Molecule`"""
 
         # killswitch is controlled by max_candidates. Internal default is None
         # Which disabled the killswitch. by setting it to an integer like 1000 or 10000
@@ -1067,7 +1095,8 @@ class Matcher:
             molecules: `list` of `~pyjess.Molecule` to search
 
         Returns:
-            `dict` of `~pyjess.Molecule` --> `list` of `Match`: Dictionary of query molecules as keys and all found matches as values.
+            `dict` of `~pyjess.Molecule` --> `list` of `Match`: Dictionary of
+                query molecules as keys and all found matches as values.
         """
         processed_molecules: Dict[pyjess.Molecule, List[Match]] = (
             collections.defaultdict(list)

@@ -1,5 +1,6 @@
-"""Identitying catalytic residues in protein structures by matching catalytic templates
-    derived from the Mechanism and Catalytic Site Atlas
+"""
+Identify catalytic sites in protein structures by matching templates
+derived from the Mechanism and Catalytic Site Atlas with the Enzyme Motif Miner!
 
 See Also:
     *PAPER TITLE*

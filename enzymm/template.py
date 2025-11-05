@@ -200,7 +200,8 @@ class Residue(Iterable[pyjess.TemplateAtom], Sized):
         atoms: Tuple[pyjess.TemplateAtom, pyjess.TemplateAtom, pyjess.TemplateAtom],
     ):
         """
-        Initilaize a `Residue` instance from a triplet of `~pyjess.TemplateAtom` objects.
+        Initilaize a `Residue` instance from a triplet of
+        `~pyjess.TemplateAtom` objects.
 
         Args:
             atoms: `tuple` of 3 `~pyjess.TemplateAtom` instances
@@ -231,11 +232,14 @@ class Residue(Iterable[pyjess.TemplateAtom], Sized):
             atoms: `tuple` of 3 `~pyjess.TemplateAtom`
 
         Note:
-            For symmetric atom triplets, the angle is calculated from the central atom to the midpoint between the two identical atom types.
-            For non-symetric atom triplets, the angle is calculated between two atoms following the axis of polarization.
+            For symmetric atom triplets, the angle is calculated from the central
+            atom to the midpoint between the two identical atom types.
+            For non-symetric atom triplets, the angle is calculated between two
+            atoms following the axis of polarization.
 
         Returns:
-            `tuple`:  of `Residue.orientation_vector` and `Residue.orientation_vector_indices`
+            `tuple`:  of `Residue.orientation_vector` and
+            `Residue.orientation_vector_indices`
         """
 
         # dictionary in which the vectors from start to finish are defined for each aminoacid type
@@ -427,7 +431,8 @@ class Residue(Iterable[pyjess.TemplateAtom], Sized):
     def orientation_vector_indices(self) -> Tuple[int, int]:
         """
         `tuple` of (`int`, `int`): Return the indices of the atoms
-        between which the orientation vector was calculated according to the residue type.
+        between which the orientation vector was calculated according to
+        the residue type.
         """
         return self._indices
 
@@ -438,9 +443,11 @@ class AnnotatedResidue(Residue):
     Child class inheriting from `Residue` for M-CSA annotated template residues.
 
     Attributes:
-        reference_idx: `int` : Residue indentifier of the reference residue.
-        reference_pdb: `~enzymm.mcsa_info.HomologousPDB` :  The PDB reference of the residue.
-        reference_residue: `~enzymm.mcsa_info.ReferenceCatalyticResidue` : The reference residue.
+        reference_idx: `int` Residue indentifier of the reference residue.
+        reference_pdb: `~enzymm.mcsa_info.HomologousPDB` The PDB reference
+            of the residue.
+        reference_residue: `~enzymm.mcsa_info.ReferenceCatalyticResidue`
+            The reference residue.
     """
 
     reference_idx: int
@@ -461,17 +468,24 @@ class AnnotatedResidue(Residue):
 
     @property
     def is_metal_ligand(self) -> bool:
-        """Wether the residue in the M-CSA reference PDB structure was metal coordinating"""
+        """
+        Wether the residue in the M-CSA reference PDB structure was metal coordinating
+        """
         return "metal ligand" in self.reference_residue.roles_summary
 
     @property
     def has_ptm(self) -> bool:
-        """Wether the residue in the M-CSA reference PDB structure was post-translationally modified"""
+        """
+        Wether the residue in the M-CSA reference PDB structure was
+        post-translationally modified
+        """
         return bool(self.reference_residue.ptm)
 
     @property
     def roles(self) -> List[str]:
-        """`list` of `str` of EMO (Enyzme Mechanism Ontology) terms of catalytic roles"""
+        """
+        `list` of `str` of EMO (Enyzme Mechanism Ontology) terms of catalytic roles
+        """
         return list(self.reference_residue.roles)
 
     @property
@@ -540,15 +554,24 @@ class Template(pyjess.Template):
             template_id_string: `str` String in the ID line of a template
             mcsa_id: `int` The M-CSA entry index form which the template was generated
             cluster: `Cluster` Instance of the template
-            uniprot_id: `str` UniProt Identifier of the Protein from which the template was generated
-            organism: `str` Organism name of the Protein from which the template was generated
-            organism_id: `str` Taxonomic Identifier of the Organism of the Protein from which the template was generated
-            resolution: `float` Resolution of the Protein Structure from which the template was generated
-            experimental_method: `str` Experimental method by which the Protein Structure of the template was resolved
-            enzyme_description: `str` Text Discription of the Protein from which the template was generated
-            represented_sites: `int` The number of Enzymes which this template is representative for
-            ec: `list` of `str` of EC numbers associated with Enzymes this template represents
-            cath: `list` of `str` of CATH numbers associated with Enzymes this template represents
+            uniprot_id: `str` UniProt Identifier of the Protein from which the
+                template was generated
+            organism: `str` Organism name of the Protein from which the template
+                was generated
+            organism_id: `str` Taxonomic Identifier of the Organism of the Protein
+                from which the template was generated
+            resolution: `float` Resolution of the Protein Structure from which the
+                template was generated
+            experimental_method: `str` Experimental method by which the Protein
+                Structure of the template was resolved
+            enzyme_description: `str` Text Discription of the Protein from which
+                the template was generated
+            represented_sites: `int` The number of Enzymes which this template
+                is representative for
+            ec: `list` of `str` of EC numbers associated with Enzymes this
+                template represents
+            cath: `list` of `str` of CATH numbers associated with Enzymes this
+                template represents
 
         NOTE:
             It is recommended not to pass an id string.
@@ -678,7 +701,8 @@ class Template(pyjess.Template):
 
         Arguments:
             text: `str` of Template to load
-            id: `str` or `None` Internal pyjess string which will superseed the ID string parsed from the template file. Default `None`
+            id: `str` or `None` Internal pyjess string which will superseed the
+                ID string parsed from the template file. Default `None`
             warn: `bool` If warnings should be printed. Default `False`
 
         Returns:
@@ -694,11 +718,13 @@ class Template(pyjess.Template):
         warn: bool = False,
     ) -> Template:
         """
-        Overloaded load to parse a `pyjess.Template` and its associated info into an `Template` object
+        Overloaded load to parse a `pyjess.Template` and its associated info
+        into an `Template` object
 
         Arguments:
             file: `file-like` object or `str` or `path-like` from which to load
-            id: `str` or `None` Internal pyjess string which will superseed the ID string parsed from the template file. Default `None`
+            id: `str` or `None` Internal pyjess string which will superseed the
+                ID string parsed from the template file. Default `None`
             warn: `bool` If warnings should be printed. Default `False`
 
         Returns:
@@ -914,7 +940,9 @@ class Template(pyjess.Template):
     def relative_order(
         self,
     ) -> List[int]:  # list with length of deduplicated template dimension
-        """`list` of `int`: Relative order of residues in the template sorted by the pdb residue number.
+        """
+        `list` of `int`: Relative order of residues in the template sorted by
+        the pdb residue number.
 
         Note:
             This only works for non-multimeric templates. In this case returns '[0]'.
@@ -926,7 +954,10 @@ class Template(pyjess.Template):
             return ranked_argsort([res.number for res in self.residues])
 
     def _add_cath_annotations(self) -> List[str]:
-        """`list` of `str`: Pull CATH Ids associated with that template from SIFTS and from the M-CSA"""
+        """
+        `list` of `str`: Pull CATH Ids associated with that template from SIFTS and
+        from the M-CSA
+        """
         cath_list = []
         if self.mcsa_id:
             cath_list.extend(
@@ -950,7 +981,10 @@ class Template(pyjess.Template):
         return cath_list
 
     def _add_ec_annotations(self) -> List[str]:
-        """`list` of `str`: Pull EC Annotations associated with that template from SIFTS and from the M-CSA"""
+        """
+        `list` of `str`: Pull EC Annotations associated with that template from
+        SIFTS and from the M-CSA
+        """
         ec_list = []
         if self.mcsa_id is not None:
             ec_list.append(
@@ -1145,7 +1179,8 @@ class AnnotatedTemplate(Template):
         cath: Iterable[str] = (),
     ):
         """
-        Initialize an annotated template with descriptions of catalytic activity from the M-CSA.
+        Initialize an annotated template with descriptions of catalytic activity from
+        the M-CSA.
 
         Keyword Arguments:
             residues: `Sequence` of `~Residue` instances
@@ -1154,27 +1189,41 @@ class AnnotatedTemplate(Template):
             template_id_string: `str` String in the ID line of a template
             mcsa_id: `int` The M-CSA entry index form which the template was generated
             cluster: `Cluster` Instance of the template
-            uniprot_id: `str` UniProt Identifier of the Protein from which the template was generated
-            organism: `str` Organism name of the Protein from which the template was generated
-            organism_id: `str` Taxonomic Identifier of the Organism of the Protein from which the template was generated
-            resolution: `float` Resolution of the Protein Structure from which the template was generated
-            experimental_method: `str` Experimental method by which the Protein Structure of the template was resolved
-            enzyme_description: `str` Text Discription of the Protein from which the template was generated
-            represented_sites: `int` The number of Enzymes which this template is representative for
-            ec: ` `list` of `str` of EC numbers associated with Enzymes this template represents
-            cath: `list` of `str` of CATH numbers associated with Enzymes this template represents
-            number_of_mutated_residues: `int` The number of side chain specific residues which have been mutated relative to the reference
-            number_of_metal_ligands: `tuple` of (`int` , `int`) Number of metal chelating residues in the template and the reference
-            number_of_ptm_residues: `tuple` of (`int` , `int`) Number of post translationally modified residues in the template and the reference
-            number_of_side_chain_residues: `tuple` of (`int`, `int`) Number of side chain interacting residues in the template and the reference
-            total_reference_residues: `int` Total number of residues (main and side chain) in the reference structure
+            uniprot_id: `str` UniProt Identifier of the Protein from which the template
+                was generated
+            organism: `str` Organism name of the Protein from which the template was
+                generated
+            organism_id: `str` Taxonomic Identifier of the Organism of the Protein from
+                which the template was generated
+            resolution: `float` Resolution of the Protein Structure from which the
+                template was generated
+            experimental_method: `str` Experimental method by which the Protein
+                Structure of the template was resolved
+            enzyme_description: `str` Text Discription of the Protein from which the
+                template was generated
+            represented_sites: `int` The number of Enzymes which this template is
+                representative for
+            ec: `list` of `str` of EC numbers associated with Enzymes this template
+                represents
+            cath: `list` of `str` of CATH numbers associated with Enzymes this
+                template represents
+            number_of_mutated_residues: `int` The number of side chain specific
+                residues which have been mutated relative to the reference
+            number_of_metal_ligands: `tuple` of (`int` , `int`) Number of metal
+                chelating residues in the template and the reference
+            number_of_ptm_residues: `tuple` of (`int` , `int`) Number of post
+                translationally modified residues in the template and the reference
+            number_of_side_chain_residues: `tuple` of (`int`, `int`) Number of side
+                chain interacting residues in the template and the reference
+            total_reference_residues: `int` Total number of residues (main and side
+                chain) in the reference structure
 
-        NOTE:
+        Note:
             In order for a template file to be loaded as an `~AnnotatedTemplate`,
             it must have both an `mcsa_id` and a `pdb_id`.
             This `pdb_id` must be found in the PDB-homologs of the M-CSA!
 
-        NOTE:
+        Note:
             It is recommended to not pass an `id` string.
             If `id` is `None`, the `id` will be set to
 
@@ -1325,9 +1374,11 @@ class AnnotatedTemplate(Template):
 
         Arguments:
             text: `str` of Template to load
-            id: `str` or `None` Internal pyjess string which will superseed the ID string parsed from the template file. Default `None`
+            id: `str` or `None` Internal pyjess string which will superseed the
+                ID string parsed from the template file. Default `None`
             warn: `bool` If warnings should be printed. Default `False`
-            with_annotations: `bool` If True (default) M-CSA derived templates with a PDB-id and M-CSA id will be annotated with extra information.
+            with_annotations: `bool` If True (default) M-CSA derived templates
+                with a PDB-id and M-CSA id will be annotated with extra information.
 
         Returns:
             `Template` | `AnnotatedTemplate`
@@ -1345,13 +1396,16 @@ class AnnotatedTemplate(Template):
         with_annotations: bool = True,
     ) -> Template | AnnotatedTemplate:
         """
-        Overloaded load to parse a `pyjess.Template` and its associated info into an `Template` object
+        Overloaded load to parse a `pyjess.Template` and its associated
+        info into a `Template` object
 
         Arguments:
             file: `file-like` object or `str` or `path-like` from which to load
-            id: `str` or `None` Internal pyjess string which will superseed the ID string parsed from the template file. Default `None`
+            id: `str` or `None` Internal pyjess string which will superseed
+                the ID string parsed from the template file. Default `None`
             warn: `bool` If warnings should be printed. Default `False`
-            with_annotations: `bool` If True (default) M-CSA derived templates with a PDB-id and M-CSA id will be annotated with extra information.
+            with_annotations: `bool` If True (default) M-CSA derived templates
+                with a PDB-id and M-CSA id will be annotated with extra information.
 
         Returns:
             `Template` | `AnnotatedTemplate`
@@ -1603,10 +1657,14 @@ def load_templates(
     Load templates from a given directory, recursively.
 
     Arguments:
-        template_dir: `~pathlib.Path` | `None` Directory which to search recursively for files with the '.pdb' extension. By default, set to `None`, it will load templates included in this library.
-        warn: `bool` If warnings about annoation issues in templates should be printed. Default `False`
+        template_dir: `~pathlib.Path` | `None` Directory which to search
+            recursively for files with the '.pdb' extension. By default, set
+            to `None`, it will load templates included in this library.
+        warn: `bool` If warnings about annoation issues in templates should be
+            printed. Default `False`
         verbose: `bool` If loading should be verbose. Default `False`
-        with_annotations: `bool` If True (default) M-CSA derived templates with a PDB-id and M-CSA id will be annotated with extra information.
+        with_annotations: `bool` If True (default) M-CSA derived templates with a
+            PDB-id and M-CSA id will be annotated with extra information.
 
     Yields:
         `Template` | `AnnotatedTemplate`
