@@ -82,8 +82,8 @@ Overview
 --------
 
 **EnzyMM** is a Python tool to identify known patterns of catalytic residues in protein structures.
-We also provide a webserver where you can run **EnzyMM** on single queries
-`here <https://www.ebi.ac.uk/thornton-srv/m-csa/enzymm>`_
+.. We also provide a webserver where you can run **EnzyMM** on single queries
+.. `here <https://www.ebi.ac.uk/thornton-srv/m-csa/enzymm>`_
 
 Catalytic sites, which define the function of proteins, are among the most conserved
 parts of enzyme structures. It makes sense therefore, that their similarities can be

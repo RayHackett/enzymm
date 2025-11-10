@@ -30,7 +30,7 @@ As a database driven method, `EnzyMM` is inherently limited by the coverage of r
 
 For the actual geometric matching `EnzyMM` relies on [PyJess](https://github.com/althonos/pyjess) - a [Cython](https://cython.org/) wrapper of [Jess](https://github.com/iriziotis/jess).
 
-If you just want to try `EnzyMM` we provide a webserver at https://www.ebi.ac.uk/thornton-srv/m-csa/enzymm .
+<!-- If you just want to try `EnzyMM` we provide a webserver at https://www.ebi.ac.uk/thornton-srv/m-csa/enzymm . -->
 
 
 ## 🔧 Installing EnzyMM
