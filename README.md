@@ -20,6 +20,8 @@
 <!-- [![Bioconda](https://img.shields.io/conda/vn/bioconda/pyhmmer?logo=anaconda&style=flat&maxAge=3600)](https://anaconda.org/bioconda/pyhmmer) -->
 <!-- [![AUR](https://img.shields.io/aur/version/python-pyhmmer?logo=archlinux&style=flat&maxAge=3600)](https://aur.archlinux.org/packages/python-pyhmmer) -->
 
+A more in depth documentation is availabe here: (https://enzymm.readthedocs.io/en/latest/)
+
 ## ️Overview
 
 Enzyme Motif Miner uses geometric template matching to identify known arrangements of catalytic residues called templates in protein structures. It searches protein structures provided by the user against a database of templates. `EnzyMM` ships with a library of catalytic templates derived from the [Mechanism and Catalytic Site Atlas](https://www.ebi.ac.uk/thornton-srv/m-csa/) (M-CSA) but you can also generate your own. These templates represent consensus arrangements of catalytic sites found in active sites of experimental protein structures.   
@@ -86,7 +88,7 @@ Additional parameters of interest are:
 - `--conservation-cutoff` or `-c`, which can be set to exclude atoms with B-factors or pLDDT scores below this threshold from matching. This is not set by default.
 
 Further, `EnyzMM` is designed with modularity in mind and comes with a fully usable internal API.
-Please refer to the Docs for further reference.
+Please refer to the [Documentation](https://enzymm.readthedocs.io/en/latest/) for further reference.
 
 ## 🖹 Results
 

@@ -1,4 +1,4 @@
-Installation
+🔧 Installation
 ============
 
 PyPi
@@ -58,7 +58,7 @@ It will install all dependencies including the library of catalytic templates:
 ..     $ pacman -S python-pyjess
 
 
-Docker container
+🐋 Docker container
 ^^^^^^^^^^^^^^^^
 
 You can also run **EnzyMM** via a `Docker <https://www.docker.com/>`_ container.
@@ -70,7 +70,7 @@ Download the latest with:
     $ docker pull ghcr.io/rayhackett/enzymm:latest
 
 
-Apptainer container
+🖼️ Apptainer container
 ^^^^^^^^^^^^^^^^^^^
 
 You can also run **EnzyMM** via an `Apptainer <https://apptainer.org/>`_ container.

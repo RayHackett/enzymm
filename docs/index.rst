@@ -111,7 +111,7 @@ of a second. Perfectly suited for exploring the expanding universe of predicted 
 structures, we are excited to present **EnzyMM**!
 
 
-Setup
+🔧 Setup
 -----
 
 **EnzyMM** is available for all modern Python versions (3.7+).
@@ -120,9 +120,9 @@ Run ``pip install enzymm`` in a shell to download the latest release from PyPI,
 or have a look at the :doc:`Installation page <guide/install>` to find other ways 
 to install **EnzyMM**.
 
-Alternatively, we provide both Docker and Apptainer Images.
+Alternatively, we provide both Docker and Apptainer Images 🖼️.
 
-Library
+📚 Library
 -------
 
 .. toctree::
@@ -132,7 +132,7 @@ Library
    User Guide <guide/index>
    API Reference <api/index>
 
-Related Projects
+🔎 Related Projects
 ----------------
 
 **EnzyMM** draws on a library of catalytic templates derived by Ioannis Riziotis from
@@ -146,7 +146,7 @@ for finding matches between templates and query structures.
 **PyJess** was developed by Martin Larralde.
 Please have a look at `PyJess <https://github.com/althonos/pyjess>`_!
 
-Citations
+🔖 Citations
 ---------
 **EnzyMM** is academic software but relies on many previous approaches.  
 **EnzyMM** itself can not yet be cited but a preprint is in preparation.
@@ -160,7 +160,7 @@ We kindly ask you to cite both:
 - **Mechanism and Catalytic Site Atlas** as:
    - Ribeiro AJM et al. (2017), Nucleic Acids Res, 46, D618-D623. Mechanism and Catalytic Site Atlas (M-CSA): a database of enzyme reaction mechanisms and active sites. DOI:10.1093/nar/gkx1012. PMID:29106569.
 
-License
+⚖️ License
 -------
 
 **EnzyMM** is provided under the `MIT License <https://choosealicense.com/licenses/mit/>`_.
