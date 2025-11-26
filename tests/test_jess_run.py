@@ -3,6 +3,7 @@ import os
 import unittest
 import math
 import pickle
+import textwrap
 
 try:
     from importlib.resources import files as resource_files
@@ -26,8 +27,10 @@ class TestMatch(unittest.TestCase):
             ),
             "r",
         ) as f:
-            template_text1 = f.read()
-            cls.template1 = template.AnnotatedTemplate.loads(template_text1, warn=False)
+            cls.template_text1 = f.read()
+            cls.template1 = template.AnnotatedTemplate.loads(
+                cls.template_text1, warn=False
+            )
             jess_1 = pyjess.Jess([cls.template1])
 
         with resource_files(test_data).joinpath("1AMY.pdb").open() as f:
@@ -55,19 +58,25 @@ class TestMatch(unittest.TestCase):
 
         cls.match2 = jess_run.Match(hit=best_hits[0], pairwise_distance=1.0)
 
+        cls.maxDiff = None
+
     def test_match(self):
         self.assertEqual(self.match1.hit.molecule().id, "1AMY")
         self.assertEqual(self.match1.index, 0)
-        self.assertEqual(self.match1.hit.template.pdb_id, self.template1.pdb_id)
+        self.assertEqual(self.match1.hit.template().pdb_id, self.template1.pdb_id)
         self.assertEqual(
-            self.match1.hit.template.effective_size, self.template1.effective_size
+            self.match1.hit.template().effective_size, self.template1.effective_size
         )
-        self.assertEqual(self.match1.hit.template.dimension, self.template1.dimension)
-        self.assertEqual(self.match1.hit.template.mcsa_id, self.template1.mcsa_id)
-        self.assertEqual(self.match1.hit.template.uniprot_id, self.template1.uniprot_id)
-        self.assertEqual(self.match1.hit.template.ec, self.template1.ec)
-        self.assertEqual(self.match1.hit.template.cath, self.template1.cath)
-        self.assertEqual(self.match1.hit.template.multimeric, self.template1.multimeric)
+        self.assertEqual(self.match1.hit.template().dimension, self.template1.dimension)
+        self.assertEqual(self.match1.hit.template().mcsa_id, self.template1.mcsa_id)
+        self.assertEqual(
+            self.match1.hit.template().uniprot_id, self.template1.uniprot_id
+        )
+        self.assertEqual(self.match1.hit.template().ec, self.template1.ec)
+        self.assertEqual(self.match1.hit.template().cath, self.template1.cath)
+        self.assertEqual(
+            self.match1.hit.template().multimeric, self.template1.multimeric
+        )
         self.assertIsNotNone(self.match1.multimeric)
         self.assertFalse(self.match1.multimeric)
         self.assertEqual(self.match1.query_atom_count, 3339)
@@ -119,16 +128,20 @@ class TestMatch(unittest.TestCase):
                 ("ASP", "A", "289"),
             ],
         )
-        self.assertEqual(self.match2.hit.template.pdb_id, self.template2.pdb_id)
+        self.assertEqual(self.match2.hit.template().pdb_id, self.template2.pdb_id)
         self.assertEqual(
-            self.match2.hit.template.effective_size, self.template2.effective_size
+            self.match2.hit.template().effective_size, self.template2.effective_size
         )
-        self.assertEqual(self.match2.hit.template.dimension, self.template2.dimension)
-        self.assertEqual(self.match2.hit.template.mcsa_id, self.template2.mcsa_id)
-        self.assertEqual(self.match2.hit.template.uniprot_id, self.template2.uniprot_id)
-        self.assertEqual(self.match2.hit.template.ec, self.template2.ec)
-        self.assertEqual(self.match2.hit.template.cath, self.template2.cath)
-        self.assertEqual(self.match2.hit.template.multimeric, self.template2.multimeric)
+        self.assertEqual(self.match2.hit.template().dimension, self.template2.dimension)
+        self.assertEqual(self.match2.hit.template().mcsa_id, self.template2.mcsa_id)
+        self.assertEqual(
+            self.match2.hit.template().uniprot_id, self.template2.uniprot_id
+        )
+        self.assertEqual(self.match2.hit.template().ec, self.template2.ec)
+        self.assertEqual(self.match2.hit.template().cath, self.template2.cath)
+        self.assertEqual(
+            self.match2.hit.template().multimeric, self.template2.multimeric
+        )
         self.assertIsNotNone(self.match2.multimeric)
         self.assertFalse(self.match2.multimeric)
         self.assertAlmostEqual(self.match2.hit.rmsd, 1.7353479120)
@@ -154,14 +167,22 @@ class TestMatch(unittest.TestCase):
             self.assertEqual(buffer.getvalue(), f.read())
 
     def test_match_dumps(self):
-        dumps_string = f"# Enzymm Version {__version__} running PyJess Version {pyjess.__version__}\nquery_id	pairwise_distance	match_index	template_pdb_id	template_pdb_chains	template_cluster_id	template_cluster_member	template_cluster_size	template_effective_size	template_dimension	template_mcsa_id	template_uniprot_id	template_ec	template_cath	template_multimeric	query_multimeric	query_atom_count	query_residue_count	rmsd	log_evalue	orientation	preserved_order	completeness	predicted_correct	matched_residues	number_of_mutated_residues	number_of_side_chain_residues_(template,reference)	number_of_metal_ligands_(template,reference)	number_of_ptm_residues_(template, reference)	total_reference_residues\n1AMY	1.5	0	1uh3	A	1	1	1	5	5	285	Q60053	3.2.1.10,3.2.1.135	2.60.40.10,2.60.40.1180,3.20.20.80	False	False	3339	403	0.32093	-3.08424	0.15327	True	True	True	GLU_A_204,ASP_A_87,ASP_A_179,HIS_A_288,ASP_A_289	0	5,5	0,0	0,0	5\n"
-        self.assertEqual(self.match1.dumps(header=True), dumps_string)
+        expected = textwrap.dedent(
+            f"""
+            # Enzymm Version {__version__} running PyJess Version {pyjess.__version__}
+            query_id	pairwise_distance	match_index	template_pdb_id	template_pdb_chains	template_cluster_id	template_cluster_member	template_cluster_size	template_effective_size	template_dimension	template_mcsa_id	template_uniprot_id	template_ec	template_cath	template_multimeric	query_multimeric	query_atom_count	query_residue_count	rmsd	log_evalue	orientation	preserved_order	completeness	predicted_correct	matched_residues	number_of_mutated_residues	number_of_side_chain_residues_(template,reference)	number_of_metal_ligands_(template,reference)	number_of_ptm_residues_(template, reference)	total_reference_residues
+            1AMY	1.5	0	1uh3	A	1	1	1	5	5	285	Q60053	3.2.1.10,3.2.1.135	2.60.40.10,2.60.40.1180,3.20.20.80	False	False	3339	403	0.32093	-3.08424	0.15327	True	True	True	GLU_A_204,ASP_A_87,ASP_A_179,HIS_A_288,ASP_A_289	0	5,5	0,0	0,0	5
+            """
+        )
+        self.assertMultiLineEqual(
+            self.match1.dumps(header=True).strip(), expected.strip()
+        )
 
     def test_match_dump2pdb(self):
         buffer = io.StringIO()
         self.match1.dump2pdb(buffer, transform=False)
         with resource_files(test_data).joinpath("1AMY_matches.pdb").open() as f:
-            self.assertEqual(buffer.getvalue(), f.read())
+            self.assertMultiLineEqual(buffer.getvalue().strip(), f.read().strip())
 
     def test_match_dump2pdb_transformed(self):
         buffer = io.StringIO()
@@ -169,7 +190,67 @@ class TestMatch(unittest.TestCase):
         with resource_files(test_data).joinpath(
             "1AMY_matches_template.pdb"
         ).open() as f:
-            self.assertEqual(buffer.getvalue(), f.read())
+            self.assertMultiLineEqual(buffer.getvalue(), f.read())
+
+    def test_query_dump(self):
+        buffer = io.StringIO()
+        self.match1.dump_query(buffer, transform=False)
+
+        expected = textwrap.dedent(
+            """
+            REMARK MOLECULE_ID 1AMY
+            REMARK QUERY COORDINATE FRAME
+            ATOM      1  N   GLN A   1       6.240  48.686  17.460  1.00 27.79           N
+            ATOM      2  CA  GLN A   1       5.440  49.851  17.773  1.00 16.62           C
+            ATOM      3  C   GLN A   1       6.628  50.721  18.086  1.00 14.24           C
+            ATOM      4  O   GLN A   1       7.313  50.396  19.052  1.00 11.61           O
+            """
+        )
+        buffer.seek(0)
+        first5 = "".join(buffer.getvalue().splitlines(keepends=True)[:6])
+        self.assertMultiLineEqual(first5.strip(), expected.strip())
+
+    def test_template_dump(self):
+        buffer = io.StringIO()
+        self.match1.dump_template(buffer, transform=True)
+
+        expected = textwrap.dedent(
+            """
+            REMARK TEMPLATE COORDINATE FRAME
+            REMARK TEMPLATE
+            REMARK CLUSTER 1_1_1
+            REMARK REPRESENTING 93 CATALYTIC SITES
+            REMARK ID 1uh3_A396-A262-A356-A471-A472
+            REMARK MCSA_ID 285
+            REMARK PDB_ID 1uh3
+            REMARK UNIPROT_ID Q60053
+            REMARK EC 3.2.1.10,3.2.1.135
+            REMARK CATH 2.60.40.10,2.60.40.1180,3.20.20.80
+            REMARK ENZYME alpha-amylase I(E.C.3.2.1.1)
+            REMARK EXPERIMENTAL_METHOD X-ray diffraction
+            REMARK RESOLUTION 2.6
+            REMARK ORGANISM_NAME Thermoactinomyces vulgaris
+            REMARK ORGANISM_ID 2026
+            REMARK PDB_ID 5-residues-1uh3_A396-A262-A356-A471-A472_cluster_1-1-1
+            ATOM      3  CD  GLU A 396      53.233  36.186  11.266 E     3.20
+            ATOM      3  OE1 GLU A 396      52.490  35.259  11.650 E     3.20
+            ATOM      3  OE2 GLU A 396      54.381  36.361  11.722 E     3.20
+            ATOM      3  CG  ASP A 262      49.175  39.646  17.664 DE    1.90
+            ATOM      3  OD1 ASP A 262      50.360  40.036  17.776 DE    1.90
+            ATOM      3  OD2 ASP A 262      48.818  38.741  16.875 DE    1.90
+            ATOM      3  CG  ASP A 356      50.337  34.680  15.420 DE    2.27
+            ATOM      3  OD1 ASP A 356      50.120  33.502  15.786 DE    2.27
+            ATOM      3  OD2 ASP A 356      51.480  35.175  15.320 DE    2.27
+            ATOM      0  CG  HIS A 471      56.763  40.562  17.238 H     3.77
+            ATOM      8  ND1 HIS A 471      56.123  41.172  16.180 H     3.77
+            ATOM      8  CD2 HIS A 471      56.129  39.378  17.430 H     3.77
+            ATOM      3  CG  ASP A 472      58.152  37.388  14.843 D     1.23
+            ATOM      3  OD1 ASP A 472      58.311  37.254  16.076 D     1.23
+            ATOM      3  OD2 ASP A 472      57.076  37.105  14.265 D     1.23
+            """
+        )
+
+        self.assertMultiLineEqual(buffer.getvalue().strip(), expected.strip())
 
     # TODO looks like pyjess.Hit has no equality comparison
     # def test_pickling(self):
@@ -188,7 +269,7 @@ class TestMatcher(unittest.TestCase):
             "jess_templates_20230210/5_residues/results/csa3d_0045/csa3d_0045.cluster_1_1_1.2cxg_A227-A229-A257-A327-A328.template.pdb",
             "jess_templates_20230210/3_residues/results/csa3d_0285/csa3d_0285.cluster_1_1_2.1uh3_A396-A262-A356-A471-A472.template.pdb",
             "jess_templates_20230210/3_residues/results/csa3d_0285/csa3d_0285.cluster_1_2_2.1uh3_A396-A262-A356-A471-A472.template.pdb",
-            "jess_templates_20230210/3_residues/results/csa3d_0421/csa3d_0421.cluster_1_1_3.1bf2_A229-A232-A230-A259-A375-A435-A510-A128.template.pdb",
+            "jess_templates_20230210/3_residues/results/csa3d_0421/csa3d_0421.cluster_1_1_2.1bf2_A229-A232-A230-A259-A375-A435-A510-A128.template.pdb",
             "jess_templates_20230210/3_residues/results/csa3d_0896/csa3d_0896.cluster_2_1_2.2qy1_A135-A179-A137-A230-A175.template.pdb",
         ]
 
@@ -382,11 +463,11 @@ class TestMatcher(unittest.TestCase):
 
         unfiltered_pdb_ids = []
         for match in unfiltered_matches:
-            unfiltered_pdb_ids.append(match.hit.template.pdb_id)
+            unfiltered_pdb_ids.append(match.hit.template().pdb_id)
 
         filtered_pdb_ids = []
         for match in filtered_matches:
-            filtered_pdb_ids.append(match.hit.template.pdb_id)
+            filtered_pdb_ids.append(match.hit.template().pdb_id)
 
         self.assertEqual(len(filtered_matches), 5)
         self.assertEqual(
@@ -400,22 +481,22 @@ class TestMatcher(unittest.TestCase):
         for match in unfiltered_matches:
             if match.index == 1:
                 self.assertTrue(match.complete)
-                self.assertEqual(match.hit.template.pdb_id, "1uh3")
+                self.assertEqual(match.hit.template().pdb_id, "1uh3")
             elif match.index == 2:
                 self.assertTrue(match.complete)
-                self.assertEqual(match.hit.template.pdb_id, "2cxg")
+                self.assertEqual(match.hit.template().pdb_id, "2cxg")
             elif match.index == 3:
                 self.assertFalse(match.complete),
-                self.assertEqual(match.hit.template.pdb_id, "2qy1")
+                self.assertEqual(match.hit.template().pdb_id, "2qy1")
             elif match.index == 4:
                 self.assertTrue(match.complete)
-                self.assertEqual(match.hit.template.pdb_id, "1uh3")
+                self.assertEqual(match.hit.template().pdb_id, "1uh3")
             elif match.index == 5:
                 self.assertTrue(match.complete)
-                self.assertEqual(match.hit.template.pdb_id, "1uh3")
+                self.assertEqual(match.hit.template().pdb_id, "1uh3")
             elif match.index == 6:
                 self.assertFalse(match.complete)
-                self.assertEqual(match.hit.template.pdb_id, "1bf2")
+                self.assertEqual(match.hit.template().pdb_id, "1bf2")
             else:
                 ValueError("Shouldn't get here in the tests")
 

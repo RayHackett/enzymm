@@ -577,7 +577,7 @@ class Template(pyjess.Template):
             It is recommended not to pass an id string.
             If id is `None`, the id string will be set to:
 
-            > {`Template.effective_size`}-Residues_{`Template.template_id_string`}_Cluster_{`Cluster.id`}-{`Cluster.member`}-{`Cluster.size`}
+            > {`Template.dimension`}-residues_{`Template.template_id_string`}_Cluster_{`Cluster.id`}-{`Cluster.member`}-{`Cluster.size`}
 
             This identifier string should be unique.
 
@@ -602,6 +602,9 @@ class Template(pyjess.Template):
                 raise ValueError(
                     f"Tried creating a `Template` from different types of `Residue` objects. Got {type(residue) and type(residues[0])}"
                 )
+
+        if id is None and template_id_string is not None and cluster is not None:
+            id = f"{len(residues)}-residues-{template_id_string}_cluster_{cluster.id}-{cluster.member}-{cluster.size}"
 
         self.residues = tuple(residues)
         super().__init__([atom for r in self.residues for atom in r._atoms], id=id)
@@ -816,9 +819,9 @@ class Template(pyjess.Template):
         )
 
     def dumps(self) -> str:
-        # """
-        # Dump `AnnotatedTemplate` to a `str`. Calls `AnnotatedTemplate.dump()`
-        # """
+        """
+        Dump `Template` to a `str`. Calls `Template.dump()`
+        """
         buffer = io.StringIO()
         self.dump(buffer)
         return (
@@ -826,65 +829,49 @@ class Template(pyjess.Template):
         )  # returns entire content temporary file object as a string
 
     def dump(self, file: TextIO):
-        # """
-        # Dump `AnnotatedTemplate` to `file-like` object.
+        """
+        Dump `Template` to `file-like` object.
 
-        # Arguments:
-        #     file: `file-like` object to write to
-        # """
-
-        raise NotImplementedError
+        Arguments:
+            file: `file-like` object to write to
+        """
 
         file.write("REMARK TEMPLATE\n")
-        if self.template_id_string:
-            file.write(f"REMARK ID {self.template_id_string}\n")
-        if self.pdb_id:
-            file.write(f"REMARK PDB_ID {self.pdb_id}\n")
-        if self.mcsa_id:
-            file.write(f"REMARK MCSA_ID {self.mcsa_id}\n")
-        if self.uniprot_id:
-            file.write(f"REMARK UNIPROT_ID {self.uniprot_id}\n")
         if self.cluster:
             file.write(
                 f"REMARK CLUSTER {'_'.join([str(self.cluster.id), str(self.cluster.member), str(self.cluster.size)])}\n"
             )
-        if self.organism:
-            file.write(f"REMARK ORGANISM_NAME {self.organism}\n")
-        if self.organism_id:
-            file.write(f"REMARK ORGANISM_ID {self.organism_id}\n")
-        if self.resolution:
-            file.write(f"REMARK RESOLUTION {self.resolution}\n")
-        if self.experimental_method:
-            file.write(f"REMARK EXPERIMENTAL_METHOD {self.experimental_method}\n")
-        if self.enzyme_discription:
-            file.write(f"REMARK ENZYME {self.enzyme_discription}\n")
         if self.represented_sites:
             file.write(
                 f"REMARK REPRESENTING {self.represented_sites} CATALYTIC SITES\n"
             )
-        if self.experimental_method:
-            file.write(f"REMARK EXPERIMENTAL_METHOD {self.experimental_method}\n")
+        if self.template_id_string:
+            file.write(f"REMARK ID {self.template_id_string}\n")
+        if self.mcsa_id:
+            file.write(f"REMARK MCSA_ID {self.mcsa_id}\n")
+        if self.pdb_id:
+            file.write(f"REMARK PDB_ID {self.pdb_id}\n")
+        if self.uniprot_id:
+            file.write(f"REMARK UNIPROT_ID {self.uniprot_id}\n")
         if self.ec:
             file.write(f"REMARK EC {','.join(self.ec)}\n")
         if self.cath:
-            file.write(f"REMARK CATH {','.join(self.cath)}")
-        # file.write(f"REMARK SIZE {self.effective_size}\n")
-        # file.write(f"REMARK DIMENSION {self.dimension}\n")
-        # file.write(f"REMARK MULTIMERIC {self.multimeric}\n")
-        # file.write(f"REMARK RELATIVE_ORDER {self.relative_order}\n")
+            file.write(f"REMARK CATH {','.join(self.cath)}\n")
+        if self.enzyme_discription:
+            file.write(f"REMARK ENZYME {self.enzyme_discription}\n")
+        if self.experimental_method:
+            file.write(f"REMARK EXPERIMENTAL_METHOD {self.experimental_method}\n")
+        if self.resolution:
+            file.write(f"REMARK RESOLUTION {self.resolution}\n")
+        if self.organism:
+            file.write(f"REMARK ORGANISM_NAME {self.organism}\n")
+        if self.organism_id:
+            file.write(f"REMARK ORGANISM_ID {self.organism_id}\n")
 
-        # for residue in self.residues:
-        #     file.write(
-        #         f"REMARK ORIENTATION_VECTOR OF RESIDUE {residue.number}: between atom {residue.orientation_vector_indices[0]} and {residue.orientation_vector_indices[1]} {residue.orientation_vector.x:.3f} {residue.orientation_vector.y:.3f} {residue.orientation_vector.z:.3f}\n"
-        #     )
+        super().dump(file)
 
-        for residue in self.residues:
-            for atom in residue.atoms:
-                raise NotImplementedError(
-                    "Still need to write a dump method for templates in PyJess"
-                )
-
-        file.write("END\n")
+        # TODO perhaps implement this for AnnotatedTemplate too
+        # and then write remark line with metals and roles etc?
 
     @cached_property
     def effective_size(self) -> int:

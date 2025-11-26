@@ -16,7 +16,7 @@ from typing import (
     Tuple,
     Dict,
     Optional,
-    IO,
+    TextIO,
     Iterable,
     Sequence,
     Callable,
@@ -284,6 +284,83 @@ class Match:
             (),
         )
 
+    def dump_query(self, file: TextIO, transform: bool = False):
+        """
+        Dump the 3D coordinates of the hit.molecule to a '.pdb' file.
+
+        Arguments:
+            file: `file-like` object to write to
+            transform: `bool` If the atoms should be written to the template reference frame.
+
+        Note:
+            By default, atoms are written in the coordinate reference frame of the query.
+        """
+        file.write(f"REMARK MOLECULE_ID {self.hit.molecule().id}\n")
+        if transform:
+            file.write("REMARK TEMPLATE COORDINATE FRAME\n")
+        else:
+            file.write("REMARK QUERY COORDINATE FRAME\n")
+        self.hit.molecule(transform=transform).dump(file, write_header=False)
+
+    def dump_template(self, file: TextIO, transform: bool = False):
+        """
+        Dump the template coordinates of the hit to a '.pdb' file.
+
+        Arguments:
+            file: `file-like` object to write to
+            transform: `bool` If the atoms should be written to the query reference frame.
+
+        Note:
+            By default, template atoms are written in the template reference frame.
+
+        """
+        if transform:
+            file.write("REMARK TEMPLATE COORDINATE FRAME\n")
+        else:
+            file.write("REMARK QUERY COORDINATE FRAME\n")
+        self.hit.template(transform=not transform).dump(file=file)
+
+    def dump2pdb(self, file: TextIO, transform: bool = False):
+        """
+        Dump the 3D coordinates of the `Match` to a '.pdb' file.
+
+        Arguments:
+            file:` file-like` object to write to
+            transform: `bool` If the matched atoms should be written to the template
+                reference frame.
+
+        Note:
+            By default, atoms are written in the coordinate reference frame of
+            the query.
+        """
+        file.write(
+            f"REMARK {self.predicted_correct} MATCH {self.hit.molecule().id} {self.index}\n"
+        )
+
+        if transform:
+            file.write("REMARK TEMPLATE COORDINATE FRAME\n")
+        else:
+            file.write("REMARK QUERY COORDINATE FRAME\n")
+
+        # alias for improved readability
+        template = self.hit.template()
+        cluster = template.cluster
+
+        file.write(
+            f"REMARK TEMPLATE_PDB {str(template.pdb_id)}_{','.join(set(res.chain_id for res in template.residues))}\n"
+        )
+
+        if cluster:
+            file.write(
+                f"REMARK TEMPLATE CLUSTER {cluster.id}_{str(cluster.member)}_{str(cluster.size)}\n"
+            )
+        if template.represented_sites:
+            file.write(f"REMARK TEMPLATE RESIDUES {template.template_id_string}\n")
+        file.write(f"REMARK MOLECULE_ID {str(self.hit.molecule().id)}\n")
+        file.write(f"REMARK MATCH INDEX {self.index}\n")
+
+        self.hit.dump(file=file, format="pdb", transform=transform)
+
     def dumps(self, header: bool = False) -> str:
         """
         Dump `Match` to a string. Calls `Match.dump()`
@@ -297,106 +374,9 @@ class Match:
             buffer.getvalue()
         )  # returns entire content temporary file object as a string
 
-    @staticmethod
-    def write_atom_line(atom: pyjess.Atom) -> str:
-        one_char_elements = {
-            "H",
-            "B",
-            "C",
-            "N",
-            "O",
-            "F",
-            "P",
-            "S",
-            "K",
-            "V",
-            "Y",
-            "I",
-            "W",
-            "U",
-        }
-        if atom.element in one_char_elements:
-            return f"ATOM  {atom.serial:>5}  {atom.name:<3s}{atom.altloc if atom.altloc is not None else '':<1}{atom.residue_name:<3}{atom.chain_id:>2}{atom.residue_number:>4}{atom.insertion_code:1s}   {atom.x:>8.3f}{atom.y:>8.3f}{atom.z:>8.3f}{atom.occupancy:>6.2f}{atom.temperature_factor:>6.2f}      {atom.segment:<4s}{atom.element:>2s} \n"
-        else:
-            return f"ATOM  {atom.serial:>5} {atom.name:<4s}{atom.altloc if atom.altloc is not None else '':<1}{atom.residue_name:<3}{atom.chain_id:>2}{atom.residue_number:>4}{atom.insertion_code:1s}   {atom.x:>8.3f}{atom.y:>8.3f}{atom.z:>8.3f}{atom.occupancy:>6.2f}{atom.temperature_factor:>6.2f}      {atom.segment:<4s}{atom.element:>2s} \n"
-
-    def dump_query(self, file: IO[str], transform: bool = False):
-        """
-        Dump the 3D coordinates of the hit.molecule to a '.pdb' file.
-
-        Arguments:
-            file: `file-like` object to write to
-            transform: `bool` If the atoms should be written to the template reference frame.
-
-        Note:
-            By default, atoms are written in the coordinate reference frame of the query.
-        """
-        file.write(f"HEADER MOLECULE_ID {self.hit.molecule().id}\n")
-        for atom in self.hit.molecule(transform=transform):
-            file.write(self.write_atom_line(atom))
-
-    def dump_template(self, file: IO[str], transform: bool = False):
-        raise NotImplementedError
-
-    def dump2pdb(self, file: IO[str], transform: bool = False):
-        """
-        Dump the 3D coordinates of the `Match` to a '.pdb' file.
-
-        Arguments:
-            file:` file-like` object to write to
-            transform: `bool` If the matched atoms should be written to the template
-                reference frame.
-
-        Note:
-            By default, atoms are written in the coordinate reference frame of
-            the query.
-        """
-
-        # TODO option to include template atoms too. esp. with --transform
-        # this requires a dump method for pyjess.TemplateAtoms
-        # if NOT transform, rotate the template atoms into the query reference frame.
-        # if transform then in pymol once could fetch the template reference pdb
-        # select the template atoms in the reference pdb (selection called ref_site)
-        # then call align ref_site, csa*** name of template
-        # TODO once writing one match to a single file is done
-        # with --transform and --include query, rotate the query to the template reference too
-        # simply by using the roation matrix or by selecting the atoms in the query
-        # and aligning to the matched residues object.
-
-        file.write(
-            f"HEADER {self.predicted_correct} MATCH {self.hit.molecule().id} {self.index}\n"
-        )
-
-        file.write(
-            f"REMARK TEMPLATE_PDB {str(self.hit.template.pdb_id)}_{','.join(set(res.chain_id for res in self.hit.template.residues))}\n"
-        )
-
-        # alias for improved readability
-        template = self.hit.template
-        cluster = template.cluster
-
-        if cluster:
-            file.write(
-                f"REMARK TEMPLATE CLUSTER {cluster.id}_{str(cluster.member)}_{str(cluster.size)}\n"
-            )
-        if template.represented_sites:
-            file.write(f"REMARK TEMPLATE RESIDUES {template.template_id_string}\n")
-        file.write(f"REMARK MOLECULE_ID {str(self.hit.molecule().id)}\n")
-        file.write(f"REMARK MATCH INDEX {self.index}\n")
-
-        if transform:
-            file.write("REMARK TEMPLATE COORDINATE FRAME\n")
-        else:
-            file.write("REMARK QUERY COORDINATE FRAME\n")
-
-        for atom in self.hit.atoms(
-            transform=transform
-        ):  # if transform == True then coordinates are transformed to the template reference frame
-            file.write(self.write_atom_line(atom))
-
     def dump(
         self,
-        file: IO[str],
+        file: TextIO,
         header: bool = False,
     ):
         """
@@ -413,8 +393,8 @@ class Match:
             file, dialect="excel-tab", delimiter="\t", lineterminator="\n"
         )
         # aliases for improved readability
-        template = self.hit.template
-        cluster = self.hit.template.cluster
+        template = self.hit.template()
+        cluster = template.cluster
 
         if header:
             file.write(
@@ -462,7 +442,7 @@ class Match:
             str(template.pdb_id if template.pdb_id else ""),
             (",".join(set(res.chain_id for res in template.residues))),
             str(cluster.id if cluster else ""),
-            str(self.hit.template.cluster.member if self.hit.template.cluster else ""),
+            str(cluster.member if template.cluster else ""),
             str(cluster.size if cluster else ""),
             str(template.effective_size),
             str(template.dimension),
@@ -505,7 +485,7 @@ class Match:
         dimension).
         """
         # return the tuple (hit.template.m-csa, hit.template.cluster.id, hit.template.dimension)
-        template = self.hit.template
+        template = self.hit.template()
         return (
             template.mcsa_id,
             template.cluster.id,
@@ -524,7 +504,7 @@ class Match:
 
         return self.ensemble_model(
             pairwise_distance=self.pairwise_distance,
-            template_effective_size=self.hit.template.effective_size,
+            template_effective_size=self.hit.template().effective_size,
             model_kwargs={"rmsd": self.hit.rmsd, "orientation": self.orientation},
         )
 
@@ -595,7 +575,7 @@ class Match:
         Note:
             Will always return `False` if either template or query is multimeric
         """
-        if self.hit.template.multimeric or self.multimeric:
+        if self.hit.template().multimeric or self.multimeric:
             return False
         else:
             # Now extract relative atom order in hit
@@ -606,7 +586,7 @@ class Match:
                         for atom_triplet in self.atom_triplets
                     ]
                 )
-                == self.hit.template.relative_order
+                == self.hit.template().relative_order
             )
 
     @cached_property
@@ -616,7 +596,7 @@ class Match:
         """
         # !!! atom coordinates must be in template coordinate system!
         vector_list = []
-        for residue_index, residue in enumerate(cls.hit.template.residues):
+        for residue_index, residue in enumerate(cls.hit.template().residues):
             first_atom_index, second_atom_index = residue.orientation_vector_indices
             if (
                 second_atom_index == 9
@@ -643,7 +623,7 @@ class Match:
         """
         `list` of `Vec3`: of orientation vectors for each residue in the template
         """
-        return [res.orientation_vector for res in self.hit.template.residues]
+        return [res.orientation_vector for res in self.hit.template().residues]
 
     @property
     def orientation(self) -> float:  # average angle
@@ -842,6 +822,8 @@ class Matcher:
         #         if len(v) > 1:
         #             for dup in v:
         #                 print(dup.__dict__)
+        #                 print(dup.mcsa_id)
+        #                 print(dup.effective_size)
         #             break
 
         unique_templates = set(self.templates)
@@ -943,8 +925,8 @@ class Matcher:
 
         for match in matches:
             if (
-                match.hit.template.mcsa_id is not None
-                and match.hit.template.cluster is not None
+                match.hit.template().mcsa_id is not None
+                and match.hit.template().cluster is not None
             ):
                 groupable_matches.append(match)
             else:
@@ -967,12 +949,12 @@ class Matcher:
             #
             # check if all the cluster members up to and including cluster_size are present in the group,
             indexed_possible_cluster_members = list(
-                range(cluster_matches[0].hit.template.cluster.size)
+                range(cluster_matches[0].hit.template().cluster.size)
             )  # type: ignore
             possible_cluster_members = [x + 1 for x in indexed_possible_cluster_members]
 
             found_cluster_members = [
-                match.hit.template.cluster.member for match in cluster_matches
+                match.hit.template().cluster.member for match in cluster_matches
             ]  # type: ignore
             found_cluster_members.sort()
 

@@ -37,7 +37,7 @@ class TestIntegration(unittest.TestCase):
             len(
                 list(template.load_templates(template_dir=None, with_annotations=False))
             ),
-            7607,
+            7605,
         )  # check if all the expected templates were found
 
     def test_get_template_paths(self):

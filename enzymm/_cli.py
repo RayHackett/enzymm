@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Dict
 import warnings
 import sys
 import os
 
 import rich.console
+from pyjess import Molecule
 
 from enzymm import __version__
 from enzymm.template import load_templates
@@ -138,6 +139,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Include the query structure together with the hits in the pdb output",
     )
     group.add_argument(
+        "--include-template",
+        default=False,
+        action="store_true",
+        help="Include the template structure together with the hits in the pdb output",
+    )
+    group.add_argument(
         "-u",
         "--unfiltered",
         default=False,
@@ -148,7 +155,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--transform",
         default=False,
         action="store_true",
-        help="If set, will transform the coordinate system of the hits to that of the template in the pdb output",
+        help="If set, one pdb file per matched template pdb with will be written in the coordinate system of that template",
     )
     group.add_argument(
         "--skip-smaller-hits",
@@ -288,40 +295,61 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
                         header=(i == 0),
                     )  # one line per match, write header only for the first match
 
-        # TODO with multiple matches per query we have two options:
-        # with --include-query and not --transform we can write them all into one pdb
-        # in this case, we dont need to do any furhter processing.
-
-        # with --transform this doesnt make much sense.
-        # here we would like to write each match in its own file
-        # to a seperate folder named after the query
-        # then we would include also the template and
-        # the query and do all the alignment processing
-
-        # TODO print warning saying that setting the args.transform
-        # option doesnt make sense when
-        # searching with multiple templates in the current setup.
-        # as described above, we would want seperate output files per match
-
         def write_hits2pdb(matches: List[Match], filename: str, outdir: Path):
             # make sure molecule().id is unique!
+            # TODO fix model indx upon multiple calls
             with open(
-                Path(outdir, f"{filename}_matches.pdb"), "w", encoding="utf-8"
+                Path(outdir, f"{filename}_matches.pdb"), "a", encoding="utf-8"
             ) as pdbfile:
                 if args.include_query:
                     # write the molecule structure to the top of the pdb output too
                     pdbfile.write("MODEL        0\n")
                     matches[0].dump_query(file=pdbfile, transform=args.transform)
                     pdbfile.write("ENDMDL\n\n")
-                for i, match in enumerate(matches):
-                    pdbfile.write(f"MODEL        {i}\n")
+
+                model_idx = 1
+                for match in matches:
+                    pdbfile.write(f"MODEL        {model_idx}\n")
                     match.dump2pdb(pdbfile, transform=args.transform)
-                    pdbfile.write("ENDMDL\n\n")
+                    model_idx += 1
+                    pdbfile.write("\n")
+
+                if args.include_template:
+                    for match in matches:
+                        pdbfile.write(f"MODEL        {model_idx}\n")
+                        match.dump_template(pdbfile, transform=args.transform)
+                        pdbfile.write("ENDMDL\n\n")
+                        model_idx += 1
 
         if args.pdbs:
             args.pdbs.mkdir(parents=True, exist_ok=False)
-            for molecule, matches in processed_molecules.items():
-                write_hits2pdb(matches=matches, filename=molecule.id, outdir=args.pdbs)  # type: ignore
+
+            if args.transform:
+                t_dict: Dict[str, Dict[Molecule, List[Match]]] = {}
+                for molecule, matches in processed_molecules.items():
+                    for match in matches:
+                        pdb_id = match.hit.template().pdb_id
+                        if pdb_id not in t_dict:
+                            t_dict[pdb_id] = {}
+                        if molecule not in t_dict[pdb_id]:
+                            t_dict[pdb_id][molecule] = []
+                        t_dict[pdb_id][molecule].append(match)
+
+                for template_pdb, query_dict in t_dict.items():
+                    for query_mol, matches in query_dict.items():
+                        write_hits2pdb(
+                            matches=matches, filename=template_pdb, outdir=args.pdbs
+                        )
+
+            else:
+                # everything in the query reference frame
+                # write one pdb per query
+                for molecule, matches in processed_molecules.items():
+                    write_hits2pdb(
+                        matches=matches,
+                        filename=molecule.id,  # type: ignore
+                        outdir=args.pdbs,
+                    )
 
     except IsADirectoryError as exc:
         print("File is a directory:", exc.filename, file=stderr)
