@@ -2,6 +2,7 @@ import unittest
 import errno
 import io
 import tempfile
+import shutil
 from pathlib import Path
 
 try:
@@ -50,6 +51,31 @@ class Test_CLI(unittest.TestCase):
             selected_template_dir,
             "-o",
             cls.tempfile.name,
+        ]
+
+        cls.arguments_normal_with_pdb = [
+            "-i",
+            molecule_path,
+            "-t",
+            selected_template_dir,
+            "-o",
+            cls.tempfile.name,
+            "--pdbs",
+            str(Path(tempfile.gettempdir(), "pdbs").resolve()),
+            "--include-template",
+        ]
+
+        cls.arguments_normal_with_pdb_transformed = [
+            "-i",
+            molecule_path,
+            "-t",
+            selected_template_dir,
+            "-o",
+            cls.tempfile.name,
+            "--pdbs",
+            str(Path(tempfile.gettempdir(), "pdbs_t").resolve()),
+            "--include-template",
+            "--transform",
         ]
 
         cls.arguments_unfiltered = [
@@ -141,9 +167,13 @@ class Test_CLI(unittest.TestCase):
             "0.5",
         ]  # expecting filtering with 0.5A
 
+        cls.maxDiff = None
+
     @classmethod
     def tearDownClass(cls):
         cls.tempfile.close()
+        shutil.rmtree(Path(tempfile.gettempdir(), "pdbs"))
+        shutil.rmtree(Path(tempfile.gettempdir(), "pdbs_t"))
 
     def test_default_main(self):
         self.assertEqual(main(self.arguments_normal, stderr=io.StringIO()), 0)
@@ -165,3 +195,43 @@ class Test_CLI(unittest.TestCase):
             main(self.bad_argument_6, stderr=io.StringIO())
         with self.assertRaises(ValueError):
             main(self.arguments_bad_unfiltered, stderr=io.StringIO())
+
+    def test_writing_pdbs_query_ref(self):
+        main(self.arguments_normal_with_pdb, stderr=io.StringIO())
+
+        self.assertTrue(Path(tempfile.gettempdir(), "pdbs").is_dir())
+        self.assertTrue(
+            Path(Path(tempfile.gettempdir(), "pdbs"), "1AMY_matches.pdb").is_file()
+        )
+
+        with open(
+            Path(Path(tempfile.gettempdir(), "pdbs"), "1AMY_matches.pdb"), "r"
+        ) as f:
+            actual = f.read()
+
+        with resource_files(test_data).joinpath(
+            "1AMY_matches_with_templates.pdb"
+        ).open() as f:
+            expected = f.read()
+
+        self.assertMultiLineEqual(actual.strip(), expected.strip())
+
+    def test_writing_pdbs_template_ref(self):
+        main(self.arguments_normal_with_pdb_transformed, stderr=io.StringIO())
+
+        self.assertTrue(Path(tempfile.gettempdir(), "pdbs_t").is_dir())
+        self.assertTrue(
+            Path(Path(tempfile.gettempdir(), "pdbs_t"), "1uh3_matches.pdb").is_file()
+        )
+
+        with open(
+            Path(Path(tempfile.gettempdir(), "pdbs_t"), "1uh3_matches.pdb"), "r"
+        ) as f:
+            actual = f.read()
+
+        with resource_files(test_data).joinpath(
+            "1AMY_matches_with_templates_t.pdb"
+        ).open() as f:
+            expected = f.read()
+
+        self.assertMultiLineEqual(actual.strip(), expected.strip())
