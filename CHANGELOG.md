@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [v0.3.0] - 2025-11-25
+[v0.3.0]: https://github.com/rayhackett/enzymm/compare/v0.2.0..v0.3.0
+
+### Added
+- Added [Documentation](https://enzymm.readthedocs.io/en/latest/)
+- `--include-template` flag added. Set it to include the template pdb in the output
+- templates and molecules can now be dumped too (with the ability to transform them) -> bumped requirement to PyJess 0.9.0
+
+### Changed
+- **breaking** different structures (molecules, hits, templates) will now be seperated in `MODEL`/`ENDMDL` blocks (compatibility with some molecular viewers).
+- **breaking** `--transform` behaviour changed. Setting it will write in the template coordinate system.
+- `--transform` and `--include-query` are now compatible. `--transform` will write one output pdb per matched template
+
+### Fixed
+- removed two duplicate 3-residue templates; we are down to 7605 templates in total now
+- fixed some EC numbers which contained apostrophes
+- will now properly recognize CIF structures starting with a comment line as CIF structures
+- outsourced dumping molecules, templates and hits to PyJess
+- `HEADER` lines in the pdb output were changed to regular `REMARK` lines.
+- improved various docstrings
+- testing for pdb file output
+
 ## [v0.2.0] - 2025-09-17
 [v0.2.0]: https://github.com/rayhackett/enzymm/compare/v0.1.7..v0.2.0
 
