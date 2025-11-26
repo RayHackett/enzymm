@@ -45,25 +45,29 @@ The table contains the following columns:
 PDB Structures
 ^^^^^^^^^^^^^^
 
-Optionally, if you supply the `--pdbs` flag to a directory, one `PDB` file will be written
-per Query Structure. With the `--include-query flag` set,
-the structure of the query will be written to the output file as the first model.
+Optionally you can write `PDB` files for the matches,
+if you supply the `--pdbs` flag pointing to a directory.
+What `PDB` files will be written depends on if the `--transform` flag is set.
+
+By default (the `--transform` flag is not set), one `PDB` file will be written
+per query structure with the matches in the coordinate system of the query molecule.
+
+Alternatively if the `--transform` flag is set, one `PDB` file will be written per
+template pdb structure with the matches in the coordinate system of the respective template.
+This can make superposing multiple matches of different queries with the same template easier.
+
+You can further configure the output in each `PDB` file with the following two flags:
+- `--include-query`: will include the query molecule(s) in the `PDB` file
+- `--include-template`: will include the template(s) in the `PDB` file
 
 Each match is then added as a subsequent model. By default, matches are written in the
 query reference frame so that many matches to the same query can we viewed together.
-If you wish to show the matches in the reference frame of the
-template, use the `--transform` flag. This can make superposing multiple matches
-of different queries with the same template easier.
-
-
-.. caution::
-    Currently `--include-query` and `--transform` should not be used together.
 
 A single match in `PDB` format will look like this:
 
 .. code::
 
-    HEADER True MATCH 1AMY 0
+    REMARK True MATCH 1AMY 0
     REMARK TEMPLATE_PDB 1uh3_A
     REMARK TEMPLATE CLUSTER 1_1_1
     REMARK TEMPLATE RESIDUES 1uh3_A396-A262-A356-A471-A472

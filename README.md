@@ -20,7 +20,7 @@
 <!-- [![Bioconda](https://img.shields.io/conda/vn/bioconda/pyhmmer?logo=anaconda&style=flat&maxAge=3600)](https://anaconda.org/bioconda/pyhmmer) -->
 <!-- [![AUR](https://img.shields.io/aur/version/python-pyhmmer?logo=archlinux&style=flat&maxAge=3600)](https://aur.archlinux.org/packages/python-pyhmmer) -->
 
-A more in depth documentation is availabe here: (https://enzymm.readthedocs.io/en/latest/)
+📚 Full documentation is availabe here: https://enzymm.readthedocs.io/en/latest/
 
 ## ️Overview
 
@@ -99,18 +99,15 @@ Please refer to the [Documentation](https://enzymm.readthedocs.io/en/latest/) fo
 For visual exploration of matches, you can optionally save an alignment of the template and the matched query residues to a PDB file which can be viewed with any molecular viewer.
 To do so, supply an output directory after the `--pdbs` flag for the `.pdb` files.
 
-This will also create:
+What will get written depends of in the `--transform` flag is set or not:
 
-- `{pdbs_dir}/{query_identifier}_matches.pdb`: One `.pdb` file per query with a structural alignment between template and query residues. This can be further configured.
+- `{pdbs_dir}/{query_identifier}_matches.pdb`: Default: One `.pdb` file per query with matched residues in the query written in the query reference frame.
+- `{pdbs_dir}/{template_pdb_identifier}_matches.pdb`: Default: One `.pdb` file per template structure which matches any query written in the template reference frame.
+In short, `--transform` forces the output into the template reference frame. Therefore only matches from the same template structure can be aligned which is why we write one file per matched template structure!
 
 Add additional information to each `.pdb` file with the following flags:
-
-- `--transform`, which causes the query to be aligned to the the template instead of vice versa.
+- `--include-template`, which also writes the template PDB structure to the `.pdb` file
 - `--include-query`, which also writes the entire query PDB structure to the `.pdb` file
-
-Currently, `--transform` and `--include-query` should not be used together.
-Hopefully I'll get around to fixing this soon.
-
 
 ## 💭 Feedback
 
