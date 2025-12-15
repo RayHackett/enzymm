@@ -383,7 +383,7 @@ class TestMatcher(unittest.TestCase):
             cls.molecule = pyjess.Molecule.load(f)
 
         with resource_files(test_data).joinpath(
-            "AF-P0DUB6-F1-model_v4.pdb"
+            "AF-P0DUB6-F1-model_v6.cif"
         ).open() as f:
             cls.molecule2 = pyjess.Molecule.load(f)
             cls.molecule3 = cls.molecule2.conserved(80)
@@ -447,7 +447,7 @@ class TestMatcher(unittest.TestCase):
 
         self.assertEqual(
             [i.query_residue_count for i in processed_molecules_2[self.molecule3]],
-            [494],
+            [495],
         )  # conservation cutoff applied
 
         processed_molecules_4 = self.template_matcher4.run(molecules=[self.molecule])
