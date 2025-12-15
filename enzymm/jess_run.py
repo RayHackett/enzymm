@@ -680,6 +680,7 @@ def load_molecules(
     """Load query molecules from a list of paths to PDB or CIF/mmCIF structure files."""
     molecules = []
     stem_counter: Dict[str, int] = collections.defaultdict(int)
+    id_counter: Dict[str, int] = collections.defaultdict(int)
     for molecule_path in molecule_paths:
         stem = Path(molecule_path).stem
         stem_counter[stem] += 1
@@ -689,26 +690,41 @@ def load_molecules(
         else:
             unique_id = stem
 
-        molecule = pyjess.Molecule.load(
+        mol = pyjess.Molecule.load(
             str(molecule_path),
-            id=unique_id,
+            id=None,
             format="detect",
         )
+
         # NOTE
         # by default it will stop at ENDMDL
         # atom and residue numbers will use the automatically assigned numbers
         # cif or pdb file format should be auto detected.
         # HETATM records will not be skipped!
 
-        if conservation_cutoff:
-            molecule.conserved(conservation_cutoff)
-            # molecule = molecule.conserved(args.conservation_cutoff)
-            # conserved is a method called on a molecule object that returns a filtered molecule
-            # atoms with a temperature-factor BELOW the conservation cutoff will be excluded
-        if molecule:
+        if mol:
+            if conservation_cutoff:
+                mol = mol.conserved(conservation_cutoff)
+                # that returns a filtered molecule
+                # atoms with a B-factor BELOW the conservation cutoff will be excluded
+
+            if mol.id is not None:
+                id_counter[mol.id] += 1
+                if id_counter[mol.id] > 1:
+                    mol = pyjess.Molecule(
+                        mol,
+                        id=f"{stem}_{id_counter[mol.id]}",
+                        name=mol.name,
+                        date=mol.date,
+                    )
+            else:
+                warnings.warn(f"No id in molecule {stem}!")
+                mol = pyjess.Molecule(mol, id=unique_id, name=mol.name, date=mol.date)
+
             molecules.append(
-                molecule
+                mol
             )  # load a molecule and filter it by conservation_cutoff
+
         else:
             raise ValueError(
                 f"Received an empty molecule from {molecule_path}. Is this file in PDB or CIF/mmCIF format?"
@@ -970,7 +986,7 @@ class Matcher:
     @staticmethod
     def _run_jess(
         molecule: pyjess.Molecule,
-        templates: Iterable[Template],
+        jess: pyjess.Jess,
         rmsd_threshold: float,
         distance_cutoff: float,
         max_dynamic_distance: float,
@@ -985,9 +1001,6 @@ class Matcher:
         # killswitch limits the iterations when the template would be too general,
         # and the program would run in an almost endless loop
 
-        jess = pyjess.Jess(
-            templates
-        )  # Create a Jess instance and use it to query a molecule (a PDB structure) against the stored templates:
         query = jess.query(
             molecule=molecule,
             rmsd_threshold=rmsd_threshold,
@@ -1049,7 +1062,7 @@ class Matcher:
     def _single_query_run(
         self,
         molecule: pyjess.Molecule,
-        templates: Iterable[Template],
+        jess: pyjess.Jess,
         rmsd_threshold: float,
         distance_cutoff: float,
         max_dynamic_distance: float,
@@ -1057,7 +1070,7 @@ class Matcher:
     ) -> List[Match]:
         matches = self._run_jess(
             molecule=molecule,
-            templates=templates,
+            jess=jess,
             rmsd_threshold=rmsd_threshold,
             distance_cutoff=distance_cutoff,
             max_dynamic_distance=max_dynamic_distance,
@@ -1101,13 +1114,18 @@ class Matcher:
                 template_size
             )
 
+            # Create a Jess instance and use it to query a molecule (a PDB structure)
+            # against the stored templates:
+            jess = pyjess.Jess(template_batch)
+
             the_function = functools.partial(
                 self._single_query_run,
-                templates=template_batch,
+                jess=jess,
                 rmsd_threshold=rmsd,
                 distance_cutoff=distance,
                 max_dynamic_distance=max_dynamic_distance,
             )
+            the_function.template_effective_size = template_size  # type: ignore
 
             job_batches.append(the_function)
 
@@ -1117,7 +1135,7 @@ class Matcher:
             progress: Progress,
             task: TaskID,
         ):
-            template_size = batch_partial.keywords["templates"][0].effective_size
+            template_size = batch_partial.template_effective_size  # type: ignore
 
             if self.skip_smaller_hits:
                 with molecule.lock.gen_rlock():
