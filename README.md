@@ -11,13 +11,13 @@
 [![Issues](https://img.shields.io/github/issues/RayHackett/enzymm.svg?style=flat&maxAge=600)](https://github.com/RayHackett/enzymm/issues)
 [![Python Versions](https://img.shields.io/pypi/pyversions/enzymm.svg?style=flat&maxAge=600&logo=python)](https://pypi.org/project/enzymm/#files)
 [![PyPI](https://img.shields.io/pypi/v/enzymm.svg?style=flat&maxAge=3600)](https://pypi.python.org/pypi/enzymm)
+[![Bioconda](https://img.shields.io/conda/vn/bioconda/enzymm?logo=anaconda&style=flat&maxAge=3600)](https://anaconda.org/bioconda/enzymm)
 [![Wheel](https://img.shields.io/pypi/wheel/enzymm?style=flat&maxAge=3600)](https://pypi.org/project/enzymm/#files)
 [![Docker](https://img.shields.io/badge/Docker-GHCR-blue?logo=docker)](https://github.com/users/rayhackett/packages/container/package/enzymm)
 [![Apptainer](https://img.shields.io/badge/Apptainer-SIF-blue?logo=apptainer&style=flat)](https://github.com/rayhackett/enzymm/releases/latest)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/enzymm?period=total&units=INTERNATIONAL_SYSTEM&left_color=grey&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/enzymm)
 <!-- [![Paper](https://img.shields.io/badge/paper-JOSS-9400ff?style=flat&maxAge=86400)](https://doi.org/10.21105/joss.04296) -->
 <!-- [![Citations](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fbadge.dimensions.ai%2Fdetails%2Fid%2Fpub.1147419140%2Fmetadata.json&query=%24.times_cited&style=flat&label=citations&maxAge=86400)](https://badge.dimensions.ai/details/id/pub.1147419140) -->
-<!-- [![Bioconda](https://img.shields.io/conda/vn/bioconda/pyhmmer?logo=anaconda&style=flat&maxAge=3600)](https://anaconda.org/bioconda/pyhmmer) -->
 <!-- [![AUR](https://img.shields.io/aur/version/python-pyhmmer?logo=archlinux&style=flat&maxAge=3600)](https://aur.archlinux.org/packages/python-pyhmmer) -->
 
 📚 Full documentation is availabe here: https://enzymm.readthedocs.io/en/latest/
@@ -38,7 +38,7 @@ For the actual geometric matching `EnzyMM` relies on [PyJess](https://github.com
 ## 🔧 Installing EnzyMM
 
 `EnzyMM` is implemented in [Python](https://www.python.org/), 
-and supports [all versions](https://endoflife.date/python) from Python 3.8 on Linux and MacOS. It requires
+and supports [all versions](https://endoflife.date/python) from Python 3.7 on Linux and MacOS. It requires
 additional libraries that can be installed directly from
 [PyPI](https://pypi.org), the Python Package Index.
 
@@ -46,6 +46,11 @@ Use [`pip`](https://pip.pypa.io/en/stable/) to install `EnzyMM` on your
 machine:
 ```bash
 $ pip install enzymm
+```
+
+Alternatively, use [`Anaconda`](https://anaconda.org/) to install `EnzyMM`. Optionally install [gemmi](https://github.com/project-gemmi/gemmi) to search `CIF` files too:
+```bash
+$ conda install -c bioconda enzymm gemmi
 ```
 
 This will both install `EnzyMM` and also download a library of catalytic templates together with important metadata. This requires around 16MB of data to be downloaded.
@@ -67,8 +72,8 @@ apptainer pull oras://ghcr.io/rayhackett/enzymm:latest
 ## 🔎 Running EnzyMM
 
 Once `EnzyMM` is installed, you can run it from the terminal. The user can either provide a path to a single protein structure `-i` or to run multiple queries at once, the path to a text file `-l` which itself contains a list of paths to protein structures.
-Structures are accepted in both CIF/mmCIF and PDB file format.
-Optionally, an output directory for PDB structures of the identified matches per query protein can be supplied with the `--pdbs` flag.
+Structures are accepted in both `CIF/mmCIF` and `PDB` file format.
+Optionally, an output directory for `PDB` structures of the identified matches per query protein can be supplied with the `--pdbs` flag.
 
 ```bash
 $ enzymm -i some_structure.pdb -o results.tsv --pdbs dir_to_save_matches
@@ -96,7 +101,7 @@ Please refer to the [Documentation](https://enzymm.readthedocs.io/en/latest/) fo
 
 - `{output}.tsv`: A `.tsv` file containing a summary of all results. One row is printed per match.
 
-For visual exploration of matches, you can optionally save an alignment of the template and the matched query residues to a PDB file which can be viewed with any molecular viewer.
+For visual exploration of matches, you can optionally save an alignment of the template and the matched query residues to a `PDB` file which can be viewed with any molecular viewer.
 To do so, supply an output directory after the `--pdbs` flag for the `.pdb` files.
 
 What will get written depends of in the `--transform` flag is set or not:
@@ -106,8 +111,8 @@ What will get written depends of in the `--transform` flag is set or not:
 In short, `--transform` forces the output into the template reference frame. Therefore only matches from the same template structure can be aligned which is why we write one file per matched template structure!
 
 Add additional information to each `.pdb` file with the following flags:
-- `--include-template`, which also writes the template PDB structure to the `.pdb` file
-- `--include-query`, which also writes the entire query PDB structure to the `.pdb` file
+- `--include-template`, which also writes the template structure to the `.pdb` file
+- `--include-query`, which also writes the entire query structure to the `.pdb` file
 
 ## 💭 Feedback
 

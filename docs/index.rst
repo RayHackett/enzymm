@@ -3,9 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-.. .. |Bioconda| image:: https://img.shields.io/conda/vn/bioconda/pyjess?style=flat&maxAge=3600
-..    :target: https://anaconda.org/bioconda/pyjess
-..    :class: dark-light
+
 
 .. .. |AUR| image:: https://img.shields.io/aur/version/python-pyjess?logo=archlinux&style=flat&maxAge=3600
 ..    :target: https://aur.archlinux.org/packages/python-pyjess
@@ -32,6 +30,10 @@ EnzyMM - The Enzyme Motif Miner |Stars|
 
 .. |PyPI| image:: https://img.shields.io/pypi/v/enzymm.svg?style=flat&maxAge=3600
    :target: https://pypi.python.org/pypi/enzymm
+   :class: dark-light
+
+.. |Bioconda| image:: https://img.shields.io/conda/vn/bioconda/enzymm?style=flat&maxAge=3600
+   :target: https://anaconda.org/bioconda/enzymm
    :class: dark-light
 
 .. |Wheel| image:: https://img.shields.io/pypi/wheel/enzymm?style=flat&maxAge=3600

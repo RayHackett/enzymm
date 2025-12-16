@@ -13,16 +13,17 @@ It will install all dependencies including the library of catalytic templates:
     $ pip install --user enzymm
 
 
-.. Conda
-.. ^^^^^
+Conda
+^^^^^
 
-.. PyJess is also available as a `recipe <https://anaconda.org/bioconda/pyjess>`_
-.. in the `bioconda <https://bioconda.github.io/>`_ channel. To install, simply
-.. use the ``conda`` installer:
+**EnzyMM** is also available as a `recipe <https://anaconda.org/bioconda/enzymm>`_
+in the `bioconda <https://bioconda.github.io/>`_ channel. To install, simply
+use the ``conda`` installer. Optionally, if you wish to search CIF structures,
+install `gemmi <https://github.com/project-gemmi/gemmi/>`_ too:
 
-.. .. code:: console
+.. code:: console
 
-..    $ conda install -c bioconda pyjess
+    $ conda install -c bioconda enzymm gemmi
 
 
 .. Arch User Repository
