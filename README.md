@@ -144,9 +144,9 @@ Though conceived at the [EMBL-EBI](https://www.ebi.ac.uk/) in Hinxton, UK in the
 
 We kindly ask you to cite both:  
 - EnzyMM for instance as:
-> Hackett RE et al. (2026), Investigating Enzyme Function by Geometric Matching of Catalytic Motifs [Preprint], BioRxiv, DOI:10.64898/2026.02.10.705182 
+> Hackett RE et al. (2026), Investigating Enzyme Function by Geometric Matching of Catalytic Motifs [Preprint], BioRxiv, [DOI:10.64898/2026.02.10.705182](https://doi.org/10.64898/2026.02.10.705182)
 - Mechanism and Catalytic Site Atlas as:
-> Ribeiro AJM et al. (2017), Nucleic Acids Res, 46, D618-D623. Mechanism and Catalytic Site Atlas (M-CSA): a database of enzyme reaction mechanisms and active sites. DOI:10.1093/nar/gkx1012. PMID:29106569.
+> Ribeiro AJM et al. (2017), Nucleic Acids Res, 46, D618-D623. Mechanism and Catalytic Site Atlas (M-CSA): a database of enzyme reaction mechanisms and active sites. [DOI:10.1093/nar/gkx1012](https://doi.org/10.1093/nar/gkx1012). PMID:29106569.
 
 <!-- 
 ## 📚 References -->

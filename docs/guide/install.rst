@@ -1,8 +1,8 @@
 🔧 Installation
-============
+===============
 
-PyPi
-^^^^
+🐍 PyPi
+^^^^^^^
 
 **EnzyMM** is hosted on GitHub, but the easiest way to install it is to download
 the latest release from its `PyPi repository <https://pypi.python.org/pypi/pyjess>`_.
@@ -60,7 +60,7 @@ install `gemmi <https://github.com/project-gemmi/gemmi/>`_ too:
 
 
 🐋 Docker container
-^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^
 
 You can also run **EnzyMM** via a `Docker <https://www.docker.com/>`_ container.
 A container for every tagged release can be downloaded from the GitHub Container Repository.
@@ -72,7 +72,7 @@ Download the latest with:
 
 
 🖼️ Apptainer container
-^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
 
 You can also run **EnzyMM** via an `Apptainer <https://apptainer.org/>`_ container.
 A container for every tagged release can be downloaded via ORAS from the GitHub Container Repository.

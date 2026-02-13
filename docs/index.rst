@@ -18,7 +18,7 @@ EnzyMM - The Enzyme Motif Miner |Stars|
 
 *Identify catalytic sites in protein structures with the Enzyme Motif Miner!*
 
-|Actions| |Coverage| |PyPI| |Wheel| |Docker| |Apptainer| |Versions| |versions| |License| |Source| |Issues| |Docs| |Changelog| |Downloads| |Preprint|
+|Actions| |Coverage| |PyPI| |Wheel| |Docker| |Apptainer| |Versions| |versions| |License| |Source| |Issues| |Docs| |Changelog| |Downloads| |Preprint| 
 
 .. |Actions| image:: https://img.shields.io/github/actions/workflow/status/RayHackett/enzymm/test.yml?branch=main&style=flat&maxAge=300
    :target: https://github.com/RayHackett/Enzymm/actions/workflows/test.yml
@@ -80,7 +80,7 @@ EnzyMM - The Enzyme Motif Miner |Stars|
    :target: https://pepy.tech/projects/enzymm
    :class: dark-light
 
-.. |Preprint| image:: https://static.pepy.tech/personalized-badge/enzymm?period=total&units=INTERNATIONAL_SYSTEM&left_color=grey&right_color=firebrick&left_text=bioRxiv
+.. |Preprint| image:: https://img.shields.io/badge/preprint-bioRxiv-firebrick?style=flat&maxAge=3600
    :target: https://doi.org/10.64898/2026.02.10.705182
    :class: dark-light
 
@@ -88,8 +88,8 @@ Overview
 --------
 
 **EnzyMM** is a Python tool to identify known patterns of catalytic residues in protein structures.
-.. We also provide a webserver where you can run **EnzyMM** on single queries
-.. `here <https://www.ebi.ac.uk/thornton-srv/m-csa/enzymm>`_
+We also provide a webserver where you can run **EnzyMM** on single queries
+`here <https://www.ebi.ac.uk/thornton-srv/m-csa/enzymm>`_.
 
 Catalytic sites, which define the function of proteins, are among the most conserved
 parts of enzyme structures. It makes sense therefore, that their similarities can be
@@ -116,9 +116,12 @@ we can scan most protein structures against nearly 7000 catalytic arrangements i
 of a second. Perfectly suited for exploring the expanding universe of predicted protein
 structures, we are excited to present **EnzyMM**!
 
+For further information please refer to our scientific preprint of EnzyMM titled
+`"Investigating Enzyme Function by Geometric Matching of Catalytic Motifs" <https://doi.org/10.64898/2026.02.10.705182>`_
+
 
 🔧 Setup
------
+--------
 
 **EnzyMM** is available for all modern Python versions (3.7+).
 
@@ -129,7 +132,7 @@ to install **EnzyMM**.
 Alternatively, we provide both Docker and Apptainer Images 🖼️.
 
 📚 Library
--------
+----------
 
 .. toctree::
    :maxdepth: 2
@@ -139,7 +142,7 @@ Alternatively, we provide both Docker and Apptainer Images 🖼️.
    API Reference <api/index>
 
 🔎 Related Projects
-----------------
+-------------------
 
 **EnzyMM** draws on a library of catalytic templates derived by Ioannis Riziotis from
 the `Mechanism and Catalytic Site Atlas <https://www.ebi.ac.uk/thornton-srv/m-csa/>`_
@@ -153,19 +156,19 @@ for finding matches between templates and query structures.
 Please have a look at `PyJess <https://github.com/althonos/pyjess>`_!
 
 🔖 Citations
----------
+------------
 **EnzyMM** is academic software but relies on many previous approaches.  
 
 We kindly ask you to cite both:
 
 - **EnzyMM**, for instance as:
-   - Hackett RE et al. (2026), Investigating Enzyme Function by Geometric Matching of Catalytic Motifs [Preprint], BioRxiv, DOI:10.64898/2026.02.10.705182 
+   - Hackett RE et al. (2026), Investigating Enzyme Function by Geometric Matching of Catalytic Motifs [Preprint], BioRxiv, `DOI:10.64898/2026.02.10.705182 <https://doi.org/10.64898/2026.02.10.705182>`_ 
 
 - **Mechanism and Catalytic Site Atlas** as:
-   - Ribeiro AJM et al. (2017), Nucleic Acids Res, 46, D618-D623. Mechanism and Catalytic Site Atlas (M-CSA): a database of enzyme reaction mechanisms and active sites. DOI:10.1093/nar/gkx1012. PMID:29106569.
+   - Ribeiro AJM et al. (2017), Nucleic Acids Res, 46, D618-D623. Mechanism and Catalytic Site Atlas (M-CSA): a database of enzyme reaction mechanisms and active sites. `DOI:10.1093/nar/gkx1012. PMID:29106569 <https://doi.org/10.1093/nar/gkx1012>`_.
 
 ⚖️ License
--------
+----------
 
 **EnzyMM** is provided under the `MIT License <https://choosealicense.com/licenses/mit/>`_.
 Both **PyJess** and the original **JESS** code are distributed under the 

@@ -5,7 +5,7 @@ EnzyMM produces a `TSV` table as output.
 Optionally `PDB` structures with matched residues can be written too.
 
 🖹 TSV Table
-^^^^^^^^^
+^^^^^^^^^^^
 
 Each row shows data for a match between one of our catalytic templates and the query structure.
 The table contains the following columns:
@@ -88,7 +88,7 @@ A single match in `PDB` format will look like this:
     Multiple matches are seperated by `MDL` and `ENDMDL` lines!
 
 ⚠️ Limitations and Caveats
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Be critical and apply common sense when interpreting **EnzyMM** results.
 Think of template matching as a fast and deterministic approach to identify any
