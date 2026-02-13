@@ -18,7 +18,7 @@ EnzyMM - The Enzyme Motif Miner |Stars|
 
 *Identify catalytic sites in protein structures with the Enzyme Motif Miner!*
 
-|Actions| |Coverage| |PyPI| |Wheel| |Docker| |Apptainer| |Versions| |versions| |License| |Source| |Issues| |Docs| |Changelog| |Downloads|
+|Actions| |Coverage| |PyPI| |Wheel| |Docker| |Apptainer| |Versions| |versions| |License| |Source| |Issues| |Docs| |Changelog| |Downloads| |Preprint|
 
 .. |Actions| image:: https://img.shields.io/github/actions/workflow/status/RayHackett/enzymm/test.yml?branch=main&style=flat&maxAge=300
    :target: https://github.com/RayHackett/Enzymm/actions/workflows/test.yml
@@ -78,6 +78,10 @@ EnzyMM - The Enzyme Motif Miner |Stars|
 
 .. |Downloads| image:: https://static.pepy.tech/personalized-badge/enzymm?period=total&units=INTERNATIONAL_SYSTEM&left_color=grey&right_color=GREEN&left_text=downloads
    :target: https://pepy.tech/projects/enzymm
+   :class: dark-light
+
+.. |Preprint| image:: https://static.pepy.tech/personalized-badge/enzymm?period=total&units=INTERNATIONAL_SYSTEM&left_color=grey&right_color=firebrick&left_text=bioRxiv
+   :target: https://doi.org/10.64898/2026.02.10.705182
    :class: dark-light
 
 Overview
@@ -151,13 +155,11 @@ Please have a look at `PyJess <https://github.com/althonos/pyjess>`_!
 🔖 Citations
 ---------
 **EnzyMM** is academic software but relies on many previous approaches.  
-**EnzyMM** itself can not yet be cited but a preprint is in preparation.
-We intend to publish during the autumn of 2025.  
 
 We kindly ask you to cite both:
 
-- **PyJess**, for instance as:
-   - PyJess, a Python library binding to Jess (Barker *et al.*, 2003).
+- **EnzyMM**, for instance as:
+   - Hackett RE et al. (2026), Investigating Enzyme Function by Geometric Matching of Catalytic Motifs [Preprint], BioRxiv, DOI:10.64898/2026.02.10.705182 
 
 - **Mechanism and Catalytic Site Atlas** as:
    - Ribeiro AJM et al. (2017), Nucleic Acids Res, 46, D618-D623. Mechanism and Catalytic Site Atlas (M-CSA): a database of enzyme reaction mechanisms and active sites. DOI:10.1093/nar/gkx1012. PMID:29106569.

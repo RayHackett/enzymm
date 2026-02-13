@@ -16,7 +16,7 @@
 [![Docker](https://img.shields.io/badge/Docker-GHCR-blue?logo=docker)](https://github.com/users/rayhackett/packages/container/package/enzymm)
 [![Apptainer](https://img.shields.io/badge/Apptainer-SIF-blue?logo=apptainer&style=flat)](https://github.com/rayhackett/enzymm/releases/latest)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/enzymm?period=total&units=INTERNATIONAL_SYSTEM&left_color=grey&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/enzymm)
-<!-- [![Paper](https://img.shields.io/badge/paper-JOSS-9400ff?style=flat&maxAge=86400)](https://doi.org/10.21105/joss.04296) -->
+[![Preprint](https://img.shields.io/badge/preprint-bioRxiv-firebrick?style=flat&maxAge=86400)](https://doi.org/10.64898/2026.02.10.705182)
 <!-- [![Citations](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fbadge.dimensions.ai%2Fdetails%2Fid%2Fpub.1147419140%2Fmetadata.json&query=%24.times_cited&style=flat&label=citations&maxAge=86400)](https://badge.dimensions.ai/details/id/pub.1147419140) -->
 <!-- [![AUR](https://img.shields.io/aur/version/python-pyhmmer?logo=archlinux&style=flat&maxAge=3600)](https://aur.archlinux.org/packages/python-pyhmmer) -->
 
@@ -32,7 +32,7 @@ As a database driven method, `EnzyMM` is inherently limited by the coverage of r
 
 For the actual geometric matching `EnzyMM` relies on [PyJess](https://github.com/althonos/pyjess) - a [Cython](https://cython.org/) wrapper of [Jess](https://github.com/iriziotis/jess).
 
-<!-- If you just want to try `EnzyMM` we provide a webserver at https://www.ebi.ac.uk/thornton-srv/m-csa/enzymm . -->
+If you just want to try `EnzyMM` we provide a webserver at https://www.ebi.ac.uk/thornton-srv/m-csa/enzymm .
 
 
 ## 🔧 Installing EnzyMM
@@ -140,13 +140,11 @@ This software is provided under the open source [MIT](https://choosealicense.com
 Though conceived at the [EMBL-EBI](https://www.ebi.ac.uk/) in Hinxton, UK in the [Thornton Group](https://www.ebi.ac.uk/research/thornton/), `EnzyMM` is now developed by Raymund Hackett and the [Zeller Group](https://zellerlab.org/) at the [Leiden University Medical Center](https://www.lumc.nl/en/) in Leiden in the Netherlands with continuing support from the Thornton Group.
 
 ## 🔖 Citations
-`EnyzMM` is academic software but relies on many previous approaches.  
-`EnzyMM` itself can not yet be cited but a preprint is in preparation.
-We intend to publish during the autumn of 2025.  
+`EnyzMM` is academic software but relies on many previous approaches.   
 
 We kindly ask you to cite both:  
-- PyJess, for instance as:
-> PyJess, a Python library binding to Jess (Barker *et al.*, 2003).
+- EnzyMM for instance as:
+> Hackett RE et al. (2026), Investigating Enzyme Function by Geometric Matching of Catalytic Motifs [Preprint], BioRxiv, DOI:10.64898/2026.02.10.705182 
 - Mechanism and Catalytic Site Atlas as:
 > Ribeiro AJM et al. (2017), Nucleic Acids Res, 46, D618-D623. Mechanism and Catalytic Site Atlas (M-CSA): a database of enzyme reaction mechanisms and active sites. DOI:10.1093/nar/gkx1012. PMID:29106569.
 
