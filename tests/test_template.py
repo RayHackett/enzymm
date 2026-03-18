@@ -24,12 +24,16 @@ class TestIntegration(unittest.TestCase):
         with self.assertRaises(NotADirectoryError):
             list(
                 template.load_templates(
-                    resource_files(test_data).joinpath("bad_templates/pdb_id_none.pdb")
+                    resource_files(test_data).joinpath(
+                        "bad_templates/pdb_id_none.pdb"
+                    )  # ty:ignore[invalid-argument-type]
                 )
             )
 
         with self.assertRaises(ValueError):
-            list(template.load_templates(Path(resource_files(test_data))))
+            list(
+                template.load_templates(Path(resource_files(test_data)))
+            )  # ty:ignore[invalid-argument-type]
 
         # End to End test loading all supplied templates
         # This will take some time :(
@@ -41,7 +45,9 @@ class TestIntegration(unittest.TestCase):
         )  # check if all the expected templates were found
 
     def test_get_template_paths(self):
-        data_path = Path(resource_files(enzymm).joinpath("data/"))
+        data_path = Path(
+            resource_files(enzymm).joinpath("data/")
+        )  # ty:ignore[invalid-argument-type]
         found_paths = sorted(data_path.glob("*.json"))
         expected_paths = sorted(
             [
@@ -106,7 +112,7 @@ class TestVec3(unittest.TestCase):
         self.assertEqual(self.vec1 + self.vec3, self.vec1)
 
         with self.assertRaises(TypeError):
-            self.vec1 + self.notavec
+            self.vec1 + self.notavec  # ty:ignore[unsupported-operator]
 
     def test_sub(self):
         result = self.vec1 - self.vec2
@@ -124,7 +130,7 @@ class TestVec3(unittest.TestCase):
         self.assertEqual(self.vec1 - self.vec3, self.vec1)
 
         with self.assertRaises(TypeError):
-            self.vec1 - self.notavec
+            self.vec1 - self.notavec  # ty:ignore[unsupported-operator]
 
     def test_truediv(self):
         result = self.vec1 / self.vec2
@@ -143,7 +149,7 @@ class TestVec3(unittest.TestCase):
             self.vec1 / self.vec3
 
         with self.assertRaises(TypeError):
-            self.vec1 / self.notavec
+            self.vec1 / self.notavec  # ty:ignore[unsupported-operator]
 
     def test_matmul(self):
         self.assertEqual(self.vec1 @ self.vec3, 0)
@@ -153,7 +159,7 @@ class TestVec3(unittest.TestCase):
         )
 
         with self.assertRaises(TypeError):
-            self.vec1 @ self.notavec
+            self.vec1 @ self.notavec  # ty:ignore[unsupported-operator]
 
     def test_angle_to(self):
         self.assertAlmostEqual(self.vec1.angle_to(self.vec2), math.acos(0.713465))
@@ -195,14 +201,14 @@ class TestTemplate(unittest.TestCase):
                 "jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb",
             ),
             "r",
-        ) as f:
+        ) as f:  # ty:ignore[no-matching-overload]
             cls.template_text1 = f.read()
         with open(
             resource_files(enzymm).joinpath(
                 "jess_templates_20230210/4_residues/results/csa3d_0011/csa3d_0011.cluster_1_1_3.1qum_D145-D109-D37-D72-D69-D229-D182-D231-D261-D216-D179.template.pdb",
             ),
             "r",
-        ) as f:
+        ) as f:  # ty:ignore[no-matching-overload]
             cls.template_text2 = f.read()
 
         with resource_files(test_data).joinpath("bad_templates/hetatm.pdb").open() as f:
@@ -517,34 +523,40 @@ class TestTemplate(unittest.TestCase):
 
     def test_annotation_parsing(self):
         with self.assertRaises(ValueError):
-            template.Template._parse_pdb_id(tokens=[0, 1, "abcde"], metadata={})
+            template.Template._parse_pdb_id(tokens=["0", "1", "abcde"], metadata={})
         with self.assertRaises(ValueError):
-            template.Template._parse_uniprot_id(tokens=[0, 1, "abcde"], metadata={})
+            template.Template._parse_uniprot_id(tokens=["0", "1", "abcde"], metadata={})
         with self.assertRaises(ValueError):
-            template.Template._parse_mcsa_id(tokens=[0, 1, "abcde"], metadata={})
+            template.Template._parse_mcsa_id(tokens=["0", "1", "abcde"], metadata={})
         with self.assertRaises(ValueError):
-            template.Template._parse_cluster(tokens=[0, 1, "abcde"], metadata={})
+            template.Template._parse_cluster(tokens=["0", "1", "abcde"], metadata={})
         with self.assertRaises(ValueError):
-            template.Template._parse_cluster(tokens=[0, 1, "ab_cd_e"], metadata={})
+            template.Template._parse_cluster(tokens=["0", "1", "ab_cd_e"], metadata={})
         with self.assertRaises(ValueError):
-            template.Template._parse_resolution(tokens=[0, 1, "abcde"], metadata={})
+            template.Template._parse_resolution(tokens=["0", "1", "abcde"], metadata={})
         with self.assertRaises(ValueError):
-            template.Template._parse_ec(tokens=[0, 1, "1.1.1"], metadata={"ec": []})
+            template.Template._parse_ec(tokens=["0", "1", "1.1.1"], metadata={"ec": []})
         with self.assertRaises(ValueError):
-            template.Template._parse_ec(tokens=[0, 1, "8.1.1.1"], metadata={"ec": []})
+            template.Template._parse_ec(
+                tokens=["0", "1", "8.1.1.1"], metadata={"ec": []}
+            )
         with self.assertWarns(Warning):
-            template.Template._parse_ec(tokens=[0, 1, "1.1.1.n1"], metadata={"ec": []})
+            template.Template._parse_ec(
+                tokens=["0", "1", "1.1.1.n1"], metadata={"ec": []}
+            )
         with self.assertRaises(ValueError):
             template.Template._parse_cath(
-                tokens=[0, 1, "1.1.1.n1"], metadata={"cath": []}
+                tokens=["0", "1", "1.1.1.n1"], metadata={"cath": []}
             )
-        template.Template._parse_cath(tokens=[0, 1, "1.1.1.1"], metadata={"cath": []})
         template.Template._parse_cath(
-            tokens=[0, 1, "1.1.1800.1"], metadata={"cath": []}
+            tokens=["0", "1", "1.1.1.1"], metadata={"cath": []}
+        )
+        template.Template._parse_cath(
+            tokens=["0", "1", "1.1.1800.1"], metadata={"cath": []}
         )
         with self.assertRaises(ValueError):
             template.Template._parse_represented_sites(
-                tokens=[0, 1, "abcde"], metadata={}
+                tokens=["0", "1", "abcde"], metadata={}
             )
 
     def test_pickling(self):
@@ -561,14 +573,14 @@ class TestAnnotatedTemplate(unittest.TestCase):
                 "jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb",
             ),
             "r",
-        ) as f:
+        ) as f:  # ty:ignore[no-matching-overload]
             cls.template_text1 = f.read()
         with open(
             resource_files(enzymm).joinpath(
                 "jess_templates_20230210/4_residues/results/csa3d_0011/csa3d_0011.cluster_1_1_3.1qum_D145-D109-D37-D72-D69-D229-D182-D231-D261-D216-D179.template.pdb",
             ),
             "r",
-        ) as f:
+        ) as f:  # ty:ignore[no-matching-overload]
             cls.template_text2 = f.read()
 
         with resource_files(test_data).joinpath("bad_templates/hetatm.pdb").open() as f:
@@ -703,7 +715,7 @@ class TestResidue(unittest.TestCase):
                 "jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb",
             ),
             "r",
-        ) as f:
+        ) as f:  # ty:ignore[no-matching-overload]
             template1 = template.Template.loads(
                 f.read(),
             )
@@ -782,7 +794,7 @@ class TestAnnotatedResidue(unittest.TestCase):
                 "jess_templates_20230210/8_residues/results/csa3d_0661/csa3d_0661.cluster_1_1_1.4cyr_A51-A375-A317-A211-A55-A115-A113-A14-A13-A318.template.pdb",
             ),
             "r",
-        ) as f:
+        ) as f:  # ty:ignore[no-matching-overload]
             template1 = template.AnnotatedTemplate.loads(
                 f.read(),
                 with_annotations=True,
@@ -860,7 +872,7 @@ class TestTemplate_Checking(unittest.TestCase):
                 "jess_templates_20230210/6_residues/results/csa3d_0001/csa3d_0001.cluster_1_1_1.1b74_A147-AA180-AA70-AA178-AA8-AA7.template.pdb",
             ),
             "r",
-        ) as f:
+        ) as f:  # ty:ignore[no-matching-overload]
             cls.template_text1 = f.read()
 
     def test_check_template(self):
