@@ -923,7 +923,14 @@ class Template(pyjess.Template):
         cls,
         molecule: pyjess.Molecule,
         residue_ids: List[Tuple[str, int]],
+        cluster: Optional[Cluster] = None,
+        organism: Optional[str] = None,
+        organism_id: Optional[str] = None,
+        resolution: Optional[float] = None,
+        experimental_method: Optional[str] = None,
+        enzyme_description: Optional[str] = None,
         uniprot_id: Optional[str] = None,
+        represented_sites: Optional[int] = 1,
         ec: Optional[List[str]] = None,
         cath: Optional[List[str]] = None,
     ) -> Template:
@@ -933,22 +940,52 @@ class Template(pyjess.Template):
         Args:
             molecule: `~pyjess.Molecule`
             residue_ids: `list` of `tuple` of `str` and `int` for the chain_name and residue_index
+            cluster: `Cluster` Instance of the template
+            organism: `str` Organism name of the Protein from which the template
+                was generated
+            organism_id: `str` Taxonomic Identifier of the Organism of the Protein
+                from which the template was generated
+            resolution: `float` Resolution of the Protein Structure from which the
+                template was generated
+            experimental_method: `str` Experimental method by which the Protein
+                Structure of the template was resolved
+            enzyme_description: `str` Text Discription of the Protein from which
+                the template was generated
             uniprot_id: `str` UniProt Identifier of the Protein from which the
                 template was generated
+            represented_sites: `int` The number of Enzymes which this template
+                is representative for
             ec: `list` of `str` of EC numbers associated with Enzymes this
                 template represents
             cath: `list` of `str` of CATH numbers associated with Enzymes this
                 template represents
 
         Note:
-            A template generated through this method will represent a single site
-            and will not specify an M-CSA id or any other meta data.
+            A template generated through this method will not specify an M-CSA id.
 
         Returns:
             `Template`
         """
 
-        # TODO validate cath and ec and uniprot with regex!
+        # validate cath and ec and uniprot with regex!
+        if cath is not None:
+            pattern = re.compile(r"^[1-6](\.\d+){3}$")
+            for id in cath:
+                if not pattern.fullmatch(id):
+                    raise ValueError(f"Not valid CATH number, got {id}")
+
+        if ec is not None:
+            pattern = re.compile(r"[1-7](\.(\-|\d{1,})){3}")
+            for id in ec:
+                if not pattern.fullmatch(id):
+                    raise ValueError(f"Not valid EC number, got {id}")
+
+        if uniprot_id is not None:
+            pattern = re.compile(
+                r"[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2}"
+            )
+            if not pattern.fullmatch(uniprot_id):
+                raise ValueError(f"Not valid EC number, got {uniprot_id}")
 
         residues: Dict[str, Residue] = {}
         for chain, resi in residue_ids:
@@ -962,10 +999,16 @@ class Template(pyjess.Template):
         return Template(
             residues=list(residues.values()),
             id=molecule.id,
-            pdb_id=molecule.name,
+            pdb_id=molecule.id.lower() if molecule.id is not None else None,
             mcsa_id=None,
-            template_id_string=f"{molecule.name}_" + "_".join(list(residues.keys())),
-            represented_sites=1,
+            organism=organism,
+            organism_id=organism_id,
+            resolution=resolution,
+            experimental_method=experimental_method,
+            enzyme_discription=enzyme_description,
+            uniprot_id=uniprot_id,
+            template_id_string=f"{molecule.id}_" + "_".join(list(residues.keys())),
+            represented_sites=represented_sites,
             ec=ec if ec else (),
             cath=cath if cath else (),
         )
@@ -1040,6 +1083,9 @@ class Template(pyjess.Template):
             file.write(f"REMARK ORGANISM_ID {self.organism_id}\n")
 
         super().dump(file)
+
+        # NOTE
+        # other templates usually have a useless Z character before the residue Type
 
         # TODO perhaps implement this for AnnotatedTemplate too
         # and then write remark line with metals and roles etc?
@@ -1275,7 +1321,7 @@ class Template(pyjess.Template):
     ):
         matches = [
             match.group()
-            for match in re.finditer(r"[1-46](\.(\-|\d{1,})){3}", tokens[2])
+            for match in re.finditer(r"^[1-6](\.(0|[1-9]\d*)){3}$", tokens[2])
         ]
         if matches:
             for cath in matches:

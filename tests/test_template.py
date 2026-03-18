@@ -13,7 +13,7 @@ import pyjess
 
 import enzymm
 from enzymm import template
-from enzymm.template import Residue
+from enzymm.template import Residue, Template
 from . import test_data
 
 
@@ -351,6 +351,9 @@ class TestTemplate(unittest.TestCase):
             warn=True,
         )
 
+        with resource_files(test_data).joinpath("1AMY.pdb").open() as f:
+            cls.pdb_struct = pyjess.Molecule.load(f)  # ty:ignore[invalid-argument-type]
+
     def test_good_loads(self):
 
         self.assertEqual(self.template1.pdb_id, "1b74")
@@ -515,15 +518,51 @@ class TestTemplate(unittest.TestCase):
             warn=True,
         )
 
-    # def test_dumps(self): # TODO
-    #     # tests both dump and dumps methods
-    #     template1 = template.Template.loads(
-    #         self.template_text1, warn=False
-    #     )
+    def test_dumps(self):
+        # tests both dump and dumps methods
+        with open(
+            resource_files(test_data).joinpath("test_template.pdb"),
+            "r",
+        ) as f:  # ty:ignore[no-matching-overload]
+            text = f.read()
+        template1 = template.Template.loads(text, warn=False)
+        template1_dumpstring = template1.dumps()
+        self.assertMultiLineEqual(text, template1_dumpstring)
 
-    #     template1_dumpstring = template1.dumps()
-
-    #     self.assertEqual(self.template_text1, template1_dumpstring)
+    def test_from_molecule(self):
+        with self.assertRaises(ValueError):
+            Template.from_molecule(
+                molecule=self.pdb_struct,
+                residue_ids=[("A", 1), ("A", 2), ("A", 3)],
+                uniprot_id="12793",
+            )
+        with self.assertRaises(ValueError):
+            Template.from_molecule(
+                molecule=self.pdb_struct,
+                residue_ids=[("A", 1), ("A", 2), ("A", 3)],
+                cath=["0.1.2.3", "a.b.c"],
+            )
+        with self.assertRaises(ValueError):
+            Template.from_molecule(
+                molecule=self.pdb_struct,
+                residue_ids=[("A", 1), ("A", 2), ("A", 3)],
+                ec=["1.1.2.3", "a.b.c"],
+            )
+        temp = Template.from_molecule(
+            molecule=self.pdb_struct,
+            residue_ids=[("A", 1), ("A", 2), ("A", 3)],
+            cath=["1.1.2.3"],
+            ec=["1.1.2.3", "1.5.6.9"],
+            uniprot_id="P0DUB6",
+            organism="Wild Pikatchu",
+            organism_id="123",
+            experimental_method="dreaming",
+            enzyme_description="just a test - not an enzyme",
+            resolution=2.0,
+        )
+        with resource_files(test_data).joinpath("test_template.pdb").open() as f:
+            loaded = Template.load(f, id="1AMY")
+        self.assertEqual(temp, loaded)
 
     def test_annotation_parsing(self):
         with self.assertRaises(ValueError):
