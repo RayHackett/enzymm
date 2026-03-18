@@ -996,6 +996,9 @@ class Template(pyjess.Template):
             )
             residues[residue.name + str(residue.number)] = residue
 
+        # TODO perhaps if not passed by user,
+        # try parsing metadata like resolution, uniprot etc. from the structure file
+
         return Template(
             residues=list(residues.values()),
             id=molecule.id,
