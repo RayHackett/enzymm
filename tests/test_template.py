@@ -1,7 +1,8 @@
 import unittest
 import math
-from pathlib import Path
 import pickle
+from pathlib import Path
+from typing import List
 
 try:
     from importlib.resources import files as resource_files
@@ -12,6 +13,7 @@ import pyjess
 
 import enzymm
 from enzymm import template
+from enzymm.template import Residue
 from . import test_data
 
 
@@ -32,8 +34,10 @@ class TestIntegration(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             list(
-                template.load_templates(Path(resource_files(test_data)))
-            )  # ty:ignore[invalid-argument-type]
+                template.load_templates(
+                    Path(resource_files(test_data))  # ty:ignore[invalid-argument-type]
+                )
+            )
 
         # End to End test loading all supplied templates
         # This will take some time :(
@@ -46,8 +50,8 @@ class TestIntegration(unittest.TestCase):
 
     def test_get_template_paths(self):
         data_path = Path(
-            resource_files(enzymm).joinpath("data/")
-        )  # ty:ignore[invalid-argument-type]
+            resource_files(enzymm).joinpath("data/")  # ty:ignore[invalid-argument-type]
+        )
         found_paths = sorted(data_path.glob("*.json"))
         expected_paths = sorted(
             [
@@ -722,6 +726,13 @@ class TestResidue(unittest.TestCase):
         cls.residue1 = template1.residues[0]
         cls.residue2 = template1.residues[1]
 
+        cls.pdb_struct = pyjess.Molecule.load(
+            file=resource_files(test_data).joinpath(
+                "1AMY.pdb"
+            ),  # ty:ignore[invalid-argument-type]
+            format="pdb",
+        )
+
         with resource_files(test_data).joinpath(
             "bad_templates/unk_residue.pdb"
         ).open() as f:
@@ -783,6 +794,49 @@ class TestResidue(unittest.TestCase):
     def test_pickling(self):
         residue1_pickle = pickle.loads(pickle.dumps(self.residue1))
         self.assertEqual(self.residue1, residue1_pickle)
+
+    def test_from_molecule_residue(self):
+        residue = Residue.from_molecule_residue(
+            molecule=self.pdb_struct,
+            residue_idx=1,
+            chain_name="A",
+        )
+        atoms = (
+            pyjess.TemplateAtom(
+                chain_id="A",
+                residue_number=1,
+                x=4.932,
+                y=47.222,
+                z=19.621,
+                residue_names=["GLN"],
+                atom_names=["CD"],
+                distance_weight=0,
+                match_mode=0,
+            ),
+            pyjess.TemplateAtom(
+                chain_id="A",
+                residue_number=1,
+                x=5.447,
+                y=46.589,
+                z=18.684,
+                residue_names=["GLN"],
+                atom_names=["OE1"],
+                distance_weight=0,
+                match_mode=0,
+            ),
+            pyjess.TemplateAtom(
+                chain_id="A",
+                residue_number=1,
+                x=5.378,
+                y=46.938,
+                z=20.827,
+                residue_names=["GLN"],
+                atom_names=["NE2"],
+                distance_weight=0,
+                match_mode=0,
+            ),
+        )
+        self.assertEqual(residue, Residue(atoms))
 
 
 class TestAnnotatedResidue(unittest.TestCase):
