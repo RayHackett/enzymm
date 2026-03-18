@@ -1,4 +1,14 @@
-from typing import List, Tuple, Iterable, Iterator, TypeVar, Any, Callable
+from typing import (
+    Dict,
+    List,
+    Tuple,
+    Iterable,
+    Iterator,
+    TypeVar,
+    Any,
+    Callable,
+    Literal,
+)
 from itertools import islice
 import json
 
@@ -28,7 +38,7 @@ class SetEncoder(json.JSONEncoder):
     Class to transform sets into lists to enable json serialization
     """
 
-    def default(self, obj):
+    def default(self, obj):  # ty:ignore[invalid-method-override]
         if isinstance(obj, set):  # add more object types with elif isinstance etc.
             return list(obj)
         return super().default(obj)  # return parent class
@@ -104,27 +114,56 @@ def chunks(iterable: Iterable[T], n: int) -> Iterator[Tuple[T, ...]]:
         yield chunk
 
 
-PROTEINOGENIC_AMINO_ACIDS = [
-    "ALA",
-    "ARG",
-    "ASN",
-    "ASP",
-    "CYS",
-    "GLN",
-    "GLU",
-    "GLY",
-    "HIS",
-    "ILE",
-    "LEU",
-    "LYS",
-    "MET",
-    "PHE",
-    "PRO",
-    "SER",
-    "THR",
-    "TRP",
-    "TYR",
-    "VAL",
+PROTEINOGENIC_AMINO_ACIDS: Dict[str, str] = {
+    "ALA": "A",
+    "ARG": "R",
+    "ASN": "N",
+    "ASP": "D",
+    "CYS": "C",
+    "GLN": "Q",
+    "GLU": "E",
+    "GLY": "G",
+    "HIS": "H",
+    "ILE": "I",
+    "LEU": "L",
+    "LYS": "K",
+    "MET": "M",
+    "PHE": "F",
+    "PRO": "P",
+    "SER": "S",
+    "THR": "T",
+    "TRP": "W",
+    "TYR": "Y",
+    "VAL": "V",
+}
+
+TEMPLATE_ATOM_SELECTIOM: Dict[str, Tuple[str, str, str]] = {
+    "ALA": ("C", "CA", "CB"),
+    "ARG": ("CZ", "NH1", "NH2"),
+    "ASN": ("CG", "OD1", "ND2"),
+    "ASP": ("CG", "OD1", "OD2"),
+    "CYS": ("CA", "CB", "SG"),
+    "GLN": ("CD", "OE1", "NE2"),
+    "GLU": ("CD", "OE1", "OE2"),
+    "GLY": ("O", "C", "CA"),
+    "HIS": ("CG", "CD2", "ND1"),
+    "ILE": ("CA", "CB", "CG1"),
+    "LEU": ("CA", "CB", "CG"),
+    "LYS": ("CD", "CE", "NZ"),
+    "MET": ("CG", "SD", "CE"),
+    "PHE": ("CE1", "CZ", "CE2"),
+    "PRO": ("O", "C", "CA"),
+    "SER": ("CA", "CB", "OG"),
+    "THR": ("CA", "CB", "OG1"),
+    "TRP": ("NE1", "CZ2", "CH2"),
+    "TYR": ("CE1", "CZ", "OH"),
+    "VAL": ("CA", "CB", "CG1"),
+    "ANY": ("O", "C", "CA"),
+    "PTM": ("C", "CA", "CB"),
+}
+
+MATCH_MODE = Literal[
+    -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 100, 101, 102, 103, 104, 105, 106, 107
 ]
 
 PTMS_NAMED_IN_TEMPLATES = [
