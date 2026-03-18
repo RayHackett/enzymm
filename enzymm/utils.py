@@ -162,9 +162,11 @@ TEMPLATE_ATOM_SELECTIOM: Dict[str, Tuple[str, str, str]] = {
     "PTM": ("C", "CA", "CB"),
 }
 
-MATCH_MODE = Literal[
+MATCH_MODE_TYPE = Literal[
     -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 100, 101, 102, 103, 104, 105, 106, 107
 ]
+
+MATCH_MODE = [-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 100, 101, 102, 103, 104, 105, 106, 107]
 
 PTMS_NAMED_IN_TEMPLATES = [
     "LLP",

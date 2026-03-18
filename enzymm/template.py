@@ -41,6 +41,7 @@ from enzymm.utils import (
     TEMPLATE_ATOM_SELECTIOM,
     PROTEINOGENIC_AMINO_ACIDS,
     MATCH_MODE,
+    MATCH_MODE_TYPE,
 )
 from enzymm.mcsa_info import load_mcsa_catalytic_residue_homologs_info
 from enzymm.mcsa_info import (
@@ -307,7 +308,7 @@ class Residue(Iterable[pyjess.TemplateAtom], Sized):
                 )
             except StopIteration:
                 raise ValueError(
-                    f"Failed to find first atom for amino-acid {atoms[0].residue_names[0]!r}"
+                    f"Failed to find first atom {vectup[0]} for amino-acid {atoms[0].residue_names[0]!r}"
                 ) from None
             try:
                 second_atom_index, second_atom = next(
@@ -317,7 +318,7 @@ class Residue(Iterable[pyjess.TemplateAtom], Sized):
                 )
             except StopIteration:
                 raise ValueError(
-                    f"Failed to find second atom for amino-acid {atoms[0].residue_names[0]!r}"
+                    f"Failed to find second atom {vectup[0]} for amino-acid {atoms[0].residue_names[0]!r}"
                 ) from None
             return Vec3.from_xyz(second_atom) - Vec3.from_xyz(first_atom), (
                 first_atom_index,
@@ -367,7 +368,7 @@ class Residue(Iterable[pyjess.TemplateAtom], Sized):
         residue_idx: int,
         chain_name: str,
         distance_weight: float = 0,
-        match_mode: MATCH_MODE = 0,
+        match_mode: MATCH_MODE_TYPE = 0,
     ) -> Residue:
         """
         Classmethod to construct a residue from a `~pyjess.Molecule` and residue indices
@@ -407,7 +408,7 @@ class Residue(Iterable[pyjess.TemplateAtom], Sized):
                         x=atom.x,
                         y=atom.y,
                         z=atom.z,
-                        residue_names=[PROTEINOGENIC_AMINO_ACIDS[atom.residue_name]],
+                        residue_names=[atom.residue_name],
                         atom_names=[atom.name],
                         distance_weight=distance_weight,
                         match_mode=match_mode,
