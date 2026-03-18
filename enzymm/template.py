@@ -35,7 +35,13 @@ try:
 except ImportError:
     from importlib_resources import files as resource_files  # type: ignore
 
-from enzymm.utils import chunks, ranked_argsort
+from enzymm.utils import (
+    chunks,
+    ranked_argsort,
+    TEMPLATE_ATOM_SELECTIOM,
+    PROTEINOGENIC_AMINO_ACIDS,
+    MATCH_MODE,
+)
 from enzymm.mcsa_info import load_mcsa_catalytic_residue_homologs_info
 from enzymm.mcsa_info import (
     ReferenceCatalyticResidue,
@@ -322,6 +328,19 @@ class Residue(Iterable[pyjess.TemplateAtom], Sized):
     def construct_residues_from_atoms(
         cls, atoms: Iterable[pyjess.TemplateAtom]
     ) -> List[Residue]:
+        """
+        Classmethod to construct a `List` of `Residue` from an `interable` of `~pyjess.TemplateAtom`
+
+        Args:
+            atoms: `iterable` of `~pyjess.TemplateAtom` modulo 3
+
+        Note:
+            The atoms are chunked into residues of 3 atoms.
+            Ensure the atoms are in order of residues!
+
+        Returns:
+            `List`:  of `Residue`
+        """
         residues: List[Residue] = []
         for atom_triplet in chunks(atoms, 3):  # yield chunks of 3 atom lines each
             if len(atom_triplet) != 3:
@@ -337,9 +356,71 @@ class Residue(Iterable[pyjess.TemplateAtom], Sized):
                 raise ValueError(
                     f"Failed to construct residues. Atoms of different match_mode, chains, residue types or residue numbers {unique_residues} found in Atom triplet"
                 )
-            residues.append(Residue(atom_triplet))
+            residues.append(Residue(atom_triplet))  # ty:ignore[invalid-argument-type]
 
         return residues
+
+    @classmethod
+    def from_molecule_residue(
+        cls,
+        molecule: pyjess.Molecule,
+        residue_idx: int,
+        chain_name: str,
+        distance_weight: float = 0,
+        match_mode: MATCH_MODE = 0,
+    ) -> Residue:
+        """
+        Classmethod to construct a residue from a `~pyjess.Molecule` and residue indices
+
+        Args:
+            molecule: `~pyjess.Molecule`
+            residue_idx: `int`
+            chain_name: `str`
+            distance_weight: `float` tolerance in Angstrom for this atom
+            match_mode: `Literal` of `int` usually one of 0, 1, 3, or 8
+
+        Note:
+            Technically each atom in the residue could have
+            a different match mode and distance weight.
+            This behaviour is currently unsupported for this constructor.
+            Raise an issue/pr if you desire this behaviour
+
+        Returns:
+            `Residue`
+        """
+
+        if match_mode not in MATCH_MODE:
+            raise ValueError(f"Given match mode {match_mode} is not allowed.")
+
+        if distance_weight < 0 or distance_weight > 2:
+            raise ValueError(
+                f"The distance weight should be between 0-2 Angstrom. Got {distance_weight}"
+            )
+
+        atom_triplet: List[pyjess.TemplateAtom] = []
+        for atom in molecule:
+            if atom.residue_number == residue_idx and atom.chain_id == chain_name:
+                if atom.name in TEMPLATE_ATOM_SELECTIOM[atom.residue_name]:
+                    t_atom = pyjess.TemplateAtom(
+                        chain_id=atom.chain_id,
+                        residue_number=atom.residue_number,
+                        x=atom.x,
+                        y=atom.y,
+                        z=atom.z,
+                        residue_names=[PROTEINOGENIC_AMINO_ACIDS[atom.residue_name]],
+                        atom_names=[atom.name],
+                        distance_weight=distance_weight,
+                        match_mode=match_mode,
+                    )
+                    atom_triplet.append(t_atom)
+
+        if len(atom_triplet) != 3:
+            raise ValueError(
+                f"Atom selection failed for residue {residue_idx} and chain {chain_name}"
+            )
+
+        a, b, c = atom_triplet
+        return Residue((a, b, c))
 
     @property
     def atoms(
@@ -623,12 +704,11 @@ class Template(pyjess.Template):
         self.ec = tuple(sorted({*ec, *self._add_ec_annotations()}))
         self.cath = tuple(sorted({*cath, *self._add_cath_annotations()}))
 
-    def __getitem__(self, val):
+    def __getitem__(self, val):  # type: ignore[override]
         # disable slicing of templates!
         if isinstance(val, slice):
             raise NotImplementedError
-        else:
-            return super().__getitem__(val)
+        return super().__getitem__(val)
 
     def _state(self) -> Tuple:
         """Used only for computing a hash and for equality comparisons"""
@@ -797,6 +877,96 @@ class Template(pyjess.Template):
             residues=residues,
             id=id,
             **metadata,  # type: ignore # unpack everything parsed into metadata
+        )
+
+    @classmethod
+    def from_structure_file(
+        cls,
+        path: Union[Path, TextIO, str],
+        residue_ids: List[Tuple[str, int]],
+    ) -> Template:
+        """
+        Classmethod to construct a template from a filepath to a structure and a list of residue specifications
+
+        Args:
+            path: `path-like` or `str` to a structure file
+            residue_ids: `list` of `tuple` of `str` and `int` for the chain_name and residue_index
+            uniprot_id: `str` UniProt Identifier of the Protein from which the
+                template was generated
+            ec: `list` of `str` of EC numbers associated with Enzymes this
+                template represents
+            cath: `list` of `str` of CATH numbers associated with Enzymes this
+                template represents
+
+        Note:
+            A template generated through this method will represent a single site
+            and will not specify an M-CSA id or any other meta data.
+
+        Returns:
+            `Template`
+        """
+        mol = pyjess.Molecule.load(
+            str(path),
+            id=None,
+            format="detect",
+        )
+        if mol:
+            return cls.from_molecule(mol, residue_ids)
+        else:
+            raise ValueError(
+                f"Received an empty molecule from {path}. Is this file in PDB or CIF/mmCIF format?"
+            ) from None
+
+    @classmethod
+    def from_molecule(
+        cls,
+        molecule: pyjess.Molecule,
+        residue_ids: List[Tuple[str, int]],
+        uniprot_id: Optional[str] = None,
+        ec: Optional[List[str]] = None,
+        cath: Optional[List[str]] = None,
+    ) -> Template:
+        """
+        Classmethod to construct a template from a `~pyjess.Molecule` and a list of residue specifications
+
+        Args:
+            molecule: `~pyjess.Molecule`
+            residue_ids: `list` of `tuple` of `str` and `int` for the chain_name and residue_index
+            uniprot_id: `str` UniProt Identifier of the Protein from which the
+                template was generated
+            ec: `list` of `str` of EC numbers associated with Enzymes this
+                template represents
+            cath: `list` of `str` of CATH numbers associated with Enzymes this
+                template represents
+
+        Note:
+            A template generated through this method will represent a single site
+            and will not specify an M-CSA id or any other meta data.
+
+        Returns:
+            `Template`
+        """
+
+        # TODO validate cath and ec and uniprot with regex!
+
+        residues: Dict[str, Residue] = {}
+        for chain, resi in residue_ids:
+            residue = Residue.from_molecule_residue(
+                molecule=molecule,
+                residue_idx=resi,
+                chain_name=chain,
+            )
+            residues[residue.name + str(residue.number)] = residue
+
+        return Template(
+            residues=list(residues.values()),
+            id=molecule.id,
+            pdb_id=molecule.name,
+            mcsa_id=None,
+            template_id_string=f"{molecule.name}_" + "_".join(list(residues.keys())),
+            represented_sites=1,
+            ec=ec if ec else (),
+            cath=cath if cath else (),
         )
 
     def copy(self) -> Template:
