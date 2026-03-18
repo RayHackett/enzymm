@@ -17,7 +17,6 @@ from typing import (
     Dict,
     Optional,
     TextIO,
-    Iterable,
     Sequence,
     Callable,
     ClassVar,
@@ -135,7 +134,7 @@ class ModelEnsemble:
     @classmethod
     def from_json(
         cls,
-        json_file: IO[str],
+        json_file: TextIO[str],
         model_cls: Callable,
     ) -> ModelEnsemble:
         """Build an ensemble model directly from an open JSON file"""
@@ -658,7 +657,10 @@ class Match:
         """
         all_residue_numbers = set()
         for atom in self.hit.molecule():
-            if atom.residue_name in PROTEINOGENIC_AMINO_ACIDS + SPECIAL_AMINO_ACIDS:
+            if (
+                atom.residue_name
+                in list(PROTEINOGENIC_AMINO_ACIDS.keys()) + SPECIAL_AMINO_ACIDS
+            ):
                 all_residue_numbers.add(atom.residue_number)
         return len(all_residue_numbers)
 
