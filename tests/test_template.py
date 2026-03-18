@@ -726,12 +726,13 @@ class TestResidue(unittest.TestCase):
         cls.residue1 = template1.residues[0]
         cls.residue2 = template1.residues[1]
 
-        cls.pdb_struct = pyjess.Molecule.load(
-            file=resource_files(test_data).joinpath(
-                "1AMY.pdb"
-            ),  # ty:ignore[invalid-argument-type]
-            format="pdb",
-        )
+        with resource_files(test_data).joinpath("1AMY.pdb").open() as f:
+            cls.pdb_struct = pyjess.Molecule.load(f)  # ty:ignore[invalid-argument-type]
+
+        with resource_files(test_data).joinpath(
+            "AF-P0DUB6-F1-model_v6.cif"
+        ).open() as f:
+            cls.cif_struct = pyjess.Molecule.load(f)  # ty:ignore[invalid-argument-type]
 
         with resource_files(test_data).joinpath(
             "bad_templates/unk_residue.pdb"
@@ -796,11 +797,6 @@ class TestResidue(unittest.TestCase):
         self.assertEqual(self.residue1, residue1_pickle)
 
     def test_from_molecule_residue(self):
-        residue = Residue.from_molecule_residue(
-            molecule=self.pdb_struct,
-            residue_idx=1,
-            chain_name="A",
-        )
         atoms = (
             pyjess.TemplateAtom(
                 chain_id="A",
@@ -835,6 +831,53 @@ class TestResidue(unittest.TestCase):
                 distance_weight=0,
                 match_mode=0,
             ),
+        )
+        residue = Residue.from_molecule_residue(
+            molecule=self.pdb_struct,
+            residue_idx=1,
+            chain_name="A",
+        )
+        self.assertEqual(residue, Residue(atoms))
+
+        atoms = (
+            pyjess.TemplateAtom(
+                chain_id="A",
+                residue_number=16,
+                x=-7.584,
+                y=0.590,
+                z=-16.114,
+                residue_names=["GLN"],
+                atom_names=["CD"],
+                distance_weight=0,
+                match_mode=0,
+            ),
+            pyjess.TemplateAtom(
+                chain_id="A",
+                residue_number=16,
+                x=-7.606,
+                y=0.364,
+                z=-17.409,
+                residue_names=["GLN"],
+                atom_names=["NE2"],
+                distance_weight=0,
+                match_mode=0,
+            ),
+            pyjess.TemplateAtom(
+                chain_id="A",
+                residue_number=16,
+                x=-6.522,
+                y=0.462,
+                z=-15.556,
+                residue_names=["GLN"],
+                atom_names=["OE1"],
+                distance_weight=0,
+                match_mode=0,
+            ),
+        )
+        residue = Residue.from_molecule_residue(
+            molecule=self.cif_struct,
+            residue_idx=16,
+            chain_name="A",
         )
         self.assertEqual(residue, Residue(atoms))
 
