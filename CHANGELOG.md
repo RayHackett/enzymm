@@ -8,10 +8,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 [v0.3.3]: https://github.com/rayhackett/enzymm/compare/v0.3.2..v0.3.3
 
 ### Added 
-- Added enzymm.output `FullMatchResults` (class to wrap previous output)
-- Added `SimpleMatcTable` results  class (to resemble the table style on the webserver)
-- Added the ability to write tables to either `.tsv` or to create a `polars.DataFrame`
-- This `_BaseTable` framework can be easily adapted for different styles.
+- Added module enzymm.output with `FullMatchResults` class (to wrap previous output)
+- Added `SimpleMatcTable` results class (to resemble the table style on the webserver)
+- Added `MatchResidueTable` results class to map literature annotations per residue
+- Added the ability to write tables to either `.tsv` files or to create a `polars.DataFrame`
+- This `_BaseTable` framework can be easily adapted for different styles!
 - call `Tables.create(kind, matches)` to create your choice of output representation
 
 ## [v0.3.2] - 2026-03-18
