@@ -1,0 +1,19 @@
+1AMY	1	ARG_A_177	2cxg	ARG_A_227	1cdg	ARG_A_227	electrostatic stabiliser,hydrogen bond donor
+1AMY	1	ASP_A_179	2cxg	ASP_A_229	1cdg	ASP_A_229	nucleofuge,nucleophile
+1AMY	1	GLU_A_204	2cxg	GLU_A_257	1cdg	GLU_A_257	hydrogen bond acceptor,hydrogen bond donor,proton acceptor,proton donor
+1AMY	1	HIS_A_288	2cxg	HIS_A_327	1cdg	HIS_A_327	electrostatic stabiliser,hydrogen bond donor
+1AMY	1	ASP_A_289	2cxg	ASP_A_328	1cdg	ASP_A_328	electrostatic stabiliser,hydrogen bond acceptor
+1AMY	2	GLU_A_204	1uh3	GLU_A_396	1uok	GLU_A_255	hydrogen bond acceptor,hydrogen bond donor,proton acceptor,proton donor,repulsive charge-charge interaction
+1AMY	2	ASP_A_87	1uh3	ASP_A_262	1uok	ASP_A_98	electrostatic destabiliser,electrostatic stabiliser,repulsive charge-charge interaction,steric role
+1AMY	2	ASP_A_179	1uh3	ASP_A_356	1uok	ASP_A_199	covalently attached,nucleofuge,nucleophile,polar interaction
+1AMY	2	HIS_A_288	1uh3	HIS_A_471	1uok	HIS_A_328	electrostatic stabiliser,hydrogen bond donor
+1AMY	2	ASP_A_289	1uh3	ASP_A_472	1uok	ASP_A_329	transition state stabiliser
+1AMY	3	ASP_A_179	1bf2	ASP_A_375	1bf2	ASP_A_375	covalent catalysis
+1AMY	3	GLU_A_204	1bf2	GLU_A_435	1bf2	GLU_A_435	proton shuttle (general acid/base)
+1AMY	3	ASP_A_289	1bf2	ASP_A_510	1bf2	ASP_A_510	transition state stabiliser
+1AMY	4	GLU_A_204	1uh3	GLU_A_396	1uok	GLU_A_255	hydrogen bond acceptor,hydrogen bond donor,proton acceptor,proton donor,repulsive charge-charge interaction
+1AMY	4	ASP_A_87	1uh3	ASP_A_262	1uok	ASP_A_98	electrostatic destabiliser,electrostatic stabiliser,repulsive charge-charge interaction,steric role
+1AMY	4	ASP_A_179	1uh3	ASP_A_356	1uok	ASP_A_199	covalently attached,nucleofuge,nucleophile,polar interaction
+1AMY	5	GLU_A_204	1uh3	GLU_A_396	1uok	GLU_A_255	hydrogen bond acceptor,hydrogen bond donor,proton acceptor,proton donor,repulsive charge-charge interaction
+1AMY	5	HIS_A_288	1uh3	HIS_A_471	1uok	HIS_A_328	electrostatic stabiliser,hydrogen bond donor
+1AMY	5	ASP_A_289	1uh3	ASP_A_472	1uok	ASP_A_329	transition state stabiliser

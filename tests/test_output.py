@@ -11,7 +11,7 @@ import pyjess
 import enzymm
 from . import test_data
 from enzymm import template, jess_run
-from enzymm.output import Tables, FullMatchTable, SimpleMatchTable
+from enzymm.output import Tables, FullMatchTable, SimpleMatchTable, MatchResidueTable
 
 
 class TestOutput(unittest.TestCase):
@@ -74,6 +74,19 @@ class TestOutput(unittest.TestCase):
 
         buffer = io.StringIO()
         tbl.write_tsv(file=buffer, header=False)
-        self.maxDiff = None
         with resource_files(test_data).joinpath("1amy_simple_results.tsv").open() as f:
+            self.assertEqual(buffer.getvalue(), f.read())
+
+    def test_MatchResidueTable(self):
+        tbl = Tables.create(kind="residue", matches=self.matches)
+
+        self.assertIsInstance(tbl, MatchResidueTable)
+        self.assertEqual(tbl.columns(), MatchResidueTable.columns())
+
+        df = tbl.to_polars()
+        # TODO write tests
+
+        buffer = io.StringIO()
+        tbl.write_tsv(file=buffer, header=False)
+        with resource_files(test_data).joinpath("1amy_residue_results.tsv").open() as f:
             self.assertEqual(buffer.getvalue(), f.read())

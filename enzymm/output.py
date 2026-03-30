@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import io
+from itertools import chain
 from typing import (
     overload,
     Iterable,
@@ -22,10 +23,10 @@ if TYPE_CHECKING:
     from enzymm.jess_run import Match
 
 from enzymm import __version__
-from enzymm.template import AnnotatedTemplate
+from enzymm.template import AnnotatedTemplate, AnnotatedResidue
 
 
-TableKind = Literal["simple", "full"]
+TableKind = Literal["simple", "full", "residue"]
 
 
 class _BaseTable:
@@ -96,7 +97,10 @@ class _BaseTable:
             )
             writer.writerow(self.columns())
 
-        rows = (self.from_match(m).row_str() for m in self.matches)
+        rows = (
+            row.row_str()
+            for row in chain.from_iterable(self.from_match(m) for m in self.matches)
+        )
         writer.writerows(rows)
 
     def to_polars(self) -> polars.DataFrame:
@@ -105,8 +109,13 @@ class _BaseTable:
         except ImportError:
             raise RuntimeError("polars is not installed")
 
+        rows = (
+            row.row()
+            for row in chain.from_iterable(self.from_match(m) for m in self.matches)
+        )
+
         df = polars.DataFrame(
-            (self.from_match(m).row() for m in self.matches),
+            rows,
             schema=self._polars_schema(),
             orient="row",
         )
@@ -153,7 +162,10 @@ class FullMatchTable(_BaseTable):
 
     @classmethod
     def _polars_schema(cls):
-        import polars
+        try:
+            import polars
+        except ImportError:
+            raise RuntimeError("polars is not installed")
 
         return {
             "query_id": polars.Utf8,
@@ -253,7 +265,7 @@ class FullMatchTable(_BaseTable):
 
             return base
 
-        def row_str(self) -> List[Any]:
+        def row_str(self) -> List[str]:
             t = self.match.hit.template()
             c = t.cluster
 
@@ -301,8 +313,8 @@ class FullMatchTable(_BaseTable):
             return base
 
     @classmethod
-    def from_match(cls, match: Match) -> FullMatchTable.Row:
-        return cls.Row(match)
+    def from_match(cls, match: Match) -> Iterable[FullMatchTable.Row]:
+        yield cls.Row(match)
 
 
 class SimpleMatchTable(_BaseTable):
@@ -330,7 +342,10 @@ class SimpleMatchTable(_BaseTable):
 
     @classmethod
     def _polars_schema(cls):
-        import polars
+        try:
+            import polars
+        except ImportError:
+            raise RuntimeError("polars is not installed")
 
         return {
             "query_id": polars.Utf8,
@@ -413,8 +428,124 @@ class SimpleMatchTable(_BaseTable):
             ]
 
     @classmethod
-    def from_match(cls, match: Match) -> SimpleMatchTable.Row:
-        return cls.Row(match)
+    def from_match(cls, match: Match) -> Iterable[SimpleMatchTable.Row]:
+        yield cls.Row(match)
+
+
+class MatchResidueTable(_BaseTable):
+
+    @classmethod
+    def columns(cls) -> List[str]:
+        return [
+            "query_id",
+            "match_index",
+            "query_residue",
+            "template_pdb_id",
+            "template_residue",
+            "reference_pdb_id",
+            "reference_residue",
+            "roles",
+        ]
+
+    def _polars_schema(cls):
+        try:
+            import polars
+        except ImportError:
+            raise RuntimeError("polars is not installed")
+
+        return {
+            "query_id": polars.Utf8,
+            "match_index": polars.UInt32,
+            "query_residue": polars.Struct(
+                [
+                    polars.Field("res", polars.Utf8),
+                    polars.Field("chain", polars.Utf8),
+                    polars.Field("num", polars.UInt32),
+                ]
+            ),
+            "template_pdb_id": polars.Utf8,
+            "template_residue": polars.Struct(
+                [
+                    polars.Field("res", polars.Utf8),
+                    polars.Field("chain", polars.Utf8),
+                    polars.Field("num", polars.UInt32),
+                ]
+            ),
+            "reference_pdb_id": polars.Utf8,
+            "referece_residue": polars.Struct(
+                [
+                    polars.Field("res", polars.Utf8),
+                    polars.Field("chain", polars.Utf8),
+                    polars.Field("num", polars.UInt32),
+                ]
+            ),
+            "roles": polars.List(polars.Utf8),
+        }
+
+    class Row:
+        def __init__(
+            self,
+            q_res: Tuple[str, str, str],
+            t_res: AnnotatedResidue,
+            match: Match,
+        ):
+            self.q_res = q_res
+            self.t_res = t_res
+            self.match = match
+
+        @staticmethod
+        def to_res_struct(data: Tuple[str, str, str | int]) -> Dict[str, str | int]:
+            return {"res": data[0], "chain": data[1], "num": int(data[2])}
+
+        def row(self) -> List[Any]:
+            return [
+                str(self.match.hit.molecule().id),
+                self.match.index,
+                self.to_res_struct((self.q_res[0], self.q_res[1], self.q_res[2])),
+                self.match.hit.template().pdb_id,
+                self.to_res_struct(
+                    (self.t_res.name, self.t_res.chain_id, self.t_res.number)
+                ),
+                self.t_res.reference_pdb.pdb_id,
+                self.to_res_struct(
+                    (
+                        self.t_res.reference_residue.name,
+                        self.t_res.reference_pdb.chain_id,
+                        self.t_res.reference_residue.auth_number,
+                    )
+                ),
+                self.t_res.roles_summary,
+            ]
+
+        def row_str(self) -> List[str]:
+            return [
+                str(self.match.hit.molecule().id),
+                str(self.match.index),
+                "_".join((self.q_res[0], self.q_res[1], self.q_res[2])),
+                self.match.hit.template().pdb_id,
+                "_".join(
+                    (self.t_res.name, self.t_res.chain_id, str(self.t_res.number))
+                ),
+                self.t_res.reference_pdb.pdb_id,
+                "_".join(
+                    (
+                        self.t_res.reference_residue.name,
+                        self.t_res.reference_pdb.chain_id,
+                        str(self.t_res.reference_residue.auth_number),
+                    )
+                ),
+                ",".join(self.t_res.roles_summary),
+            ]
+
+    @classmethod
+    def from_match(cls, match: Match) -> Iterable[MatchResidueTable.Row]:
+        t = match.hit.template()
+        for q_res, t_res in zip(
+            match.matched_residues,
+            t.residues,
+            strict=True,
+        ):  # ty:ignore[no-matching-overload]
+            yield cls.Row(q_res, t_res, match)
 
 
 class Tables:
@@ -422,6 +553,7 @@ class Tables:
     _map: dict[TableKind, Type[_BaseTable]] = {
         "simple": SimpleMatchTable,
         "full": FullMatchTable,
+        "residue": MatchResidueTable,
     }
 
     @overload
@@ -436,20 +568,12 @@ class Tables:
         cls, kind: Literal["simple"], matches: Iterable[Match]
     ) -> SimpleMatchTable: ...
 
+    @overload
+    @classmethod
+    def create(
+        cls, kind: Literal["residue"], matches: Iterable[Match]
+    ) -> MatchResidueTable: ...
+
     @classmethod
     def create(cls, kind: TableKind, matches: Iterable[Match]) -> _BaseTable:
         return cls._map[kind].from_matches(matches)
-
-
-# class MatchResidueTable:
-#     schema =
-
-#     def __init__(self, match: Match):
-
-
-#     def dump(self)
-
-#     def dumps()
-
-
-# class MultiMatchResidueTable:
