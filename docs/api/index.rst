@@ -59,3 +59,20 @@ M-CSA
     :hidden:
 
     m-csa
+
+Output
+------
+
+.. autosummary::
+    :nosignatures:
+
+    output.FullMatchTable
+    output.SimpleMatchTable
+    output.MatchResidueTable
+    output.Tables
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    output
