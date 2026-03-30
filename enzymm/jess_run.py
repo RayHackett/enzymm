@@ -3,9 +3,7 @@ from __future__ import annotations
 import collections
 import math
 import warnings
-import csv
 import itertools
-import io
 import sys
 import os
 import json
@@ -42,8 +40,7 @@ try:
 except ImportError:
     from importlib_resources import files as resource_files  # type: ignore
 
-from enzymm import __version__
-from enzymm.template import Template, AnnotatedTemplate, Vec3, check_template
+from enzymm.template import Template, Vec3, check_template
 from enzymm.utils import chunks, ranked_argsort, DummyPool
 from enzymm.utils import PROTEINOGENIC_AMINO_ACIDS, SPECIAL_AMINO_ACIDS
 
@@ -359,124 +356,6 @@ class Match:
         file.write(f"REMARK MATCH INDEX {self.index}\n")
 
         self.hit.dump(file=file, format="pdb", transform=transform)
-
-    def dumps(self, header: bool = False) -> str:
-        """
-        Dump `Match` to a string. Calls `Match.dump()`
-
-        Arguments:
-            header: if a header line should be dumped to the string too.
-        """
-        buffer = io.StringIO()
-        self.dump(buffer, header=header)
-        return (
-            buffer.getvalue()
-        )  # returns entire content temporary file object as a string
-
-    def dump(
-        self,
-        file: TextIO,
-        header: bool = False,
-    ):
-        """
-        Dump the information associated with a `Match` to a '.tsv' like line.
-
-        Arguments:
-            file: `file-like` object to write to
-            header: `bool` If a header line should be written too
-
-        Note:
-            Coordinate information is not written.
-        """
-        writer = csv.writer(
-            file, dialect="excel-tab", delimiter="\t", lineterminator="\n"
-        )
-        # aliases for improved readability
-        template = self.hit.template()
-        cluster = template.cluster
-
-        if header:
-            file.write(
-                f"# Enzymm Version {__version__} running PyJess Version {pyjess.__version__}\n"
-            )
-            writer.writerow(
-                [
-                    "query_id",
-                    "pairwise_distance",
-                    "match_index",
-                    "template_pdb_id",
-                    "template_pdb_chains",
-                    "template_cluster_id",
-                    "template_cluster_member",
-                    "template_cluster_size",
-                    "template_effective_size",
-                    "template_dimension",
-                    "template_mcsa_id",
-                    "template_uniprot_id",
-                    "template_ec",
-                    "template_cath",
-                    "template_multimeric",
-                    "query_multimeric",
-                    "query_atom_count",
-                    "query_residue_count",
-                    "rmsd",
-                    "log_evalue",
-                    "orientation",
-                    "preserved_order",
-                    "completeness",
-                    "predicted_correct",
-                    "matched_residues",
-                    "number_of_mutated_residues",
-                    "number_of_side_chain_residues_(template,reference)",
-                    "number_of_metal_ligands_(template,reference)",
-                    "number_of_ptm_residues_(template, reference)",
-                    "total_reference_residues",
-                ]
-            )
-
-        content = [
-            str(self.hit.molecule().id),
-            str(self.pairwise_distance),
-            str(self.index),
-            str(template.pdb_id if template.pdb_id else ""),
-            (",".join(set(res.chain_id for res in template.residues))),
-            str(cluster.id if cluster else ""),
-            str(cluster.member if template.cluster else ""),
-            str(cluster.size if cluster else ""),
-            str(template.effective_size),
-            str(template.dimension),
-            str(template.mcsa_id if template.mcsa_id else ""),
-            str(template.uniprot_id if template.uniprot_id else ""),
-            ",".join(template.ec if template.ec is not None else ""),
-            ",".join(template.cath if template.cath else ""),
-            str(template.multimeric),
-            str(self.multimeric),
-            str(self.query_atom_count),
-            str(self.query_residue_count),
-            str(round(self.hit.rmsd, 5)),
-            str(round(self.hit.log_evalue, 5)),
-            str(round(self.orientation, 5)),
-            str(self.preserved_resid_order),
-            str(self.complete),
-            str(self.predicted_correct) if self.predicted_correct is not None else "",
-            (",".join("_".join(t) for t in self.matched_residues)),
-        ]
-
-        # check if the template was annotated with M-CSA information
-        if isinstance(template, AnnotatedTemplate):
-            content.extend(
-                [
-                    str(template.number_of_mutated_residues),
-                    ",".join(str(i) for i in template.number_of_side_chain_residues),
-                    ",".join(str(i) for i in template.number_of_metal_ligands),
-                    ",".join(str(i) for i in template.number_of_ptm_residues),
-                    str(template.total_reference_residues),
-                ]
-            )
-        else:
-            content.extend(["", "", "", "", "", ""])
-
-        writer.writerow(content)
 
     def get_identifying_attributes(self) -> Tuple[int, int, int]:
         """
@@ -1194,6 +1073,9 @@ class Matcher:
                 #         match for match in matches
                 #         if match.hit.template.effective_size == qmol.hit_size
                 #     ]
+                for i, match in enumerate(matches):
+                    # 1-based index for matches to each query molecule
+                    match.index = len(processed_molecules[qmol.molecule]) + i + 1
                 processed_molecules[qmol.molecule].extend(matches)
 
         return processed_molecules

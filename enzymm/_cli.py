@@ -1,4 +1,5 @@
 from __future__ import annotations
+from enzymm.output import Tables
 
 import argparse
 from pathlib import Path
@@ -287,13 +288,9 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
         with open(out_tsv, "w", newline="", encoding="utf-8") as tsvfile:
             tsvfile.write(f"# Command: {' '.join(sys.argv)}\n")
             for index, (molecule, matches) in enumerate(processed_molecules.items()):
-                for jndex, match in enumerate(matches):
-                    i = index + jndex
-                    match.index = jndex + 1  # 1 indexed matches per query
-                    match.dump(
-                        tsvfile,
-                        header=(i == 0),
-                    )  # one line per match, write header only for the first match
+                # TODO enable different kinds via cli?
+                tbl = Tables.create(kind="full", matches=matches)
+                tbl.write_tsv(file=tsvfile, header=(index == 0))
 
         def write_hits2pdb(matches: List[Match], filename: str, outdir: Path):
             # make sure molecule().id is unique!
