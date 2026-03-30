@@ -43,6 +43,7 @@ except ImportError:
 from enzymm.template import Template, Vec3, check_template
 from enzymm.utils import chunks, ranked_argsort, DummyPool
 from enzymm.utils import PROTEINOGENIC_AMINO_ACIDS, SPECIAL_AMINO_ACIDS
+from enzymm.output import Tables, TableKind
 
 __all__ = [
     "LogisticRegressionModel",
@@ -356,6 +357,30 @@ class Match:
         file.write(f"REMARK MATCH INDEX {self.index}\n")
 
         self.hit.dump(file=file, format="pdb", transform=transform)
+
+    def dumps(self, header: bool = False, kind: TableKind = "full") -> str:
+        """
+        Dump `Match` to a .tsv like string. Calls `_BaseTable.dumps()`
+
+        Arguments:
+            header: if a header line should be dumped to the string too.
+            kind: choose to return a "full" or a "simple" results line
+        """
+        return Tables.create(kind=kind, matches=[self]).dumps(header=header)
+
+    def dump(self, file: TextIO, header: bool = False, kind: TableKind = "full"):
+        """
+        Dump the information associated with a `Match` to a '.tsv' like line.
+
+        Arguments:
+            file: `file-like` object to write to
+            header: `bool` If a header line should be written too
+            kind: chose a "full" or a "simple" results style
+
+        Note:
+            Coordinate information is not written.
+        """
+        Tables.create(kind=kind, matches=[self]).write_tsv(file=file, header=header)
 
     def get_identifying_attributes(self) -> Tuple[int, int, int]:
         """

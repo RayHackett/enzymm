@@ -19,9 +19,9 @@ import pyjess
 
 if TYPE_CHECKING:
     import polars
+    from enzymm.jess_run import Match
 
 from enzymm import __version__
-from enzymm.jess_run import Match
 from enzymm.template import AnnotatedTemplate
 
 
@@ -111,7 +111,7 @@ class _BaseTable:
             orient="row",
         )
 
-        return df.select(self.columns())
+        return df.select(self._polars_schema().keys())
 
 
 class FullMatchTable(_BaseTable):
@@ -145,9 +145,9 @@ class FullMatchTable(_BaseTable):
             "predicted_correct",
             "matched_residues",
             "number_of_mutated_residues",
-            "number_of_side_chain_residues",
-            "number_of_metal_ligands",
-            "number_of_ptm_residues",
+            "number_of_side_chain_residues_(template,reference)",
+            "number_of_metal_ligands_(template,reference)",
+            "number_of_ptm_residues_(template,reference)",
             "total_reference_residues",
         ]
 
@@ -322,7 +322,7 @@ class SimpleMatchTable(_BaseTable):
             "rmsd",
             "orientation_deg",
             "preserved_order",
-            "metal_ligands",
+            "metal_ligands_(template,reference)",
             "total_reference_residues",
             "matched_residues",
             "predicted_correct",

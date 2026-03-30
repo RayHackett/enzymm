@@ -12,6 +12,7 @@ except ImportError:
 import pyjess
 
 import enzymm
+from enzymm import __version__
 from . import test_data
 from enzymm import template, jess_run
 from enzymm.output import Tables
@@ -26,7 +27,7 @@ class TestMatch(unittest.TestCase):
                 "jess_templates_20230210/5_residues/results/csa3d_0285/csa3d_0285.cluster_1_1_1.1uh3_A396-A262-A356-A471-A472.template.pdb",
             ),
             "r",
-        ) as f:
+        ) as f:  # ty:ignore[no-matching-overload]
             cls.template_text1 = f.read()
             cls.template1 = template.AnnotatedTemplate.loads(
                 cls.template_text1, warn=False
@@ -34,7 +35,7 @@ class TestMatch(unittest.TestCase):
             jess_1 = pyjess.Jess([cls.template1])
 
         with resource_files(test_data).joinpath("1AMY.pdb").open() as f:
-            molecule = pyjess.Molecule.load(f)
+            molecule = pyjess.Molecule.load(f)  # ty:ignore[invalid-argument-type]
 
         query = jess_1.query(molecule, 2, 1.5, 1.5, best_match=True)
         best_hits = list(query)
@@ -48,7 +49,7 @@ class TestMatch(unittest.TestCase):
                 "jess_templates_20230210/3_residues/results/csa3d_0415/csa3d_0415.cluster_1_1_2.1be0_A124-A175-A125-A289-A260.template.pdb",
             ),
             "r",
-        ) as f:
+        ) as f:  # ty:ignore[no-matching-overload]
             template_text2 = f.read()
             cls.template2 = template.AnnotatedTemplate.loads(template_text2, warn=False)
             jess_2 = pyjess.Jess([cls.template2])
@@ -168,17 +169,18 @@ class TestMatch(unittest.TestCase):
         with resource_files(test_data).joinpath("results.tsv").open() as f:
             self.assertEqual(buffer.getvalue(), f.read())
 
-    # def test_match_dumps(self):
-    #     expected = textwrap.dedent(
-    #         f"""
-    #         # Enzymm Version {__version__} running PyJess Version {pyjess.__version__}
-    #         query_id	pairwise_distance	match_index	template_pdb_id	template_pdb_chains	template_cluster_id	template_cluster_member	template_cluster_size	template_effective_size	template_dimension	template_mcsa_id	template_uniprot_id	template_ec	template_cath	template_multimeric	query_multimeric	query_atom_count	query_residue_count	rmsd	log_evalue	orientation	preserved_order	completeness	predicted_correct	matched_residues	number_of_mutated_residues	number_of_side_chain_residues_(template,reference)	number_of_metal_ligands_(template,reference)	number_of_ptm_residues_(template, reference)	total_reference_residues
-    #         1AMY	1.5	0	1uh3	A	1	1	1	5	5	285	Q60053	3.2.1.10,3.2.1.135	2.60.40.10,2.60.40.1180,3.20.20.80	False	False	3339	403	0.32093	-3.08424	0.15327	True	True	True	GLU_A_204,ASP_A_87,ASP_A_179,HIS_A_288,ASP_A_289	0	5,5	0,0	0,0	5
-    #         """
-    #     )
-    #     self.assertMultiLineEqual(
-    #         self.match1.dumps(header=True).strip(), expected.strip()
-    #     )
+    def test_match_dumps(self):
+        expected = textwrap.dedent(
+            f"""
+            # Enzymm Version {__version__} running PyJess Version {pyjess.__version__}
+            query_id	pairwise_distance	match_index	template_pdb_id	template_pdb_chains	template_cluster_id	template_cluster_member	template_cluster_size	template_effective_size	template_dimension	template_mcsa_id	template_uniprot_id	template_ec	template_cath	template_multimeric	query_multimeric	query_atom_count	query_residue_count	rmsd	log_evalue	orientation	preserved_order	completeness	predicted_correct	matched_residues	number_of_mutated_residues	number_of_side_chain_residues_(template,reference)	number_of_metal_ligands_(template,reference)	number_of_ptm_residues_(template,reference)	total_reference_residues
+            1AMY	1.5	0	1uh3	A	1	1	1	5	5	285	Q60053	3.2.1.10,3.2.1.135	2.60.40.10,2.60.40.1180,3.20.20.80	False	False	3339	403	0.32093	-3.08424	0.15327	True	True	True	GLU_A_204,ASP_A_87,ASP_A_179,HIS_A_288,ASP_A_289	0	5,5	0,0	0,0	5
+            """
+        )
+        self.maxDiff = None
+        self.assertMultiLineEqual(
+            self.match1.dumps(header=True).strip(), expected.strip()
+        )
 
     def test_match_dump2pdb(self):
         buffer = io.StringIO()
@@ -277,7 +279,9 @@ class TestMatcher(unittest.TestCase):
 
         template_texts = []
         for path in template_files:
-            with open(resource_files(enzymm).joinpath(path), "r") as f:
+            with open(
+                resource_files(enzymm).joinpath(path), "r"
+            ) as f:  # ty:ignore[no-matching-overload]
                 template_texts.append(f.read())
 
         cls.template_list = []
@@ -288,21 +292,21 @@ class TestMatcher(unittest.TestCase):
             template.load_templates(
                 template_dir=resource_files(enzymm).joinpath(
                     "jess_templates_20230210/5_residues/results/csa3d_0285/"
-                ),
+                ),  # ty:ignore[invalid-argument-type]
             )
         )
         res4_templates = list(
             template.load_templates(
                 template_dir=resource_files(enzymm).joinpath(
                     "jess_templates_20230210/4_residues/results/csa3d_0285"
-                ),
+                ),  # ty:ignore[invalid-argument-type]
             )
         )
         res3_templates = list(
             template.load_templates(
                 template_dir=resource_files(enzymm).joinpath(
                     "jess_templates_20230210/3_residues/results/csa3d_0344"
-                ),
+                ),  # ty:ignore[invalid-argument-type]
             )
         )
 
@@ -382,12 +386,12 @@ class TestMatcher(unittest.TestCase):
         )
 
         with resource_files(test_data).joinpath("1AMY.pdb").open() as f:
-            cls.molecule = pyjess.Molecule.load(f)
+            cls.molecule = pyjess.Molecule.load(f)  # ty:ignore[invalid-argument-type]
 
         with resource_files(test_data).joinpath(
             "AF-P0DUB6-F1-model_v6.cif"
         ).open() as f:
-            cls.molecule2 = pyjess.Molecule.load(f)
+            cls.molecule2 = pyjess.Molecule.load(f)  # ty:ignore[invalid-argument-type]
             cls.molecule3 = cls.molecule2.conserved(80)
 
     def test_init(self):

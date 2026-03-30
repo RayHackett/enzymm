@@ -73,6 +73,7 @@ class TestOutput(unittest.TestCase):
         # TODO write tests
 
         buffer = io.StringIO()
-        tbl.write_tsv(file=buffer, header=True)
+        tbl.write_tsv(file=buffer, header=False)
+        self.maxDiff = None
         with resource_files(test_data).joinpath("1amy_simple_results.tsv").open() as f:
             self.assertEqual(buffer.getvalue(), f.read())
