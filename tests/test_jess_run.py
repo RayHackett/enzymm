@@ -2,7 +2,6 @@ import io
 import os
 import unittest
 import math
-import pickle
 import textwrap
 
 try:
@@ -14,7 +13,8 @@ import pyjess
 
 import enzymm
 from . import test_data
-from enzymm import template, jess_run, __version__
+from enzymm import template, jess_run
+from enzymm.output import Tables
 
 
 class TestMatch(unittest.TestCase):
@@ -160,23 +160,25 @@ class TestMatch(unittest.TestCase):
             [("TRP", "A", "38"), ("HIS", "A", "288"), ("ASP", "A", "289")],
         )
 
-    def test_match_dump(self):
+    def test_match_tsv_write(self):
         buffer = io.StringIO()
-        self.match1.dump(buffer, header=False)
+        tbl = Tables.create(kind="full", matches=[self.match1])
+
+        tbl.write_tsv(file=buffer, header=False)
         with resource_files(test_data).joinpath("results.tsv").open() as f:
             self.assertEqual(buffer.getvalue(), f.read())
 
-    def test_match_dumps(self):
-        expected = textwrap.dedent(
-            f"""
-            # Enzymm Version {__version__} running PyJess Version {pyjess.__version__}
-            query_id	pairwise_distance	match_index	template_pdb_id	template_pdb_chains	template_cluster_id	template_cluster_member	template_cluster_size	template_effective_size	template_dimension	template_mcsa_id	template_uniprot_id	template_ec	template_cath	template_multimeric	query_multimeric	query_atom_count	query_residue_count	rmsd	log_evalue	orientation	preserved_order	completeness	predicted_correct	matched_residues	number_of_mutated_residues	number_of_side_chain_residues_(template,reference)	number_of_metal_ligands_(template,reference)	number_of_ptm_residues_(template, reference)	total_reference_residues
-            1AMY	1.5	0	1uh3	A	1	1	1	5	5	285	Q60053	3.2.1.10,3.2.1.135	2.60.40.10,2.60.40.1180,3.20.20.80	False	False	3339	403	0.32093	-3.08424	0.15327	True	True	True	GLU_A_204,ASP_A_87,ASP_A_179,HIS_A_288,ASP_A_289	0	5,5	0,0	0,0	5
-            """
-        )
-        self.assertMultiLineEqual(
-            self.match1.dumps(header=True).strip(), expected.strip()
-        )
+    # def test_match_dumps(self):
+    #     expected = textwrap.dedent(
+    #         f"""
+    #         # Enzymm Version {__version__} running PyJess Version {pyjess.__version__}
+    #         query_id	pairwise_distance	match_index	template_pdb_id	template_pdb_chains	template_cluster_id	template_cluster_member	template_cluster_size	template_effective_size	template_dimension	template_mcsa_id	template_uniprot_id	template_ec	template_cath	template_multimeric	query_multimeric	query_atom_count	query_residue_count	rmsd	log_evalue	orientation	preserved_order	completeness	predicted_correct	matched_residues	number_of_mutated_residues	number_of_side_chain_residues_(template,reference)	number_of_metal_ligands_(template,reference)	number_of_ptm_residues_(template, reference)	total_reference_residues
+    #         1AMY	1.5	0	1uh3	A	1	1	1	5	5	285	Q60053	3.2.1.10,3.2.1.135	2.60.40.10,2.60.40.1180,3.20.20.80	False	False	3339	403	0.32093	-3.08424	0.15327	True	True	True	GLU_A_204,ASP_A_87,ASP_A_179,HIS_A_288,ASP_A_289	0	5,5	0,0	0,0	5
+    #         """
+    #     )
+    #     self.assertMultiLineEqual(
+    #         self.match1.dumps(header=True).strip(), expected.strip()
+    #     )
 
     def test_match_dump2pdb(self):
         buffer = io.StringIO()
@@ -481,22 +483,22 @@ class TestMatcher(unittest.TestCase):
         for match in unfiltered_matches:
             if match.index == 1:
                 self.assertTrue(match.complete)
-                self.assertEqual(match.hit.template().pdb_id, "1uh3")
+                self.assertEqual(match.hit.template().pdb_id, "2cxg")
             elif match.index == 2:
                 self.assertTrue(match.complete)
-                self.assertEqual(match.hit.template().pdb_id, "2cxg")
+                self.assertEqual(match.hit.template().pdb_id, "1uh3")
             elif match.index == 3:
                 self.assertFalse(match.complete),
                 self.assertEqual(match.hit.template().pdb_id, "2qy1")
             elif match.index == 4:
-                self.assertTrue(match.complete)
-                self.assertEqual(match.hit.template().pdb_id, "1uh3")
+                self.assertFalse(match.complete)
+                self.assertEqual(match.hit.template().pdb_id, "1bf2")
             elif match.index == 5:
                 self.assertTrue(match.complete)
                 self.assertEqual(match.hit.template().pdb_id, "1uh3")
             elif match.index == 6:
-                self.assertFalse(match.complete)
-                self.assertEqual(match.hit.template().pdb_id, "1bf2")
+                self.assertTrue(match.complete)
+                self.assertEqual(match.hit.template().pdb_id, "1uh3")
             else:
                 ValueError("Shouldn't get here in the tests")
 

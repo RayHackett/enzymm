@@ -33,6 +33,12 @@ dependencies = [
     "importlib-resources >=1.3  ; python_version < '3.9'",  # only required in Python 3.8 or lower
 ]
 
+[project.optional-dependencies]
+polars = ["polars"]
+test = [
+    "polars",
+]
+
 [tool.setuptools.packages.find]
 namespaces = true
 include = ["enzymm*"]
