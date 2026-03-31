@@ -176,6 +176,18 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="If set, M-CSA derived templates will NOT be annotated with extra information.",
     )
+    group.add_argument(
+        "--simple-results",
+        default=False,
+        action="store_true",
+        help="If set, a simpler version of the results table will be returned instead",
+    )
+    group.add_argument(
+        "--per-residue-results",
+        default=False,
+        action="store_true",
+        help="If set, an additional table with residue mappings betwen query, template and refrence will be returned too.",
+    )
     return parser
 
 
@@ -285,11 +297,23 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
                 f"Matches predicted by logistic regression as false are {'' if args.unfiltered else 'not '}reported"
             )
 
+        # Write the match per row tables in either simple or full style (default full)
         with open(out_tsv, "w", newline="", encoding="utf-8") as tsvfile:
             tsvfile.write(f"# Command: {' '.join(sys.argv)}\n")
             for index, (molecule, matches) in enumerate(processed_molecules.items()):
-                # TODO enable different kinds via cli?
-                tbl = Tables.create(kind="full", matches=matches)
+                if args.simple_results:
+                    tbl = Tables.create(kind="simple", matches=matches)
+                    tbl.write_tsv(file=tsvfile, header=(index == 0))
+                else:
+                    tbl = Tables.create(kind="full", matches=matches)
+                    tbl.write_tsv(file=tsvfile, header=(index == 0))
+
+        # Write the residue per row table if the user requests it. (default false)
+        if args.per_residue_results:
+            residue_table = Path(out_tsv).with_suffix(".residues.tsv")
+            with open(residue_table, "w", newline="", encoding="utf-8") as tsvfile:
+                tsvfile.write(f"# Command: {' '.join(sys.argv)}\n")
+                tbl = Tables.create(kind="residue", matches=matches)
                 tbl.write_tsv(file=tsvfile, header=(index == 0))
 
         def write_hits2pdb(matches: List[Match], filename: str, outdir: Path):
