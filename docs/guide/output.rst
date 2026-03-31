@@ -64,7 +64,7 @@ The table contains the following columns:
 - **template_uniprot_id**: `str` The UniProt identifier to the protein from which the template was derived. Each template comes from a single protein but some represent homo-multimers.
 - **template_ec**: `list` of `str` Enzyme Commission numbers associated with the template which categorize the enzyme function(s) of the template.
 - **template_cath**: `list` of `str` CATH identifiers to the Protein Structure Classification database describing domains of the template structure.
- **rmsd**: `float` Atom-wise Root-mean-square distance in Ångstrom between atoms matched between the template and the query structure. This metric shows how well the template superposes with the query structure. This metric contributes to filtering 3- and 4-residue matches. Results above 2 Å are never returned.
+- **rmsd**: `float` Atom-wise Root-mean-square distance in Ångstrom between atoms matched between the template and the query structure. This metric shows how well the template superposes with the query structure. This metric contributes to filtering 3- and 4-residue matches. Results above 2 Å are never returned.
 - **orientation**: `float` The mean of pairwise orientation angles in radians between corresponding residues between the template and the query structure. While related to superposition between template and query it is sensitive to changes to important chemical angles determining electrostatic interactions.
 - **preserved_order**: `bool` Whether the relative order of residues in the protein sequence of the template and query is identical.
 - **predicted_correct**: `bool` Wether the match was predicted to be correct.

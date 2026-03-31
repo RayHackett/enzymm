@@ -8,9 +8,9 @@ information or if some things are unclear, feel free to drop me a line on GitHub
    :maxdepth: 1
    :caption: Getting Started
 
-    Installation <install>
-    Command Line Interface <cli>
-    Using the API <api-usage>
+   Installation <install>
+   Command Line Interface <cli>
+   Using the API <api-usage>
 
 .. toctree::
    :maxdepth: 1

@@ -66,6 +66,7 @@ Output
 .. autosummary::
     :nosignatures:
 
+    output.BaseTable
     output.FullMatchTable
     output.SimpleMatchTable
     output.MatchResidueTable
