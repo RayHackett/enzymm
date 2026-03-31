@@ -4,8 +4,14 @@ EnzyMM Output
 EnzyMM produces a `TSV` table as output.
 Optionally `PDB` structures with matched residues can be written too.
 
-🖹 TSV Table
-^^^^^^^^^^^
+.. caution::
+
+    Keep in mind that M-CSA annotations are only available for templates
+    distributed together with **EnzyMM**. If you design and search with
+    your own templates some annotation fields may be empty.
+
+🖹 TSV Full Results Table
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 Each row shows data for a match between one of our catalytic templates and the query structure.
 The table contains the following columns:
@@ -41,6 +47,47 @@ The table contains the following columns:
 - **number_of_ptm_residues_(template, reference)**: `tuple` (`int`, `int`) The number of posttranslationally modified residues in the template and the reference.
 - **total_reference_residues**: `int` The number of catalytic residues annotated in the structure the template was derived from. Since a template might only represent a partial catalytic site, this shows how many residues the total site might be composed of.
 
+🖹 TSV Simple Results Table
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+This table contains a selection of columns of the Full Results Table.
+Again, each row shows data for a match between one of our catalytic templates and the query structure.
+The table contains the following columns:
+
+- **query_id**: `str` The id of the query - either user provided or derived from the header section of the structure.
+- **pairwise_distance**: `float` The pairwise distance threshold at which this match was found in Ångstrom.
+- **match_index**: `int` A running index for each match to a given query.
+- **template_pdb_id**: `str` The PDB identifier to the experimental structure from which the template was derived.
+- **template_pdb_chain**: `str` The PDB chain or chains from which the template was derived. Refers to the automatically assigned chain identifier in the biological assembly.
+- **template_effective_size**: `int` The number of specific residues defining the template. Usually equal to the number of side chain interacting residues with specific match codes.
+- **template_dimension**: `int` The toal number of residues, including unspecific ones, in the template.
+- **template_mcsa_id**: `int` The entry number in the M-CSA to which the template refers. The M-CSA entry can help provide more information about the enzymatic mechanism in question and to trace annotations of the template back to sources in scientific literature.
+- **template_uniprot_id**: `str` The UniProt identifier to the protein from which the template was derived. Each template comes from a single protein but some represent homo-multimers.
+- **template_ec**: `list` of `str` Enzyme Commission numbers associated with the template which categorize the enzyme function(s) of the template.
+- **template_cath**: `list` of `str` CATH identifiers to the Protein Structure Classification database describing domains of the template structure.
+ **rmsd**: `float` Atom-wise Root-mean-square distance in Ångstrom between atoms matched between the template and the query structure. This metric shows how well the template superposes with the query structure. This metric contributes to filtering 3- and 4-residue matches. Results above 2 Å are never returned.
+- **orientation**: `float` The mean of pairwise orientation angles in radians between corresponding residues between the template and the query structure. While related to superposition between template and query it is sensitive to changes to important chemical angles determining electrostatic interactions.
+- **preserved_order**: `bool` Whether the relative order of residues in the protein sequence of the template and query is identical.
+- **predicted_correct**: `bool` Wether the match was predicted to be correct.
+- **matched_residues**: `str` The matched residues in the query. The format is ['3-letter-code']_['chain-identifier']_['residue-number'].
+- **number_of_metal_ligands_(template,reference)**: `tuple` (`int`, `int`) The number of residues which contribute to metal binding or coordination in the template and the reference. A template composed of mostly metal binding residues is likely less predictive of catalytic function but might indicate a metal binding site.
+- **total_reference_residues**: `int` The number of catalytic residues annotated in the structure the template was derived from. Since a template might only represent a partial catalytic site, this shows how many residues the total site might be composed of.
+
+
+🖹 TSV Residue Match Table
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Each row shows data for one single residue matched between one of our catalytic templates and the query structure.
+It shows which residues in the query, template and reference corresponded and which catalytic annotatio is associated with this residue.
+The table contains the following columns:
+
+- **query_id**: `str` The id of the query - either user provided or derived from the header section of the structure.
+- **match_index**: `int` A running index for each match to a given query.
+- **query_residue**: `str` The residue matched in the query. Format is ['3-letter-code']_['chain-identifier']_['residue-number'].
+- **template_pdb_id**: `str` The PDB identifier to the experimental structure from which the template was derived.
+- **template_residue**: `str` The corresponding residues in the tempolate. The format is ['3-letter-code']_['chain-identifier']_['residue-number'].
+- **reference_pdb_id**: `str` The PDB identifier to the referece experimental structure from which the original annotation was derived.
+- **reference_residue**: `str` The corresponding residues in the reference. The format is ['3-letter-code']_['chain-identifier']_['residue-number'].
+- **roles**: `list` of `str` The catalytic roles assigned to this particular residue.
 
 PDB Structures
 ^^^^^^^^^^^^^^
@@ -116,6 +163,8 @@ substrate/solvent accessibility. Matches to random non-catalytic arrangements
 of residues obstructed by other parts of the protein structure are possible.
 When analyzing predicted protein structures, particular caveats apply.
 Template matching is particularly sensitive to conformation.
+Some catalytic arrangements also feature in purely structural metal-binding sites.
+These can only be distinguished if the coordination sphere of the metal ion is known.
 Poorly predicted side chain rotamers, unrealistic tertiary structure arrangements
 and overall protein conformations can severely limit matches **EnzyMM** can find.
 Keep in mind that pLDDT does not necessarily reflect on side-chain conformations.
