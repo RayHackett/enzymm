@@ -29,7 +29,8 @@ from enzymm.template import AnnotatedTemplate, AnnotatedResidue
 TableKind = Literal["simple", "full", "residue"]
 
 
-class _BaseTable:
+class BaseTable:
+    """A base class for different types of output styles. Easily adaptable"""
 
     def __init__(
         self,
@@ -52,7 +53,7 @@ class _BaseTable:
         raise NotImplementedError
 
     @classmethod
-    def from_matches(cls, matches: Iterable[Match]) -> _BaseTable:
+    def from_matches(cls, matches: Iterable[Match]) -> BaseTable:
         """
         Generate the table from a list of Match
         """
@@ -80,7 +81,7 @@ class _BaseTable:
 
     def write_tsv(self, file: TextIO, header: bool = True) -> None:
         """
-        Dump the Table to a '.tsv' like file.
+        Dump the 'Table' as an iteralbe or rows to a '.tsv' like file.
 
         Arguments:
             file: `file-like` object to write to
@@ -104,6 +105,15 @@ class _BaseTable:
         writer.writerows(rows)
 
     def to_polars(self) -> polars.DataFrame:
+        """
+        Create a `polars.DataFrame` from this table.
+
+        Returns:
+            `polars.DataFrame` with the schema set out in the child class!
+
+        Note:
+            Calling this function requires the polars library!
+        """
         try:
             import polars
         except ImportError:
@@ -123,10 +133,12 @@ class _BaseTable:
         return df.select(self._polars_schema().keys())
 
 
-class FullMatchTable(_BaseTable):
+class FullMatchTable(BaseTable):
+    """A class for representing the full information associated with EnzyMM matches."""
 
     @classmethod
     def columns(cls) -> List[str]:
+        """Return a `list` of `str` of column names for the `FullMatchTable`"""
         return [
             "query_id",
             "pairwise_distance",
@@ -209,6 +221,8 @@ class FullMatchTable(_BaseTable):
         }
 
     class Row:
+        """Subclass for defining and building a row in a `FullMatchTable`"""
+
         def __init__(self, match: Match):
             self.match = match
 
@@ -314,13 +328,21 @@ class FullMatchTable(_BaseTable):
 
     @classmethod
     def from_match(cls, match: Match) -> Iterable[FullMatchTable.Row]:
+        """
+        Create a row per match for a `FullMatchTable`
+
+        Returns:
+            `Iteralbe` of `FullMatchTable.Row`
+        """
         yield cls.Row(match)
 
 
-class SimpleMatchTable(_BaseTable):
+class SimpleMatchTable(BaseTable):
+    """A class for representing the simpler information associated with EnzyMM matches."""
 
     @classmethod
     def columns(cls) -> List[str]:
+        """Return a `list` of `str` of column names for the `SimpleMatchTable`"""
         return [
             "query_id",
             "pdb_id",
@@ -375,6 +397,8 @@ class SimpleMatchTable(_BaseTable):
         }
 
     class Row:
+        """Subclass for defining and building a row in a `SimpleMatchTable`"""
+
         def __init__(self, match: Match):
             self.match = match
 
@@ -460,13 +484,21 @@ class SimpleMatchTable(_BaseTable):
 
     @classmethod
     def from_match(cls, match: Match) -> Iterable[SimpleMatchTable.Row]:
+        """
+        Create a row per match for a `SimpleMatchTable`
+
+        Returns:
+            `Iteralbe` of `SimpleMatchTable.Row`
+        """
         yield cls.Row(match)
 
 
-class MatchResidueTable(_BaseTable):
+class MatchResidueTable(BaseTable):
+    """A class for representing residue mappings between query, template and reference from EnzyMM matches."""
 
     @classmethod
     def columns(cls) -> List[str]:
+        """Return a `list` of `str` of column names for the `MatchResidueTable`"""
         return [
             "query_id",
             "match_index",
@@ -514,6 +546,8 @@ class MatchResidueTable(_BaseTable):
         }
 
     class Row:
+        """Subclass for defining and building a row in a `MatchResidueTable`"""
+
         def __init__(
             self,
             q_res: Tuple[str, str, str],
@@ -596,6 +630,12 @@ class MatchResidueTable(_BaseTable):
 
     @classmethod
     def from_match(cls, match: Match) -> Iterable[MatchResidueTable.Row]:
+        """
+        Create one row per matched residue in the match for a `MatchResidueTable`
+
+        Returns:
+            `Iteralbe` of `MatchResidueTable.Row`
+        """
         t = match.hit.template()
         for q_res, t_res in zip(
             match.matched_residues,
@@ -606,8 +646,10 @@ class MatchResidueTable(_BaseTable):
 
 
 class Tables:
+    """A class for creating instances of children of `BaseTable` of the selected kind"""
+
     # a registry dict for my different table types
-    _map: dict[TableKind, Type[_BaseTable]] = {
+    _map: dict[TableKind, Type[BaseTable]] = {
         "simple": SimpleMatchTable,
         "full": FullMatchTable,
         "residue": MatchResidueTable,
@@ -632,5 +674,16 @@ class Tables:
     ) -> MatchResidueTable: ...
 
     @classmethod
-    def create(cls, kind: TableKind, matches: Iterable[Match]) -> _BaseTable:
+    def create(cls, kind: TableKind, matches: Iterable[Match]) -> BaseTable:
+        """
+        Create an instance of the selected kind of table from a list of matches
+
+        Arguments:
+            kind: One of the following `str` 'full', 'simple' or 'residue'
+            matches: `list` of `Match` objects
+
+        Returns:
+            `BaseTable` child. The exact type depends on the 'kind' argument.
+
+        """
         return cls._map[kind].from_matches(matches)

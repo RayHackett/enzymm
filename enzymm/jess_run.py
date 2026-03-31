@@ -360,7 +360,7 @@ class Match:
 
     def dumps(self, header: bool = False, kind: TableKind = "full") -> str:
         """
-        Dump `Match` to a .tsv like string. Calls `_BaseTable.dumps()`
+        Dump `Match` to a .tsv like string. Calls `BaseTable.dumps()`
 
         Arguments:
             header: if a header line should be dumped to the string too.
