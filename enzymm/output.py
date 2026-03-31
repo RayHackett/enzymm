@@ -386,7 +386,7 @@ class SimpleMatchTable(_BaseTable):
 
         def row(self) -> List[Any]:
             t = self.match.hit.template()
-            return [
+            row = [
                 str(self.match.hit.molecule().id),
                 t.pdb_id,
                 list({r.chain_id for r in t.residues}),
@@ -399,16 +399,30 @@ class SimpleMatchTable(_BaseTable):
                 self.match.hit.rmsd,
                 self.match.orientation,
                 self.match.preserved_resid_order,
-                t.number_of_metal_ligands,
-                t.total_reference_residues,
-                self.to_res_struct_list(self.match.matched_residues),
-                self.match.predicted_correct,
             ]
+
+            if isinstance(t, AnnotatedTemplate):
+                row.extend(
+                    [
+                        t.number_of_metal_ligands,
+                        t.total_reference_residues,
+                    ]
+                )
+            else:
+                row.extend(
+                    [
+                        None,
+                        None,
+                        self.to_res_struct_list(self.match.matched_residues),
+                        self.match.predicted_correct,
+                    ]
+                )
+            return row
 
         def row_str(self) -> List[str]:
             t = self.match.hit.template()
 
-            return [
+            row = [
                 str(self.match.hit.molecule().id),
                 str(t.pdb_id or ""),
                 ",".join({r.chain_id for r in t.residues}),
@@ -421,11 +435,28 @@ class SimpleMatchTable(_BaseTable):
                 round(self.match.hit.rmsd, 5),
                 round(self.match.orientation, 5),
                 str(self.match.preserved_resid_order),
-                str(t.number_of_metal_ligands[0]) if t.number_of_metal_ligands else "",
-                str(t.total_reference_residues),
-                ", ".join("_".join(x) for x in self.match.matched_residues),
-                str(self.match.predicted_correct or ""),
             ]
+            if isinstance(t, AnnotatedTemplate):
+                row.extend(
+                    [
+                        (
+                            str(t.number_of_metal_ligands[0])
+                            if t.number_of_metal_ligands
+                            else ""
+                        ),
+                        str(t.total_reference_residues),
+                    ]
+                )
+            else:
+                row.extend(
+                    [
+                        "",
+                        "",
+                        ", ".join("_".join(x) for x in self.match.matched_residues),
+                        str(self.match.predicted_correct or ""),
+                    ]
+                )
+            return row
 
     @classmethod
     def from_match(cls, match: Match) -> Iterable[SimpleMatchTable.Row]:
@@ -498,7 +529,7 @@ class MatchResidueTable(_BaseTable):
             return {"res": data[0], "chain": data[1], "num": int(data[2])}
 
         def row(self) -> List[Any]:
-            return [
+            row = [
                 str(self.match.hit.molecule().id),
                 self.match.index,
                 self.to_res_struct((self.q_res[0], self.q_res[1], self.q_res[2])),
@@ -506,19 +537,28 @@ class MatchResidueTable(_BaseTable):
                 self.to_res_struct(
                     (self.t_res.name, self.t_res.chain_id, self.t_res.number)
                 ),
-                self.t_res.reference_pdb.pdb_id,
-                self.to_res_struct(
-                    (
-                        self.t_res.reference_residue.name,
-                        self.t_res.reference_pdb.chain_id,
-                        self.t_res.reference_residue.auth_number,
-                    )
-                ),
-                self.t_res.roles_summary,
             ]
 
+            if isinstance(self.match.hit.template(), AnnotatedTemplate):
+                row.extend(
+                    [
+                        self.t_res.reference_pdb.pdb_id,
+                        self.to_res_struct(
+                            (
+                                self.t_res.reference_residue.name,
+                                self.t_res.reference_pdb.chain_id,
+                                self.t_res.reference_residue.auth_number,
+                            )
+                        ),
+                        self.t_res.roles_summary,
+                    ]
+                )
+            else:
+                row.extend([None, None, None])
+            return row
+
         def row_str(self) -> List[str]:
-            return [
+            row = [
                 str(self.match.hit.molecule().id),
                 str(self.match.index),
                 "_".join((self.q_res[0], self.q_res[1], self.q_res[2])),
@@ -536,6 +576,23 @@ class MatchResidueTable(_BaseTable):
                 ),
                 ",".join(self.t_res.roles_summary),
             ]
+            if isinstance(self.match.hit.template(), AnnotatedTemplate):
+                row.extend(
+                    [
+                        self.t_res.reference_pdb.pdb_id,
+                        "_".join(
+                            (
+                                self.t_res.reference_residue.name,
+                                self.t_res.reference_pdb.chain_id,
+                                str(self.t_res.reference_residue.auth_number),
+                            )
+                        ),
+                        ",".join(self.t_res.roles_summary),
+                    ]
+                )
+            else:
+                row.extend(["", "", ""])
+            return row
 
     @classmethod
     def from_match(cls, match: Match) -> Iterable[MatchResidueTable.Row]:
