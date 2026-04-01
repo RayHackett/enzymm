@@ -1,12 +1,12 @@
 from __future__ import annotations
-from enzymm.output import Tables
 
+import sys
+import os
+import warnings
 import argparse
 from pathlib import Path
 from typing import Optional, List, Dict
-import warnings
-import sys
-import os
+from itertools import chain
 
 import rich.console
 from pyjess import Molecule
@@ -14,6 +14,7 @@ from pyjess import Molecule
 from enzymm import __version__
 from enzymm.template import load_templates
 from enzymm.jess_run import Matcher, Match, load_molecules
+from enzymm.output import Tables
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -188,6 +189,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="If set, an additional table with residue mappings betwen query, template and refrence will be returned too.",
     )
+    group.add_argument(
+        "--write-parquet",
+        default=False,
+        action="store_true",
+        help="If set, all results tables will be written in parquet format instead of .tsv format. Requires polars!",
+    )
     return parser
 
 
@@ -282,39 +289,55 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
         processed_molecules = matcher.run(molecules=molecules)
 
         ######### Writing Output ##########################################
-        out_tsv = args.output
+        out = args.output
 
-        if not out_tsv.parent.exists():
-            out_tsv.parent.mkdir(parents=True, exist_ok=True)
+        if not out.parent.exists():
+            out.parent.mkdir(parents=True, exist_ok=True)
             if args.warn:
-                warnings.warn(f"{out_tsv.parent.resolve()} dir to output was created")
-        elif out_tsv.exists() and args.warn:
-            warnings.warn(f"The output file {out_tsv.resolve()} will be overwritten!")
+                warnings.warn(f"{out.parent.resolve()} dir to output was created")
+        elif out.exists() and args.warn:
+            warnings.warn(f"The output file {out.resolve()} will be overwritten!")
 
         if args.verbose:
-            print(f"Writing output to {out_tsv.resolve()}")
+            print(f"Writing output to {out.resolve()}")
             print(
                 f"Matches predicted by logistic regression as false are {'' if args.unfiltered else 'not '}reported"
             )
 
-        # Write the match per row tables in either simple or full style (default full)
-        with open(out_tsv, "w", newline="", encoding="utf-8") as tsvfile:
-            tsvfile.write(f"# Command: {' '.join(sys.argv)}\n")
-            for index, (molecule, matches) in enumerate(processed_molecules.items()):
-                if args.simple_results:
-                    tbl = Tables.create(kind="simple", matches=matches)
-                    tbl.write_tsv(file=tsvfile, header=(index == 0))
-                else:
-                    tbl = Tables.create(kind="full", matches=matches)
-                    tbl.write_tsv(file=tsvfile, header=(index == 0))
+        # Create the match per row tables in either simple or full style (default full)
+        if args.simple_results:
+            tbl = Tables.create(
+                kind="simple", matches=chain(*processed_molecules.values())
+            )
+        else:
+            tbl = Tables.create(
+                kind="full", matches=chain(*processed_molecules.values())
+            )
+
+        # Write the match per row tables as parquet or tsv
+        if args.write_parquet:
+            out = Path(out).with_suffix(".parquet")
+            tbl.to_polars().write_parquet(out)
+        else:
+            out = Path(out).with_suffix(".tsv")
+            with open(out, "w", newline="", encoding="utf-8") as tsvfile:
+                tsvfile.write(f"# Command: {' '.join(sys.argv)}\n")
+                tbl.write_tsv(tsvfile, header=True)
 
         # Write the residue per row table if the user requests it. (default false)
         if args.per_residue_results:
-            residue_table = Path(out_tsv).with_suffix(".residues.tsv")
-            with open(residue_table, "w", newline="", encoding="utf-8") as tsvfile:
-                tsvfile.write(f"# Command: {' '.join(sys.argv)}\n")
-                tbl = Tables.create(kind="residue", matches=matches)
-                tbl.write_tsv(file=tsvfile, header=(index == 0))
+            residue_table = Path(out).with_suffix(".residues.parquet")
+            tbl = Tables.create(
+                kind="residue", matches=chain(*processed_molecules.values())
+            )
+
+            # Write the matched residues per row tables as parquet or tsv
+            if args.write_parquet:
+                tbl.to_polars().write_parquet(residue_table)
+            else:
+                with open(residue_table, "w", newline="", encoding="utf-8") as tsvfile:
+                    tsvfile.write(f"# Command: {' '.join(sys.argv)}\n")
+                    tbl.write_tsv(tsvfile, header=True)
 
         def write_hits2pdb(matches: List[Match], filename: str, outdir: Path):
             # make sure molecule().id is unique!

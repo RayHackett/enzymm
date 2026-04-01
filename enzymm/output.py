@@ -430,6 +430,8 @@ class SimpleMatchTable(BaseTable):
                     [
                         t.number_of_metal_ligands,
                         t.total_reference_residues,
+                        self.to_res_struct_list(self.match.matched_residues),
+                        self.match.predicted_correct,
                     ]
                 )
             else:
@@ -469,6 +471,8 @@ class SimpleMatchTable(BaseTable):
                             else ""
                         ),
                         str(t.total_reference_residues),
+                        ",".join("_".join(x) for x in self.match.matched_residues),
+                        str(self.match.predicted_correct or ""),
                     ]
                 )
             else:
@@ -476,7 +480,7 @@ class SimpleMatchTable(BaseTable):
                     [
                         "",
                         "",
-                        ", ".join("_".join(x) for x in self.match.matched_residues),
+                        ",".join("_".join(x) for x in self.match.matched_residues),
                         str(self.match.predicted_correct or ""),
                     ]
                 )
@@ -600,15 +604,6 @@ class MatchResidueTable(BaseTable):
                 "_".join(
                     (self.t_res.name, self.t_res.chain_id, str(self.t_res.number))
                 ),
-                self.t_res.reference_pdb.pdb_id,
-                "_".join(
-                    (
-                        self.t_res.reference_residue.name,
-                        self.t_res.reference_pdb.chain_id,
-                        str(self.t_res.reference_residue.auth_number),
-                    )
-                ),
-                ",".join(self.t_res.roles_summary),
             ]
             if isinstance(self.match.hit.template(), AnnotatedTemplate):
                 row.extend(

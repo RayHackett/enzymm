@@ -21,26 +21,46 @@ class Test_CLI(unittest.TestCase):
     def setUpClass(cls):
         cls.tempfile = tempfile.NamedTemporaryFile(suffix=".tsv")
         molecule_path = str(
-            Path(resource_files(test_data).joinpath("1AMY.pdb")).resolve()
+            Path(
+                resource_files(test_data).joinpath(
+                    "1AMY.pdb"
+                )  # ty:ignore[invalid-argument-type]
+            ).resolve()
         )
         list_path = str(
-            Path(resource_files(test_data).joinpath("input_list.txt")).resolve()
+            Path(
+                resource_files(test_data).joinpath(
+                    "input_list.txt"
+                )  # ty:ignore[invalid-argument-type]
+            ).resolve()
         )
         list_path2 = str(
-            Path(resource_files(test_data).joinpath("input_dir.txt")).resolve()
+            Path(
+                resource_files(test_data).joinpath(
+                    "input_dir.txt"
+                )  # ty:ignore[invalid-argument-type]
+            ).resolve()
         )
         list_path3 = str(
-            Path(resource_files(test_data).joinpath("input_list_bad.txt")).resolve()
+            Path(
+                resource_files(test_data).joinpath(
+                    "input_list_bad.txt"
+                )  # ty:ignore[invalid-argument-type]
+            ).resolve()
         )
         list_path4 = str(
-            Path(resource_files(test_data).joinpath("input_list_bad2.txt")).resolve()
+            Path(
+                resource_files(test_data).joinpath(
+                    "input_list_bad2.txt"
+                )  # ty:ignore[invalid-argument-type]
+            ).resolve()
         )
 
         selected_template_dir = str(
             Path(
                 resource_files(enzymm).joinpath(
                     "jess_templates_20230210/5_residues/results/csa3d_0285/"
-                )
+                )  # ty:ignore[invalid-argument-type]
             ).resolve()
         )
 
@@ -51,6 +71,39 @@ class Test_CLI(unittest.TestCase):
             selected_template_dir,
             "-o",
             cls.tempfile.name,
+        ]
+
+        cls.arguments_simple = [
+            "-i",
+            molecule_path,
+            "-t",
+            selected_template_dir,
+            "-o",
+            cls.tempfile.name,
+            "--simple-results",
+        ]
+
+        cls.arguments_simple_with_residues = [
+            "-i",
+            molecule_path,
+            "-t",
+            selected_template_dir,
+            "-o",
+            cls.tempfile.name,
+            "--simple-results",
+            "--per-residue-results",
+        ]
+
+        cls.arguments_simple_with_residues_parquet = [
+            "-i",
+            molecule_path,
+            "-t",
+            selected_template_dir,
+            "-o",
+            cls.tempfile.name,
+            "--simple-results",
+            "--per-residue-results",
+            "--write-parquet",
         ]
 
         cls.arguments_normal_with_pdb = [
@@ -180,6 +233,13 @@ class Test_CLI(unittest.TestCase):
         self.assertEqual(main(self.arguments_unfiltered, stderr=io.StringIO()), 0)
         self.assertEqual(main(self.arguments_list, stderr=io.StringIO()), 0)
         self.assertEqual(main(self.arguments_both, stderr=io.StringIO()), 0)
+        self.assertEqual(main(self.arguments_simple, stderr=io.StringIO()), 0)
+        self.assertEqual(
+            main(self.arguments_simple_with_residues, stderr=io.StringIO()), 0
+        )
+        self.assertEqual(
+            main(self.arguments_simple_with_residues_parquet, stderr=io.StringIO()), 0
+        )
 
         retcode = main(self.bad_argument_1, stderr=io.StringIO())
         self.assertEqual(retcode, errno.ENOENT)
