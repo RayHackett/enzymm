@@ -34,7 +34,7 @@ WORKDIR /app
 COPY --from=build /wheels /wheels
 
 # Install wheels without build tools
-RUN pip install --no-cache-dir /wheels/*
+RUN pip install --no-cache-dir /wheels/*[polars]
 
 ENTRYPOINT ["/bin/bash"]
 # default to enzymm if no args passed

@@ -41,7 +41,7 @@ From: python:3.13-alpine
 
     cd /app
     pip wheel . -w /wheels
-    pip install --no-cache-dir /wheels/*
+    pip install --no-cache-dir /wheels/*.[polars]
 
     apk del build-base python3-dev gcc musl-dev
     rm -rf /wheels
