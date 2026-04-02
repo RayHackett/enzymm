@@ -635,8 +635,7 @@ class MatchResidueTable(BaseTable):
         for q_res, t_res in zip(
             match.matched_residues,
             t.residues,
-            strict=True,
-        ):  # ty:ignore[no-matching-overload]
+        ):
             yield cls.Row(q_res, t_res, match)
 
 

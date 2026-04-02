@@ -14,7 +14,7 @@ COPY pyproject.toml CHANGELOG.md README.md MANIFEST.in LICENSE /app/
 COPY enzymm /app/enzymm
 
 # build wheels into /wheels
-RUN pip wheel . -w /wheels
+RUN pip wheel ".[polars]" -w /wheels
 
 # Stage 2: Runtime stage
 FROM python:3.13-alpine AS run
@@ -34,7 +34,7 @@ WORKDIR /app
 COPY --from=build /wheels /wheels
 
 # Install wheels without build tools
-RUN pip install --no-cache-dir /wheels/*[polars]
+RUN pip install --no-cache-dir --find-links /wheels /wheels/*.whl
 
 ENTRYPOINT ["/bin/bash"]
 # default to enzymm if no args passed

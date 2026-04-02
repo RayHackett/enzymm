@@ -40,8 +40,8 @@ From: python:3.13-alpine
     pip install --upgrade pip setuptools wheel
 
     cd /app
-    pip wheel . -w /wheels
-    pip install --no-cache-dir /wheels/*.[polars]
+    pip wheel ".[polars]" -w /wheels
+    pip install --no-cache-dir --find-links /wheels /wheels/*.whl
 
     apk del build-base python3-dev gcc musl-dev
     rm -rf /wheels
