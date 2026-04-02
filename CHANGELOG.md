@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [v0.3.3] - 2026-03-30
+## [v0.3.3] - 2026-04-02
 [v0.3.3]: https://github.com/rayhackett/enzymm/compare/v0.3.2..v0.3.3
 
 ### Added 
@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Added the ability to write tables to either `.tsv` files or to create a `polars.DataFrame`
 - This `_BaseTable` framework can be easily adapted for different styles!
 - call `Tables.create(kind, matches)` to create your choice of output representation
+- Added CLI flag `--simple-results` to return a simple match results table instead of the full one.
+- Added CLI flag `--per-residue-results` to return residue to annotation mappings table too.
+- Added CLI flag `--write-parquet` to write results tables as parquet files instead of tsvs. Requires polars!
 
 ## [v0.3.2] - 2026-03-18
 [v0.3.2]: https://github.com/rayhackett/enzymm/compare/v0.3.1..v0.3.2
