@@ -40,6 +40,11 @@ jobs:
         run: |
           apptainer build enzymm.sif enzymm_apptainer.def
 
+      - name: Release a Changelog
+        uses: rasmus-saks/release-a-changelog-action@v1.2.0
+        with:
+          github-token: '${{ secrets.GITHUB_TOKEN }}'
+
       - name: Upload SIF to GitHub Release
         uses: softprops/action-gh-release@v1
         with:
