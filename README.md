@@ -81,6 +81,7 @@ $ enzymm -i some_structure.pdb -o results.tsv --pdbs dir_to_save_matches
 
 Additional parameters of interest are:
 
+- `--per-residue-results`, which will return an additional table mapping each matched residue to its original annotation and catalytic role.
 - `--jobs` or `-j`, which controls the number of threads used to parallelize the search.
   By default, it will use one thread less than available on your system using
   [`os.cpu_count`](https://docs.python.org/3/library/os.html#os.cpu_count).
@@ -97,9 +98,19 @@ Please refer to the [Documentation](https://enzymm.readthedocs.io/en/latest/) fo
 
 ## 🖹 Results
 
-`EnzyMM` will create a single output file:
+### Tabular results
+
+`EnzyMM` will create a single output file by default. You can chose between the default full results or a more simple style with fewer columns using the flag `--simple-results`:
 
 - `{output}.tsv`: A `.tsv` file containing a summary of all results. One row is printed per match.
+
+If you pass the `--per-residue-results` flag, `EnzyMM` will additionally create a table with one line per matched residue, mapping each residue to its original annotations.
+
+- `{output}.residues.tsv`: A `.tsv` file containing one row per residue per match.
+
+If you pass the `--parquet` flag, `EnzyMM` will write `.parquet` files instead of `.tsv` files. Note that this additionally requires the [polars](https://pola.rs/) library.
+
+### Aligned Structures
 
 For visual exploration of matches, you can optionally save an alignment of the template and the matched query residues to a `PDB` file which can be viewed with any molecular viewer.
 To do so, supply an output directory after the `--pdbs` flag for the `.pdb` files.
