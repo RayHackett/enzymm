@@ -1,3 +1,4 @@
 dependencies:
-  - python>=3.8
+  - python>=3.9
+  - apptainer
   - nextflow>=25.04.6
