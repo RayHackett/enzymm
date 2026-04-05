@@ -8,9 +8,35 @@ from typing import (
     Any,
     Callable,
     Literal,
+    BinaryIO,
+    TextIO,
+    Union,
 )
 from itertools import islice
 import json
+import contextlib
+import io
+import pathlib
+
+try:
+    from isal import igzip as gzip  # ty:ignore[unresolved-import]
+except ImportError:
+    import gzip  # ty:ignore[invalid-assignment]
+
+try:
+    import lz4.frame  # ty:ignore[unresolved-import]
+except ImportError as err:
+    lz4 = err  # ty:ignore[invalid-assignment]
+
+try:
+    import bz2
+except ImportError as err:
+    bz2 = err  # ty:ignore[invalid-assignment]
+
+try:
+    import lzma
+except ImportError as err:
+    lzma = err  # ty:ignore[invalid-assignment]
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -209,3 +235,42 @@ SPECIAL_AMINO_ACIDS = [
     "ORN",
     "PTM",
 ]
+
+_BZ2_MAGIC = b"BZh"
+_GZIP_MAGIC = b"\x1f\x8b"
+_XZ_MAGIC = b"\xfd7zXZ"
+_LZ4_MAGIC = b"\x04\x22\x4d\x18"
+
+
+@contextlib.contextmanager
+def zopen(path: Union[str, pathlib.Path, BinaryIO]) -> Iterator[TextIO]:
+    """Open a file with optional compression in binary mode."""
+    with contextlib.ExitStack() as ctx:
+        if isinstance(path, (str, pathlib.Path)):
+            file = ctx.enter_context(open(path, "rb"))
+        else:
+            file = ctx.enter_context(
+                io.BufferedReader(path)  # ty:ignore[invalid-argument-type]
+            )
+        peek = file.peek()
+        if peek.startswith(_GZIP_MAGIC):
+            file = ctx.enter_context(gzip.open(file, mode="rt"))
+        elif peek.startswith(_BZ2_MAGIC):
+            if isinstance(bz2, ImportError):
+                raise RuntimeError(
+                    "File compression is LZMA but lzma is not available"
+                ) from lz4
+            file = ctx.enter_context(bz2.open(file, mode="rt"))
+        elif peek.startswith(_XZ_MAGIC):
+            if isinstance(lzma, ImportError):
+                raise RuntimeError(
+                    "File compression is LZMA but lzma is not available"
+                ) from lz4
+            file = ctx.enter_context(lzma.open(file, mode="rt"))
+        elif peek.startswith(_LZ4_MAGIC):
+            if isinstance(lz4, ImportError):
+                raise RuntimeError(
+                    "File compression is LZ4 but python-lz4 is not installed"
+                ) from lz4
+            file = ctx.enter_context(lz4.frame.open(file, mode="rt"))
+        yield file

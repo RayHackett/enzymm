@@ -34,9 +34,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-polars = ["polars"]
+polars = ["polars", "isal"]
 test = [
     "polars",
+    "isal"
 ]
 
 [tool.setuptools.packages.find]

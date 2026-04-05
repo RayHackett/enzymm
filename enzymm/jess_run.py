@@ -42,7 +42,7 @@ except ImportError:
 
 from enzymm.template import Template, Vec3, check_template
 from enzymm.utils import chunks, ranked_argsort, DummyPool
-from enzymm.utils import PROTEINOGENIC_AMINO_ACIDS, SPECIAL_AMINO_ACIDS
+from enzymm.utils import PROTEINOGENIC_AMINO_ACIDS, SPECIAL_AMINO_ACIDS, zopen
 from enzymm.output import Tables, TableKind
 
 __all__ = [
@@ -581,9 +581,24 @@ with (
 
 
 def load_molecules(
-    molecule_paths: List[Path], conservation_cutoff: float = 0
+    molecule_paths: List[Path], conservation_cutoff: float = 0, warn: bool = False
 ) -> List[pyjess.Molecule]:
-    """Load query molecules from a list of paths to PDB or CIF/mmCIF structure files."""
+    """
+    Load query molecules from a list of paths to PDB or CIF/mmCIF structure files.
+
+    Arguments:
+        molecule_paths: `List` of `Path`: List of PDB or CIF structure file paths to load
+        conservation_cutoff: `float`: Load only Atoms with a B-factor above this value
+            Default 0
+        warn: `bool` If warnings about issues during matching should be printed.
+            Default `False`
+
+    Note:
+        This function will try to auto-detect the format of the files (PDB or CIF)
+
+    Note:
+        This function can also handle gz, bz2, lz4 and xz compressed files
+    """
     molecules = []
     stem_counter: Dict[str, int] = collections.defaultdict(int)
     id_counter: Dict[str, int] = collections.defaultdict(int)
@@ -596,11 +611,12 @@ def load_molecules(
         else:
             unique_id = stem
 
-        mol = pyjess.Molecule.load(
-            str(molecule_path),
-            id=None,
-            format="detect",
-        )
+        with zopen(molecule_path) as f:
+            mol = pyjess.Molecule.load(
+                f,
+                id=None,
+                format="detect",
+            )
 
         # NOTE
         # by default it will stop at ENDMDL
@@ -624,7 +640,8 @@ def load_molecules(
                         date=mol.date,
                     )
             else:
-                warnings.warn(f"No id in molecule {stem}!")
+                if warn:
+                    warnings.warn(f"No id in molecule {stem}!")
                 mol = pyjess.Molecule(mol, id=unique_id, name=mol.name, date=mol.date)
 
             molecules.append(

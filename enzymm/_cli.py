@@ -261,6 +261,7 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
         molecules = load_molecules(
             molecule_paths=args.files,
             conservation_cutoff=args.conservation_cutoff,
+            warn=args.warn,
         )
 
         templates = list(
@@ -341,7 +342,6 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
 
         def write_hits2pdb(matches: List[Match], filename: str, outdir: Path):
             # make sure molecule().id is unique!
-            # TODO fix model indx upon multiple calls
             with open(
                 Path(outdir, f"{filename}_matches.pdb"), "a", encoding="utf-8"
             ) as pdbfile:
