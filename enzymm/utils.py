@@ -244,7 +244,7 @@ _LZ4_MAGIC = b"\x04\x22\x4d\x18"
 
 @contextlib.contextmanager
 def zopen(path: Union[str, pathlib.Path, BinaryIO]) -> Iterator[TextIO]:
-    """Open a file with optional compression in binary mode."""
+    """Open a file with optional compression in text mode."""
     with contextlib.ExitStack() as ctx:
         if isinstance(path, (str, pathlib.Path)):
             file = ctx.enter_context(open(path, "rb"))
@@ -273,4 +273,6 @@ def zopen(path: Union[str, pathlib.Path, BinaryIO]) -> Iterator[TextIO]:
                     "File compression is LZ4 but python-lz4 is not installed"
                 ) from lz4
             file = ctx.enter_context(lz4.frame.open(file, mode="rt"))
+        else:
+            file = ctx.enter_context(io.TextIOWrapper(file))
         yield file
