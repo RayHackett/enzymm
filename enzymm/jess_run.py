@@ -50,6 +50,7 @@ __all__ = [
     "ModelEnsemble",
     "Match",
     "Matcher",
+    "load_molecules",
 ]
 
 

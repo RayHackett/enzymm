@@ -5,6 +5,21 @@ API Reference
 
 .. automodule:: enzymm
 
+Input
+-----
+
+.. autosummary::
+    :nosignatures:
+
+    jess_run.load_molecules
+    template.load_templates
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    input
+
 Templates
 ---------
 
