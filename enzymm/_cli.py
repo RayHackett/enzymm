@@ -160,6 +160,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="If set, one pdb file per matched template pdb with will be written in the coordinate system of that template",
     )
     group.add_argument(
+        "--save-transformations",
+        default=False,
+        action="store_true",
+        help="If set, save the 4x4 tansformation matrix in homogeneous coordinates needed to align the query with the template residues as a numpy .npz file.",
+    )
+    group.add_argument(
         "--skip-smaller-hits",
         default=False,
         action="store_true",
@@ -314,6 +320,26 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
             tbl = Tables.create(
                 kind="full", matches=chain(*processed_molecules.values())
             )
+
+        # If the save-transformations flag is set,
+        # write the 4x4 homogeneous coordinate matrix used to transform
+        # the query onto the template coordinate reference frame to an npz file
+        # key is: <match_index>_<query_id>_<template_pdb_id>
+        if args.save_transformations:
+            try:
+                import numpy
+            except ImportError:
+                raise RuntimeError("Numpy is not installed")
+            arrays = {}
+            for query, matches in processed_molecules.items():
+                for match in matches:
+                    identifier = (
+                        f"{match.index}_{query.id}_{match.hit.template().pdb_id}"
+                    )
+                    if identifier in arrays:
+                        raise ValueError("Duplicate Identifier!")
+                    arrays[identifier] = numpy.asarray(match.hit.transformation)
+            numpy.savez(Path(out).with_suffix(".transformations.npz"), **arrays)
 
         # Write the match per row tables as parquet or tsv
         if args.write_parquet:

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 - Added support for reading various types of compressed files with `load_molecules`
+- Added CLI flag `--save-transformations` in order to save the transformation matrix as `.npz` in [homogeneous coordinates](https://en.wikipedia.org/wiki/Homogeneous_coordinates) per match. This requires numpy!
 
 ### Fixed
 - Nextflow pipeline updated to handle output types and CLI changes
