@@ -12,6 +12,15 @@ It will install all dependencies including the library of catalytic templates:
 
     $ pip install --user enzymm
 
+.. tip::
+
+    To let **EnzyMM** read compressed files, write `.parquet`` tables
+    and transformation matrices, install it including optional dependencies with:
+
+    .. code::
+
+        $ pip install --user enzymm[polars]
+
 
 Conda
 ^^^^^

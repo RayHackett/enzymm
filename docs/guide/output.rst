@@ -1,8 +1,14 @@
 EnzyMM Output
 =============
 
-EnzyMM produces a `TSV` table as output.
+By default **EnzyMM** produces a `TSV` table as output.
 Optionally `PDB` structures with matched residues can be written too.
+
+.. tip::
+
+    If you would rather have more compressed and easier to parse output,
+    **EnzyMM** can alternatively write `.parquet` tables if used with the
+    `--write-parquet` flag! This relies on the `polars <https://pola.rs/>`_ library!
 
 .. caution::
 
@@ -132,7 +138,40 @@ A single match in `PDB` format will look like this:
     ATOM   1410  OD1 ASP A 179       1.266  67.144  30.660  1.00 16.59           O 
 
 .. note::
+
     Multiple matches are seperated by `MDL` and `ENDMDL` lines!
+
+🔢 Transformation matrices
+^^^^^^^^^^^^^^^^^^^^^^^
+.. tip::
+
+    If you dont want to save aligned PDB structure files for every match,
+    consider instead saving the 4x4 transformation matrix!
+
+By setting the `--save-transformations` flag, **EnzyMM** will additionally save a
+numpy `.npz` file with the transformation matrix using
+`homogenous coorindates <https://en.wikipedia.org/wiki/Homogeneous_coordinates>`_.
+A transformation matrix encodes the rotation and translation needed to align the
+query structure with the template on the matched residues.
+To later apply the transformation to your original query structure, you can access this
+`.npz` file like a dictionary to retrieve a desired matrix by
+the key `<match_index>_<query_id>_<template_pdb_id>`
+
+.. code-block:: python3
+
+    import pyjess
+    import numpy as np
+
+    transformations = np.load("your_transformations.npz")
+    mol = pyjess.Molecule.load("your_query.pdb")
+    mol.transform(matrix=transformations[f"{match_index}_{mol.id}_{hit.template.pdb_id}"])
+
+.. note::
+
+    You can also invert the transformation matrix and apply it to the template structure
+    to align the template in the reference frame of the query.
+    Simply invert with `numpy.linalg.inv(tfm)`. This is useful for comparing
+    multiple matches with for the same query.
 
 ⚠️ Limitations and Caveats
 ^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -30,7 +30,10 @@ As catalytic sites are both highly conserved and absolutely critical for the fun
 
 As a database driven method, `EnzyMM` is inherently limited by the coverage of residue arrangements in its template library. The provided template library covers nearly the entire M-CSA and thus around 3/4 of enzyme mechanisms classified by the Enzyme Commission to the 3rd level. Catalytic arrangements not found in the PDBe won't be included in the M-CSA. Of course, the user can also provide their own library of templates. While primarily intended for catalytic sites, you are invited to search with your own library of templates.  
 
-For the actual geometric matching `EnzyMM` relies on [PyJess](https://github.com/althonos/pyjess) - a [Cython](https://cython.org/) wrapper of [Jess](https://github.com/iriziotis/jess).
+> [!NOTE]
+> For the actual geometric matching `EnzyMM` relies on
+> [PyJess](https://github.com/althonos/pyjess) - a [Cython](https://cython.org/) wrapper
+>  of [Jess](https://github.com/iriziotis/jess).
 
 If you just want to try `EnzyMM` we provide a webserver at https://www.ebi.ac.uk/thornton-srv/m-csa/enzymm .
 
@@ -73,6 +76,14 @@ apptainer pull oras://ghcr.io/rayhackett/enzymm:latest
 
 Once `EnzyMM` is installed, you can run it from the terminal. The user can either provide a path to a single protein structure `-i` or to run multiple queries at once, the path to a text file `-l` which itself contains a list of paths to protein structures.
 Structures are accepted in both `CIF/mmCIF` and `PDB` file format.
+
+> [!NOTE]
+> The following compressed file formats are supported too:
+> - `.gz`   (gzip, accelerated via isal if available)
+> - `.bz2`  (bzip2)
+> - `.xz`   (lzma)
+> - `.lz4`  (lz4 frame format)
+
 Optionally, an output directory for `PDB` structures of the identified matches per query protein can be supplied with the `--pdbs` flag.
 
 ```bash
@@ -108,7 +119,8 @@ If you pass the `--per-residue-results` flag, `EnzyMM` will additionally create 
 
 - `{output}.residues.tsv`: A `.tsv` file containing one row per residue per match.
 
-If you pass the `--parquet` flag, `EnzyMM` will write `.parquet` files instead of `.tsv` files. Note that this additionally requires the [polars](https://pola.rs/) library.
+> [!TIP]
+> If you pass the `--parquet` flag, `EnzyMM` will write `.parquet` files instead `.tsv` files. Note that this additionally requires the [polars](https://pola.rs/) library.
 
 ### Aligned Structures
 
@@ -124,6 +136,9 @@ In short, `--transform` forces the output into the template reference frame. The
 Add additional information to each `.pdb` file with the following flags:
 - `--include-template`, which also writes the template structure to the `.pdb` file
 - `--include-query`, which also writes the entire query structure to the `.pdb` file
+
+> [!TIP]
+> If you dont want to save the alignemd structures themselves, consider saving the 4x4 transformation matrices for each match instead. Simply set the `--save-transformations` flag, which will save the transformation matrix in [homogenous coordinates](https://en.wikipedia.org/wiki/Homogeneous_coordinates) for each match in a numpy `.npz` file. Requires numpy! <br>
 
 ## 💭 Feedback
 

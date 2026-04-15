@@ -123,7 +123,7 @@ For further information please refer to our scientific preprint of EnzyMM titled
 🔧 Setup
 --------
 
-**EnzyMM** is available for all modern Python versions (3.7+).
+**EnzyMM** is available for all modern Python versions (3.8+).
 
 Run ``pip install enzymm`` in a shell to download the latest release from PyPI,
 or have a look at the :doc:`Installation page <guide/install>` to find other ways 

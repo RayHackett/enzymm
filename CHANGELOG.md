@@ -4,11 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v0.4.0] - 2026-04-15
+[v0.4.0]: https://github.com/rayhackett/enzymm/compare/v0.3.3..v0.4.0
 
 ### Added
 - Added support for reading various types of compressed files with `load_molecules`
+- PyJess now exposes transformation matrices! -> bumped requirement to PyJess 0.10.0
 - Added CLI flag `--save-transformations` in order to save the transformation matrix as `.npz` in [homogeneous coordinates](https://en.wikipedia.org/wiki/Homogeneous_coordinates) per match. This requires numpy!
+- Unittests for compressed files types `.gz`, `.lz4`, `.xz`, `.bz2`
+- Unittests for transformation matrices
 
 ### Fixed
 - Nextflow pipeline updated to handle output types and CLI changes

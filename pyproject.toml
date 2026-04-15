@@ -38,6 +38,7 @@ polars = ["polars", "isal", "numpy"]
 test = [
     "polars",
     "isal",
+    "lz4",
     "numpy",
 ]
 
