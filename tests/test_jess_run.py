@@ -10,6 +10,7 @@ except ImportError:
     from importlib_resources import files as resource_files  # type: ignore
 
 import pyjess
+import numpy
 
 import enzymm
 from enzymm import __version__
@@ -35,9 +36,9 @@ class TestMatch(unittest.TestCase):
             jess_1 = pyjess.Jess([cls.template1])
 
         with resource_files(test_data).joinpath("1AMY.pdb").open() as f:
-            molecule = pyjess.Molecule.load(f)  # ty:ignore[invalid-argument-type]
+            cls.molecule = pyjess.Molecule.load(f)  # ty:ignore[invalid-argument-type]
 
-        query = jess_1.query(molecule, 2, 1.5, 1.5, best_match=True)
+        query = jess_1.query(cls.molecule, 2, 1.5, 1.5, best_match=True)
         best_hits = list(query)
 
         cls.match1 = jess_run.Match(
@@ -54,7 +55,7 @@ class TestMatch(unittest.TestCase):
             cls.template2 = template.AnnotatedTemplate.loads(template_text2, warn=False)
             jess_2 = pyjess.Jess([cls.template2])
 
-        query = jess_2.query(molecule, 2.0, 1.0, 1.0, best_match=True)
+        query = jess_2.query(cls.molecule, 2.0, 1.0, 1.0, best_match=True)
         best_hits = list(query)
 
         cls.match2 = jess_run.Match(hit=best_hits[0], pairwise_distance=1.0)
@@ -160,6 +161,35 @@ class TestMatch(unittest.TestCase):
             self.match2.matched_residues,
             [("TRP", "A", "38"), ("HIS", "A", "288"), ("ASP", "A", "289")],
         )
+
+    def test_tfm(self):
+        # test the transformation matrix
+        expected_tfm = numpy.array(
+            [
+                [0.90385903, 0.39426385, 0.16611706, 18.85708649],
+                [0.3477188, -0.45075881, -0.82213632, 90.1209215],
+                [-0.2492599, 0.80085736, -0.54451537, -21.38900405],
+                [
+                    0,
+                    0,
+                    0,
+                    1,
+                ],
+            ]
+        )
+        got_tfm = numpy.asarray(self.match1.hit.transformation)
+        self.assertTrue(numpy.allclose(expected_tfm, got_tfm))
+        self.assertTrue(
+            numpy.allclose(
+                numpy.asarray(self.match1.hit.inverse_transformation),
+                numpy.linalg.inv(expected_tfm),
+            )
+        )
+
+        tfm_mol = self.molecule.transform(got_tfm)  # ty:ignore[invalid-argument-type]
+        self.assertAlmostEqual(tfm_mol[0].x, 46.59270033179604)
+        self.assertAlmostEqual(tfm_mol[0].y, 55.9905432060407)
+        self.assertAlmostEqual(tfm_mol[0].z, 6.5389174388503974)
 
     def test_match_tsv_write(self):
         buffer = io.StringIO()
