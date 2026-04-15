@@ -10,6 +10,8 @@ try:
 except ImportError:
     from importlib_resources import files as resource_files  # type: ignore
 
+import numpy
+
 import enzymm
 from enzymm._cli import main
 from . import test_data
@@ -81,6 +83,16 @@ class Test_CLI(unittest.TestCase):
             "-o",
             cls.tempfile.name,
             "--simple-results",
+        ]
+
+        cls.arguments_with_tfm = [
+            "-i",
+            molecule_path,
+            "-t",
+            selected_template_dir,
+            "-o",
+            cls.tempfile.name,
+            "--save-transformations",
         ]
 
         cls.arguments_simple_with_residues = [
@@ -255,6 +267,15 @@ class Test_CLI(unittest.TestCase):
             main(self.bad_argument_6, stderr=io.StringIO())
         with self.assertRaises(ValueError):
             main(self.arguments_bad_unfiltered, stderr=io.StringIO())
+
+    def test_writing_tfms(self):
+        self.assertEqual(main(self.arguments_with_tfm, stderr=io.StringIO()), 0)
+        tfm_path = Path(self.tempfile.name).with_suffix(".transformations.npz")
+        self.assertTrue(tfm_path.is_file())
+
+        tfm = numpy.load(tfm_path)["1_1AMY_1uh3"]
+        self.assertIsInstance(tfm, numpy.ndarray)
+        self.assertEqual(tfm.shape, (4, 4))
 
     def test_writing_pdbs_query_ref(self):
         main(self.arguments_normal_with_pdb, stderr=io.StringIO())
