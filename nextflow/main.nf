@@ -24,7 +24,8 @@ process matching {
         path("${ meta.id }.parquet"),
         path("${ meta.id }.residues.parquet"), 
         path("${ meta.id }.tsv"),
-        path("${ meta.id }.residues.tsv")
+        path("${ meta.id }.residues.tsv"),
+        path("${ meta.id }.transformations.npz")
     )
 
     script:
@@ -38,6 +39,7 @@ process matching {
     if (params.skip_annotation)        args << "--skip-annotation"
     if (params.unfiltered)             args << "--unfiltered"
     if (params.write_parquet)          args << "--write-parquet"
+    if (params.save_transformations)   args << "--save-transformations"
     if (params.simple_results)         args << "--simple-results"
     if (params.per_residue_results)    args << "--per-residue-results"
 
@@ -56,6 +58,7 @@ process matching {
     touch ${ meta.id }.residues.tsv
     touch ${ meta.id }.parquet
     touch ${ meta.id }.tsv
+    touch ${ meta.id }.transformations.npz
     """
 }
 
@@ -87,6 +90,46 @@ process merge_parquet {
 
     if files:
         polars.scan_parquet(files).sink_parquet("merged.${ meta.type }.parquet")
+    EOF
+    """
+}
+
+process merge_npz {
+
+    tag { meta.id }
+
+    publishDir params.outdir, mode: 'copy'
+
+    input:
+    tuple(
+        val(meta),
+        path(tfms)
+    )
+
+    output:
+    tuple(
+        val(meta),
+        path("merged.${ meta.type }.npz")
+    )
+
+    script:
+    """
+    python - <<'EOF'
+    import numpy as np
+    from pathlib import Path
+
+    files = [str(p) for p in Path('.').glob("*${ meta.type }.npz")]
+
+    if files:
+        merged = {}
+        for f in files:
+            data = np.load(f)
+            for key in data.files:
+                if key in merged:
+                    raise ValueError(f"Duplicate key found: {key}")
+                merged[key] = data[key]
+
+        np.savez("merged.${ meta.type }.npz", **merged)
     EOF
     """
 }
@@ -138,20 +181,24 @@ workflow {
     }
     .groupTuple(by: 0)
 
-    parquet_ch = merged_ch.map { key, parquet, residue_parquet, tsv, residue_tsv ->
+    parquet_ch = merged_ch.map { key, parquet, residue_parquet, tsv, residue_tsv, tfm ->
         tuple([id: key.id, type: 'results'], parquet)
     }
 
-    res_parquet_ch = merged_ch.map { key, parquet, residue_parquet, tsv, residue_tsv ->
+    res_parquet_ch = merged_ch.map { key, parquet, residue_parquet, tsv, residue_tsv, tfm ->
         tuple([id: key.id, type: 'residues'], residue_parquet)
     }
 
-    tsv_ch = merged_ch.map { key, parquet, residue_parquet, tsv, residue_tsv ->
+    tsv_ch = merged_ch.map { key, parquet, residue_parquet, tsv, residue_tsv, tfm ->
         tsv
     }
 
-    res_tsv_ch = merged_ch.map { key, parquet, residue_parquet, tsv, residue_tsv ->
+    res_tsv_ch = merged_ch.map { key, parquet, residue_parquet, tsv, residue_tsv, tfm ->
         residue_tsv
+    }
+
+    tfm_ch = merged_ch.map { key, parquet, residue_parquet, tsv, residue_tsv, tfm ->
+        tuple([id: key.id, type: 'transformations'], tfm)
     }
 
     // merge parquet outputs
@@ -172,5 +219,9 @@ workflow {
             publish_ch = publish_ch.mix(merged_residue_tsv)
         }
         publish_tsv(publish_ch)
+    }
+
+    if (params.save_transformations) {
+        merge_npz(tfm_ch)
     }
 }
