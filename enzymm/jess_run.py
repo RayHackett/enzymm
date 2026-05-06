@@ -681,6 +681,10 @@ def load_molecules(
                 "Received no molecules from -i or -l input!"
             ) from None
 
+        # NOTE it makes sense to have this fn materialize molecules into a list
+        # Later we feed the molecules into itertools.product which materializes anyway
+        # making this return an interatable works but ends up being slower
+
         return molecules
 
 
