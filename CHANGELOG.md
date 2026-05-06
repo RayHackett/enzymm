@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+- added optional `console` argument and progress bar to `load_molecules` function
+- Added support for `--save-transformations` to the nextflow workflow too
+
+### Fixed
+- If using though the CLI, progess bars will only show up if used on a list of structures passed with the `-l` flag
+
 ## [v0.4.0] - 2026-04-15
 [v0.4.0]: https://github.com/rayhackett/enzymm/compare/v0.3.3..v0.4.0
 
