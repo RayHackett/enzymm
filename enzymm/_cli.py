@@ -264,10 +264,13 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
         }
 
     try:
+        console = rich.console.Console(file=stderr, quiet=not len(args.files) > 1)
+
         molecules = load_molecules(
             molecule_paths=args.files,
             conservation_cutoff=args.conservation_cutoff,
             warn=args.warn,
+            console=console,
         )
 
         templates = list(
@@ -289,7 +292,7 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
             match_small_templates=args.match_small_templates,
             cpus=args.jobs,
             filter_matches=not args.unfiltered,
-            console=rich.console.Console(file=stderr),
+            console=console,
         )
 
         ############ Call Matcher.run ##########################################
@@ -306,10 +309,11 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
             warnings.warn(f"The output file {out.resolve()} will be overwritten!")
 
         if args.verbose:
-            print(f"Writing output to {out.resolve()}")
             print(
                 f"Matches predicted by logistic regression as false are {'' if args.unfiltered else 'not '}reported"
             )
+
+        console.print(f"Writing output to {out.resolve()} ...")
 
         # Create the match per row tables in either simple or full style (default full)
         if args.simple_results:

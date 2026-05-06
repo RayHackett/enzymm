@@ -582,7 +582,10 @@ with (
 
 
 def load_molecules(
-    molecule_paths: List[Path], conservation_cutoff: float = 0, warn: bool = False
+    molecule_paths: List[Path],
+    conservation_cutoff: float = 0,
+    warn: bool = False,
+    console: Optional[rich.console.Console] = None,
 ) -> List[pyjess.Molecule]:
     """
     Load query molecules from a list of paths to PDB or CIF/mmCIF structure files.
@@ -600,64 +603,85 @@ def load_molecules(
     Note:
         This function can also handle gz, bz2, lz4 and xz compressed files
     """
+
+    if console is None:
+        console = rich.console.Console(quiet=True)
+
     molecules = []
     stem_counter: Dict[str, int] = collections.defaultdict(int)
     id_counter: Dict[str, int] = collections.defaultdict(int)
-    for molecule_path in molecule_paths:
-        stem = Path(molecule_path).stem
-        stem_counter[stem] += 1
-        if stem_counter[stem] > 1:
-            # In case the same stem occurs multiple times, create a unique ID using the stem and a running number starting from 2
-            unique_id = f"{stem}_{stem_counter[stem]}"
-        else:
-            unique_id = stem
 
-        with zopen(molecule_path) as f:
-            mol = pyjess.Molecule.load(
-                f,
-                id=None,
-                format="detect",
-            )
+    with Progress(
+        SpinnerColumn(),
+        *Progress.get_default_columns(),
+        TimeElapsedColumn(),
+        StructuresColumn(),
+        console=console,
+    ) as progress:
 
-        # NOTE
-        # by default it will stop at ENDMDL
-        # atom and residue numbers will use the automatically assigned numbers
-        # cif or pdb file format should be auto detected.
-        # HETATM records will not be skipped!
-
-        if mol:
-            if conservation_cutoff:
-                mol = mol.conserved(conservation_cutoff)
-                # that returns a filtered molecule
-                # atoms with a B-factor BELOW the conservation cutoff will be excluded
-
-            if mol.id is not None:
-                id_counter[mol.id] += 1
-                if id_counter[mol.id] > 1:
-                    mol = pyjess.Molecule(
-                        mol,
-                        id=f"{stem}_{id_counter[mol.id]}",
-                        name=mol.name,
-                        date=mol.date,
-                    )
+        for molecule_path in progress.track(
+            molecule_paths,
+            total=len(molecule_paths),
+            description="Loading Structures",
+        ):
+            stem = Path(molecule_path).stem
+            stem_counter[stem] += 1
+            if stem_counter[stem] > 1:
+                # In case the same stem occurs multiple times, create a unique ID using the stem and a running number starting from 2
+                unique_id = f"{stem}_{stem_counter[stem]}"
             else:
-                if warn:
-                    warnings.warn(f"No id in molecule {stem}!")
-                mol = pyjess.Molecule(mol, id=unique_id, name=mol.name, date=mol.date)
+                unique_id = stem
 
-            molecules.append(
-                mol
-            )  # load a molecule and filter it by conservation_cutoff
+            with zopen(molecule_path) as f:
+                mol = pyjess.Molecule.load(
+                    f,
+                    id=None,
+                    format="detect",
+                )
 
-        else:
-            raise ValueError(
-                f"Received an empty molecule from {molecule_path}. Is this file in PDB or CIF/mmCIF format?"
+            # NOTE
+            # by default it will stop at ENDMDL
+            # atom and residue numbers will use the automatically assigned numbers
+            # cif or pdb file format should be auto detected.
+            # HETATM records will not be skipped!
+
+            if mol:
+                if conservation_cutoff:
+                    mol = mol.conserved(conservation_cutoff)
+                    # that returns a filtered molecule
+                    # atoms with a B-factor BELOW the conservation cutoff will be excluded
+
+                if mol.id is not None:
+                    id_counter[mol.id] += 1
+                    if id_counter[mol.id] > 1:
+                        mol = pyjess.Molecule(
+                            mol,
+                            id=f"{stem}_{id_counter[mol.id]}",
+                            name=mol.name,
+                            date=mol.date,
+                        )
+                else:
+                    if warn:
+                        warnings.warn(f"No id in molecule {stem}!")
+                    mol = pyjess.Molecule(
+                        mol, id=unique_id, name=mol.name, date=mol.date
+                    )
+
+                molecules.append(
+                    mol
+                )  # load a molecule and filter it by conservation_cutoff
+
+            else:
+                raise ValueError(
+                    f"Received an empty molecule from {molecule_path}. Is this file in PDB or CIF/mmCIF format?"
+                ) from None
+
+        if not molecules:
+            raise FileNotFoundError(
+                "Received no molecules from -i or -l input!"
             ) from None
 
-    if not molecules:
-        raise FileNotFoundError("Received no molecules from -i or -l input!") from None
-
-    return molecules
+        return molecules
 
 
 @dataclass
