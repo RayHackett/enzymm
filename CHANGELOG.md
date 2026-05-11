@@ -7,7 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## Unreleased
 
 ### Added
-- added optional `console` argument and progress bar to `load_molecules` function
+- Added optional `console` argument and progress bar to `load_molecules` function
+- Added progress bar for indexing found matches to query structures
 - Added support for `--save-transformations` to the nextflow workflow too
 
 ### Fixed

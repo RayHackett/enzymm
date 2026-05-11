@@ -1129,25 +1129,36 @@ class Matcher:
                 pool.starmap(_process, itertools.product(job_batches, query_molecules))
             )
 
-        # this is to reverse the itertools product
-        for (_, qmol), matches in zip(
-            itertools.product(job_batches, query_molecules),
-            results,
-        ):
-            if matches:
-                # # NOTE
-                # # due to parallelism some smaller results might have get computed
-                # # and will not be skipped. These run at no extra time cost
-                # # to clean those up too, uncomment this
-                # if self.skip_smaller_hits:
-                #     matches = [
-                #         match for match in matches
-                #         if match.hit.template.effective_size == qmol.hit_size
-                #     ]
-                for i, match in enumerate(matches):
-                    # 1-based index for matches to each query molecule
-                    match.index = len(processed_molecules[qmol.molecule]) + i + 1
-                processed_molecules[qmol.molecule].extend(matches)
+        with Progress(
+            SpinnerColumn(),
+            *Progress.get_default_columns(),
+            TimeElapsedColumn(),
+            console=self.console,
+        ) as progress:
+
+            # this is to reverse the itertools product
+            for (_, qmol), matches in progress.track(
+                zip(
+                    itertools.product(job_batches, query_molecules),
+                    results,
+                ),
+                total=len(job_batches) * len(query_molecules),
+                description="Sorting matches",
+            ):
+                if matches:
+                    # # NOTE
+                    # # due to parallelism some smaller results might have get computed
+                    # # and will not be skipped. These run at no extra time cost
+                    # # to clean those up too, uncomment this
+                    # if self.skip_smaller_hits:
+                    #     matches = [
+                    #         match for match in matches
+                    #         if match.hit.template.effective_size == qmol.hit_size
+                    #     ]
+                    for i, match in enumerate(matches):
+                        # 1-based index for matches to each query molecule
+                        match.index = len(processed_molecules[qmol.molecule]) + i + 1
+                    processed_molecules[qmol.molecule].extend(matches)
 
         return processed_molecules
 

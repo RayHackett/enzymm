@@ -309,7 +309,7 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
             warnings.warn(f"The output file {out.resolve()} will be overwritten!")
 
         if args.verbose:
-            print(
+            console.print(
                 f"Matches predicted by logistic regression as false are {'' if args.unfiltered else 'not '}reported"
             )
 
