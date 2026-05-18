@@ -1,4 +1,4 @@
-<img align="right" width="250" height="250" src="https://raw.githubusercontent.com/RayHackett/enzymm/main/docs/guide/images/enzymm-icon.png">
+<img align="right" width="200" height="200" style="background-color: white;" src="https://raw.githubusercontent.com/RayHackett/enzymm/main/docs/guide/images/enzymm-icon.png">
 
 # EnzyMM - The Enzyme Motif Miner [![Star me](https://img.shields.io/github/stars/rayhackett/enzymm.svg?style=social&label=Star&maxAge=3600)](https://github.com/rayhackett/enzymm/stargazers)
 
