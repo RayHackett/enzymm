@@ -1,3 +1,4 @@
+<img align="right" width="250" height="250" src="https://github.com/RayHackett/enzymm/tree/main/docs/guide/images/enzymm-icon.png">
 
 # EnzyMM - The Enzyme Motif Miner [![Star me](https://img.shields.io/github/stars/rayhackett/enzymm.svg?style=social&label=Star&maxAge=3600)](https://github.com/rayhackett/enzymm/stargazers)
 
@@ -23,6 +24,8 @@
 📚 Full documentation is availabe here: https://enzymm.readthedocs.io/en/latest/
 
 ## ️Overview
+
+<img align="center" height="400" src="https://github.com/RayHackett/enzymm/tree/main/docs/guide/images/enzymm-abstract.png">
 
 Enzyme Motif Miner uses geometric template matching to identify known arrangements of catalytic residues called templates in protein structures. It searches protein structures provided by the user against a database of templates. `EnzyMM` ships with a library of catalytic templates derived from the [Mechanism and Catalytic Site Atlas](https://www.ebi.ac.uk/thornton-srv/m-csa/) (M-CSA) but you can also generate your own. These templates represent consensus arrangements of catalytic sites found in active sites of experimental protein structures.   
 

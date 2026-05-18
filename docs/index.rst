@@ -16,7 +16,11 @@ EnzyMM - The Enzyme Motif Miner |Stars|
    :target: https://github.com/rayhackett/enzymm/stargazers
    :class: dark-light
 
-*Identify catalytic sites in protein structures with the Enzyme Motif Miner!*
+.. image:: guide/images/enzymm-icon.png
+    :width: 150pt
+    :align: right
+
+*Identify catalytic sites in protein structures!*
 
 |Actions| |Coverage| |PyPI| |Wheel| |Docker| |Apptainer| |Versions| |versions| |License| |Source| |Issues| |Docs| |Changelog| |Downloads| |Preprint| 
 
@@ -90,6 +94,12 @@ Overview
 **EnzyMM** is a Python tool to identify known patterns of catalytic residues in protein structures.
 We also provide a webserver where you can run **EnzyMM** on single queries
 `here <https://www.ebi.ac.uk/thornton-srv/m-csa/enzymm>`_.
+
+.. image:: guide/images/enzymm-abstract.png
+    :width: 100%
+    :align: center
+    
+|  
 
 Catalytic sites, which define the function of proteins, are among the most conserved
 parts of enzyme structures. It makes sense therefore, that their similarities can be

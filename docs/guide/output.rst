@@ -142,7 +142,7 @@ A single match in `PDB` format will look like this:
     Multiple matches are seperated by `MDL` and `ENDMDL` lines!
 
 🔢 Transformation matrices
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. tip::
 
     If you dont want to save aligned PDB structure files for every match,
