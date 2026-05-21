@@ -88,6 +88,10 @@ EnzyMM - The Enzyme Motif Miner |Stars|
    :target: https://doi.org/10.64898/2026.02.10.705182
    :class: dark-light
 
+.. |Citations| image:: https://api.juleskreuer.eu/citation-badge.php?doi=10.64898/2026.02.10.705182&style=flat&maxAge=3600
+   :target: https://scholar.google.com/citations?view_op=view_citation&hl=en&user=9YIYn0oAAAAJ&citation_for_view=9YIYn0oAAAAJ:d1gkVwhDpl0C
+   :class dark-light
+
 Overview
 --------
 

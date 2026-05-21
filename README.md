@@ -1,12 +1,15 @@
-<img align="right" width="200" height="200" src="https://raw.githubusercontent.com/RayHackett/enzymm/main/docs/guide/images/enzymm-icon.png">
-
-# EnzyMM - The Enzyme Motif Miner [![Star me](https://img.shields.io/github/stars/rayhackett/enzymm.svg?style=social&label=Star&maxAge=3600)](https://github.com/rayhackett/enzymm/stargazers)
+<img
+  src="https://raw.githubusercontent.com/RayHackett/enzymm/main/docs/guide/images/enzymm-logo.svg"
+  align="right"
+  width="200"
+  class="dark-light"
+  alt="EnzyMM logo"
+/>
 
 [![Actions](https://img.shields.io/github/actions/workflow/status/RayHackett/enzymm/test.yml?branch=main&style=flat&maxAge=300)](https://github.com/RayHackett/Enzymm/actions/workflows/test.yml)
 [![Coverage](https://img.shields.io/codecov/c/gh/rayhackett/enzymm?logo=codecov&style=flat&maxAge=3600)](https://codecov.io/gh/rayhackett/enzymm/)
 [![version](https://img.shields.io/github/v/tag/rayhackett/enzymm?label=version&sort=semver)](https://github.com/rayhackett/enzymm/tags)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat&maxAge=2678400)](https://choosealicense.com/licenses/mit/)
-[![Source](https://img.shields.io/badge/source-GitHub-303030.svg?maxAge=2678400&style=flat)](https://github.com/RayHackett/enzymm/)
 [![Changelog](https://img.shields.io/badge/keep%20a-changelog-green.svg?maxAge=2678400&style=flat)](https://github.com/rayHackett/enzymm/blob/main/CHANGELOG.md)
 [![Docs](https://img.shields.io/readthedocs/enzymm/latest?style=flat&maxAge=600)](https://enzymm.readthedocs.io)
 [![Issues](https://img.shields.io/github/issues/RayHackett/enzymm.svg?style=flat&maxAge=600)](https://github.com/RayHackett/enzymm/issues)
@@ -18,12 +21,11 @@
 [![Apptainer](https://img.shields.io/badge/Apptainer-SIF-blue?logo=apptainer&style=flat)](https://github.com/rayhackett/enzymm/releases/latest)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/enzymm?period=total&units=INTERNATIONAL_SYSTEM&left_color=grey&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/enzymm)
 [![Preprint](https://img.shields.io/badge/preprint-bioRxiv-firebrick?style=flat&maxAge=86400)](https://doi.org/10.64898/2026.02.10.705182)
-<!-- [![Citations](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fbadge.dimensions.ai%2Fdetails%2Fid%2Fpub.1147419140%2Fmetadata.json&query=%24.times_cited&style=flat&label=citations&maxAge=86400)](https://badge.dimensions.ai/details/id/pub.1147419140) -->
+[![Citation Badge](https://api.juleskreuer.eu/citation-badge.php?doi=10.64898/2026.02.10.705182&style=flat&maxAge=3600)](https://scholar.google.com/citations?view_op=view_citation&hl=en&user=9YIYn0oAAAAJ&citation_for_view=9YIYn0oAAAAJ:d1gkVwhDpl0C)
 <!-- [![AUR](https://img.shields.io/aur/version/python-pyhmmer?logo=archlinux&style=flat&maxAge=3600)](https://aur.archlinux.org/packages/python-pyhmmer) -->
+<!-- [![Source](https://img.shields.io/badge/source-GitHub-303030.svg?maxAge=2678400&style=flat)](https://github.com/RayHackett/enzymm/) -->
 
-📚 Full documentation is availabe here: https://enzymm.readthedocs.io/en/latest/
-
-## ️Overview
+# EnzyMM - The Enzyme Motif Miner [![Star me](https://img.shields.io/github/stars/rayhackett/enzymm.svg?style=social&label=Star&maxAge=3600)](https://github.com/rayhackett/enzymm/stargazers)
 
 <img align="center" height="400" src="https://raw.githubusercontent.com/RayHackett/enzymm/main/docs/guide/images/enzymm-abstract.png">
 
@@ -38,8 +40,13 @@ As a database driven method, `EnzyMM` is inherently limited by the coverage of r
 > [PyJess](https://github.com/althonos/pyjess) - a [Cython](https://cython.org/) wrapper
 >  of [Jess](https://github.com/iriziotis/jess).
 
+## 🌐 Webserver
+
 If you just want to try `EnzyMM` we provide a webserver at https://www.ebi.ac.uk/thornton-srv/m-csa/enzymm .
 
+## 📚 Documentation
+
+Full documentation is availabe here: https://enzymm.readthedocs.io/en/latest/
 
 ## 🔧 Installing EnzyMM
 
