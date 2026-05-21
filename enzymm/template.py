@@ -467,7 +467,13 @@ class Residue(Iterable[pyjess.TemplateAtom], Sized):
             "TYR": "Y",
             "XXX": "X",
         }
-        return "".join(set(convert_to_single[i] for i in self.atoms[0].residue_names))
+        return "".join(
+            set(
+                convert_to_single[i]
+                for i in self.atoms[0].residue_names
+                if i in convert_to_single.keys()
+            )
+        )
 
     @property
     def specific(self) -> bool:

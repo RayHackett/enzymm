@@ -258,14 +258,14 @@ def zopen(path: Union[str, pathlib.Path, BinaryIO]) -> Iterator[TextIO]:
         elif peek.startswith(_BZ2_MAGIC):
             if isinstance(bz2, ImportError):
                 raise RuntimeError(
-                    "File compression is LZMA but lzma is not available"
-                ) from lz4
+                    "File compression is bzip2 but bz2 is not available"
+                ) from bz2
             file = ctx.enter_context(bz2.open(file, mode="rt"))
         elif peek.startswith(_XZ_MAGIC):
             if isinstance(lzma, ImportError):
                 raise RuntimeError(
                     "File compression is LZMA but lzma is not available"
-                ) from lz4
+                ) from lzma
             file = ctx.enter_context(lzma.open(file, mode="rt"))
         elif peek.startswith(_LZ4_MAGIC):
             if isinstance(lz4, ImportError):

@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 - If using though the CLI, progess bars will only show up if used on a list of structures passed with the `-l` flag
+- Calling allowed_residues on residues which have a non-canonical three letter code, now corretly returns the rest, ignoring the non-canonical ones.
 
 ## [v0.4.0] - 2026-04-15
 [v0.4.0]: https://github.com/rayhackett/enzymm/compare/v0.3.3..v0.4.0
