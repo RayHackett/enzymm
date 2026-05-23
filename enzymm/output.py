@@ -142,7 +142,6 @@ class FullMatchTable(BaseTable):
         return [
             "query_id",
             "pairwise_distance",
-            "match_index",
             "template_pdb_id",
             "template_pdb_chains",
             "template_cluster_id",
@@ -182,7 +181,6 @@ class FullMatchTable(BaseTable):
         return {
             "query_id": polars.Utf8,
             "pairwise_distance": polars.Float64,
-            "match_index": polars.UInt32,
             "template_pdb_id": polars.Utf8,
             "template_pdb_chains": polars.List(polars.Utf8),
             "template_cluster_id": polars.UInt8,
@@ -239,7 +237,6 @@ class FullMatchTable(BaseTable):
             base = [
                 self.match.hit.molecule().id,
                 self.match.pairwise_distance,
-                self.match.index,
                 t.pdb_id,
                 list({r.chain_id for r in t.residues}),
                 c.id,
@@ -286,7 +283,6 @@ class FullMatchTable(BaseTable):
             base = [
                 str(self.match.hit.molecule().id),
                 str(self.match.pairwise_distance),
-                str(self.match.index),
                 str(t.pdb_id or ""),
                 ",".join({r.chain_id for r in t.residues}),
                 str(c.id if c else ""),
@@ -505,7 +501,6 @@ class MatchResidueTable(BaseTable):
         """Return a `list` of `str` of column names for the `MatchResidueTable`"""
         return [
             "query_id",
-            "match_index",
             "query_residue",
             "template_pdb_id",
             "template_residue",
@@ -522,7 +517,6 @@ class MatchResidueTable(BaseTable):
 
         return {
             "query_id": polars.Utf8,
-            "match_index": polars.UInt32,
             "query_residue": polars.Struct(
                 [
                     polars.Field("res", polars.Utf8),
@@ -569,7 +563,6 @@ class MatchResidueTable(BaseTable):
         def row(self) -> List[Any]:
             row = [
                 str(self.match.hit.molecule().id),
-                self.match.index,
                 self.to_res_struct((self.q_res[0], self.q_res[1], self.q_res[2])),
                 self.match.hit.template().pdb_id,
                 self.to_res_struct(
@@ -598,7 +591,6 @@ class MatchResidueTable(BaseTable):
         def row_str(self) -> List[str]:
             row = [
                 str(self.match.hit.molecule().id),
-                str(self.match.index),
                 "_".join((self.q_res[0], self.q_res[1], self.q_res[2])),
                 self.match.hit.template().pdb_id,
                 "_".join(

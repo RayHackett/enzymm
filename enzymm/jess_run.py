@@ -254,7 +254,6 @@ class Match:
         pairwise_distance: `float` Pairwise distance at which this match was found
         complete: `bool` If the query matched all other templates within the same
             cluster. Default False
-        index: `int` internal index of this match. Default 0
 
     NOTE:
         To get the matched atoms, iterate over `Match.hit.atoms(transform: bool)`
@@ -265,7 +264,6 @@ class Match:
 
     hit: pyjess.Hit
     pairwise_distance: float
-    index: int = 0
     complete: bool = False
     ensemble_model: ClassVar[ModelEnsemble]
 
@@ -276,7 +274,6 @@ class Match:
                 hit=self.hit,
                 complete=self.complete,
                 pairwise_distance=self.pairwise_distance,
-                index=self.index,
                 # we skip the _logistic_regression_models since it is a ClassVar
             ),
             (),
@@ -331,9 +328,7 @@ class Match:
             By default, atoms are written in the coordinate reference frame of
             the query.
         """
-        file.write(
-            f"REMARK {self.predicted_correct} MATCH {self.hit.molecule().id} {self.index}\n"
-        )
+        file.write(f"REMARK {self.predicted_correct} MATCH {self.hit.molecule().id}\n")
 
         if transform:
             file.write("REMARK TEMPLATE COORDINATE FRAME\n")
@@ -355,7 +350,6 @@ class Match:
         if template.represented_sites:
             file.write(f"REMARK TEMPLATE RESIDUES {template.template_id_string}\n")
         file.write(f"REMARK MOLECULE_ID {str(self.hit.molecule().id)}\n")
-        file.write(f"REMARK MATCH INDEX {self.index}\n")
 
         self.hit.dump(file=file, format="pdb", transform=transform)
 
@@ -1129,36 +1123,40 @@ class Matcher:
                 pool.starmap(_process, itertools.product(job_batches, query_molecules))
             )
 
-        with Progress(
-            SpinnerColumn(),
-            *Progress.get_default_columns(),
-            TimeElapsedColumn(),
-            console=self.console,
-        ) as progress:
+        for (_, qmol), matches in zip(
+            itertools.product(job_batches, query_molecules),
+            results,
+        ):
+            if matches:
+                processed_molecules[qmol.molecule].extend(matches)
 
-            # this is to reverse the itertools product
-            for (_, qmol), matches in progress.track(
-                zip(
-                    itertools.product(job_batches, query_molecules),
-                    results,
-                ),
-                total=len(job_batches) * len(query_molecules),
-                description="Sorting matches",
-            ):
-                if matches:
-                    # # NOTE
-                    # # due to parallelism some smaller results might have get computed
-                    # # and will not be skipped. These run at no extra time cost
-                    # # to clean those up too, uncomment this
-                    # if self.skip_smaller_hits:
-                    #     matches = [
-                    #         match for match in matches
-                    #         if match.hit.template.effective_size == qmol.hit_size
-                    #     ]
-                    for i, match in enumerate(matches):
-                        # 1-based index for matches to each query molecule
-                        match.index = len(processed_molecules[qmol.molecule]) + i + 1
-                    processed_molecules[qmol.molecule].extend(matches)
+        # with Progress(
+        #     SpinnerColumn(),
+        #     *Progress.get_default_columns(),
+        #     TimeElapsedColumn(),
+        #     console=self.console,
+        # ) as progress:
+
+        #     # this is to reverse the itertools product
+        #     for (_, qmol), matches in progress.track(
+        #         zip(
+        #             itertools.product(job_batches, query_molecules),
+        #             results,
+        #         ),
+        #         total=len(job_batches) * len(query_molecules),
+        #         description="Sorting matches",
+        #     ):
+        #         if matches:
+        #             # # NOTE
+        #             # # due to parallelism some smaller results might have get computed
+        #             # # and will not be skipped. These run at no extra time cost
+        #             # # to clean those up too, uncomment this
+        #             # if self.skip_smaller_hits:
+        #             #     matches = [
+        #             #         match for match in matches
+        #             #         if match.hit.template.effective_size == qmol.hit_size
+        #             #     ]
+        #             processed_molecules[qmol.molecule].extend(matches)
 
         return processed_molecules
 

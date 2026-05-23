@@ -273,7 +273,9 @@ class Test_CLI(unittest.TestCase):
         tfm_path = Path(self.tempfile.name).with_suffix(".transformations.npz")
         self.assertTrue(tfm_path.is_file())
 
-        tfm = numpy.load(tfm_path)["1_1AMY_1uh3"]
+        tfm = numpy.load(tfm_path)[
+            "5-residues-1uh3_A396-A262-A356-A471-A472_cluster_1-1-1_1AMY"
+        ]
         self.assertIsInstance(tfm, numpy.ndarray)
         self.assertEqual(tfm.shape, (4, 4))
 

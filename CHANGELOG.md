@@ -8,8 +8,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 - Added optional `console` argument and progress bar to `load_molecules` function
-- Added progress bar for indexing found matches to query structures
 - Added support for `--save-transformations` to the nextflow workflow too
+
+## Fixed
+- Improved README
+
+## Changed
+- **breaking** removed match.index attribute
+- **breaking** key for transformation matrix in transformations.npz output is now `<template_id>_<query_id>`
 
 ### Fixed
 - If using though the CLI, progess bars will only show up if used on a list of structures passed with the `-l` flag

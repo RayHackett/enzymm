@@ -337,9 +337,7 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
             arrays = {}
             for query, matches in processed_molecules.items():
                 for match in matches:
-                    identifier = (
-                        f"{match.index}_{query.id}_{match.hit.template().pdb_id}"
-                    )
+                    identifier = f"{match.hit.template().id}_{query.id}"
                     if identifier in arrays:
                         raise ValueError("Duplicate Identifier!")
                     arrays[identifier] = numpy.asarray(match.hit.transformation)

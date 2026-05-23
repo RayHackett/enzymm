@@ -42,7 +42,9 @@ class TestMatch(unittest.TestCase):
         best_hits = list(query)
 
         cls.match1 = jess_run.Match(
-            hit=best_hits[0], pairwise_distance=1.5, complete=True, index=0
+            hit=best_hits[0],
+            pairwise_distance=1.5,
+            complete=True,
         )
 
         with open(
@@ -64,7 +66,6 @@ class TestMatch(unittest.TestCase):
 
     def test_match(self):
         self.assertEqual(self.match1.hit.molecule().id, "1AMY")
-        self.assertEqual(self.match1.index, 0)
         self.assertEqual(self.match1.hit.template().pdb_id, self.template1.pdb_id)
         self.assertEqual(
             self.match1.hit.template().effective_size, self.template1.effective_size
@@ -203,8 +204,8 @@ class TestMatch(unittest.TestCase):
         expected = textwrap.dedent(
             f"""
             # Enzymm Version {__version__} running PyJess Version {pyjess.__version__}
-            query_id	pairwise_distance	match_index	template_pdb_id	template_pdb_chains	template_cluster_id	template_cluster_member	template_cluster_size	template_effective_size	template_dimension	template_mcsa_id	template_uniprot_id	template_ec	template_cath	template_multimeric	query_multimeric	query_atom_count	query_residue_count	rmsd	log_evalue	orientation	preserved_order	completeness	predicted_correct	matched_residues	number_of_mutated_residues	number_of_side_chain_residues_(template,reference)	number_of_metal_ligands_(template,reference)	number_of_ptm_residues_(template,reference)	total_reference_residues
-            1AMY	1.5	0	1uh3	A	1	1	1	5	5	285	Q60053	3.2.1.10,3.2.1.135	2.60.40.10,2.60.40.1180,3.20.20.80	False	False	3339	403	0.32093	-3.08424	0.15327	True	True	True	GLU_A_204,ASP_A_87,ASP_A_179,HIS_A_288,ASP_A_289	0	5,5	0,0	0,0	5
+            query_id	pairwise_distance	template_pdb_id	template_pdb_chains	template_cluster_id	template_cluster_member	template_cluster_size	template_effective_size	template_dimension	template_mcsa_id	template_uniprot_id	template_ec	template_cath	template_multimeric	query_multimeric	query_atom_count	query_residue_count	rmsd	log_evalue	orientation	preserved_order	completeness	predicted_correct	matched_residues	number_of_mutated_residues	number_of_side_chain_residues_(template,reference)	number_of_metal_ligands_(template,reference)	number_of_ptm_residues_(template,reference)	total_reference_residues
+            1AMY	1.5	1uh3	A	1	1	1	5	5	285	Q60053	3.2.1.10,3.2.1.135	2.60.40.10,2.60.40.1180,3.20.20.80	False	False	3339	403	0.32093	-3.08424	0.15327	True	True	True	GLU_A_204,ASP_A_87,ASP_A_179,HIS_A_288,ASP_A_289	0	5,5	0,0	0,0	5
             """
         )
         self.maxDiff = None
@@ -353,7 +354,7 @@ class TestMatcher(unittest.TestCase):
             templates=res5_and_res4_templates,
             skip_smaller_hits=True,
         )
-        with cls.assertWarns(cls, Warning):
+        with cls.assertWarns(cls, Warning):  # ty:ignore[invalid-argument-type]
             cls.template_matcher4 = jess_run.Matcher(
                 templates=with_smaller_templates,
                 match_small_templates=True,
@@ -515,22 +516,26 @@ class TestMatcher(unittest.TestCase):
         )
 
         for match in unfiltered_matches:
-            if match.index == 1:
+            t_id = match.hit.template().id
+            if t_id == "5-residues-2cxg_A227-A229-A257-A327-A328_cluster_1-1-1":
                 self.assertTrue(match.complete)
                 self.assertEqual(match.hit.template().pdb_id, "2cxg")
-            elif match.index == 2:
+            elif t_id == "5-residues-1uh3_A396-A262-A356-A471-A472_cluster_1-1-1":
                 self.assertTrue(match.complete)
                 self.assertEqual(match.hit.template().pdb_id, "1uh3")
-            elif match.index == 3:
+            elif t_id == "3-residues-2qy1_A135-A179-A137-A230-A175_cluster_2-1-2":
                 self.assertFalse(match.complete),
                 self.assertEqual(match.hit.template().pdb_id, "2qy1")
-            elif match.index == 4:
+            elif (
+                t_id
+                == "3-residues-1bf2_A229-A232-A230-A259-A375-A435-A510-A128_cluster_1-1-2"
+            ):
                 self.assertFalse(match.complete)
                 self.assertEqual(match.hit.template().pdb_id, "1bf2")
-            elif match.index == 5:
+            elif t_id == "3-residues-1uh3_A396-A262-A356-A471-A472_cluster_1-2-2":
                 self.assertTrue(match.complete)
                 self.assertEqual(match.hit.template().pdb_id, "1uh3")
-            elif match.index == 6:
+            elif t_id == "3-residues-1uh3_A396-A262-A356-A471-A472_cluster_1-1-2":
                 self.assertTrue(match.complete)
                 self.assertEqual(match.hit.template().pdb_id, "1uh3")
             else:

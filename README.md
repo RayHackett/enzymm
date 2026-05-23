@@ -130,7 +130,7 @@ If you pass the `--per-residue-results` flag, `EnzyMM` will additionally create 
 - `{output}.residues.tsv`: A `.tsv` file containing one row per residue per match.
 
 > [!TIP]
-> If you pass the `--parquet` flag, `EnzyMM` will write `.parquet` files instead `.tsv` files. Note that this additionally requires the [polars](https://pola.rs/) library.
+> If you pass the `--write-parquet` flag, `EnzyMM` will write `.parquet` files instead `.tsv` files. Note that this additionally requires the [polars](https://pola.rs/) library.
 
 ### Aligned Structures
 

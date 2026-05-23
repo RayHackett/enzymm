@@ -24,7 +24,6 @@ The table contains the following columns:
 
 - **query_id**: `str` The id of the query - either user provided or derived from the header section of the structure.
 - **pairwise_distance**: `float` The pairwise distance threshold at which this match was found in Ångstrom.
-- **match_index**: `int` A running index for each match to a given query.
 - **template_pdb_id**: `str` The PDB identifier to the experimental structure from which the template was derived.
 - **template_pdb_chain**: `str` The PDB chain or chains from which the template was derived. Refers to the automatically assigned chain identifier in the biological assembly.
 - **template_cluster_id**: `int` The id of the conformational cluster to which the template structure belongs.
@@ -61,7 +60,6 @@ The table contains the following columns:
 
 - **query_id**: `str` The id of the query - either user provided or derived from the header section of the structure.
 - **pairwise_distance**: `float` The pairwise distance threshold at which this match was found in Ångstrom.
-- **match_index**: `int` A running index for each match to a given query.
 - **template_pdb_id**: `str` The PDB identifier to the experimental structure from which the template was derived.
 - **template_pdb_chain**: `str` The PDB chain or chains from which the template was derived. Refers to the automatically assigned chain identifier in the biological assembly.
 - **template_effective_size**: `int` The number of specific residues defining the template. Usually equal to the number of side chain interacting residues with specific match codes.
@@ -87,7 +85,6 @@ It shows which residues in the query, template and reference corresponded and wh
 The table contains the following columns:
 
 - **query_id**: `str` The id of the query - either user provided or derived from the header section of the structure.
-- **match_index**: `int` A running index for each match to a given query.
 - **query_residue**: `str` The residue matched in the query. Format is ['3-letter-code']_['chain-identifier']_['residue-number'].
 - **template_pdb_id**: `str` The PDB identifier to the experimental structure from which the template was derived.
 - **template_residue**: `str` The corresponding residues in the tempolate. The format is ['3-letter-code']_['chain-identifier']_['residue-number'].
@@ -125,7 +122,6 @@ A single match in `PDB` format will look like this:
     REMARK TEMPLATE CLUSTER 1_1_1
     REMARK TEMPLATE RESIDUES 1uh3_A396-A262-A356-A471-A472
     REMARK MOLECULE_ID 1AMY
-    REMARK MATCH INDEX 0
     REMARK QUERY COORDINATE FRAME
     ATOM   1602  CD  GLU A 204       4.241  63.910  32.378  1.00  7.85           C 
     ATOM   1603  OE1 GLU A 204       3.145  64.416  32.618  1.00  6.76           O 
@@ -155,7 +151,7 @@ A transformation matrix encodes the rotation and translation needed to align the
 query structure with the template on the matched residues.
 To later apply the transformation to your original query structure, you can access this
 `.npz` file like a dictionary to retrieve a desired matrix by
-the key `<match_index>_<query_id>_<template_pdb_id>`
+the key `<template_id>_<query_id>`
 
 .. code-block:: python3
 
@@ -164,7 +160,7 @@ the key `<match_index>_<query_id>_<template_pdb_id>`
 
     transformations = np.load("your_transformations.npz")
     mol = pyjess.Molecule.load("your_query.pdb")
-    mol.transform(matrix=transformations[f"{match_index}_{mol.id}_{hit.template.pdb_id}"])
+    mol.transform(matrix=transformations[f"{match.hit.template().id}_{mol.id}"])
 
 .. note::
 
