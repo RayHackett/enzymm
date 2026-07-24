@@ -373,13 +373,14 @@ def main(argv: Optional[List[str]] = None, stderr=sys.stderr):
             with open(
                 Path(outdir, f"{filename}_matches.pdb"), "a", encoding="utf-8"
             ) as pdbfile:
+                model_idx = 1  # indexing begins at 1
                 if args.include_query:
                     # write the molecule structure to the top of the pdb output too
-                    pdbfile.write("MODEL        0\n")
+                    pdbfile.write(f"MODEL        {model_idx}\n")
                     matches[0].dump_query(file=pdbfile, transform=args.transform)
                     pdbfile.write("ENDMDL\n\n")
+                    model_idx += 1
 
-                model_idx = 1
                 for match in matches:
                     pdbfile.write(f"MODEL        {model_idx}\n")
                     match.dump2pdb(pdbfile, transform=args.transform)

@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 - If using though the CLI, progess bars will only show up if used on a list of structures passed with the `-l` flag
 - Calling allowed_residues on residues which have a non-canonical three letter code, now corretly returns the rest, ignoring the non-canonical ones.
+- Model indexing in the PDB file now properly begins at 1 instead of 0
 
 ## [v0.4.0] - 2026-04-15
 [v0.4.0]: https://github.com/rayhackett/enzymm/compare/v0.3.3..v0.4.0
@@ -40,7 +41,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added 
 - Added module enzymm.output with `FullMatchResults` class (to wrap previous output)
-- Added `SimpleMatcTable` results class (to resemble the table style on the webserver)
+- Added `SimpleMatchTable` results class (to resemble the table style on the webserver)
 - Added `MatchResidueTable` results class to map literature annotations per residue
 - Added the ability to write tables to either `.tsv` files or to create a `polars.DataFrame`
 - This `_BaseTable` framework can be easily adapted for different styles!
