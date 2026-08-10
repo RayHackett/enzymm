@@ -2,7 +2,9 @@
 # Visit https://bit.ly/cffinit to generate yours today!
 
 cff-version: 1.2.0
-title: EnzyMM
+title: >-
+  Investigating enzyme function by geometric matching of
+  catalytic motifs
 message: >-
   If you use this software, please cite it using the
   metadata from this file.
@@ -12,12 +14,12 @@ authors:
     name-particle: E.
     family-names: Hackett
     affiliation: Leiden University Medical Center
-    orcid: http://orcid.org/0009-0004-1843-623X
+    orcid: 'https://orcid.org/0009-0004-1843-623X'
   - given-names: Ioannis
     name-particle: G.
     family-names: Riziotis
     affiliation: European Bioinformatics Institute
-    orcid: http://orcid.org/0000-0002-4035-1839
+    orcid: 'https://orcid.org/0000-0002-4035-1839'
   - given-names: Martin
     family-names: Larralde
     email: martin.larralde@embl.de
@@ -27,89 +29,66 @@ authors:
     name-particle: J. M.
     family-names: Ribeiro
     affiliation: University of Porto
-    orcid: http://orcid.org/0000-0002-2533-1231
+    orcid: 'https://orcid.org/0000-0002-2533-1231'
   - given-names: Georg
     family-names: Zeller
     affiliation: Leiden University Medical Center
     orcid: 'https://orcid.org/0000-0003-1429-7485'
-  - given-names: Janet 
+  - given-names: Janet
     name-particle: M.
     family-names: Thornton
     affiliation: European Bioinformatics Institute
-    orcid: http://orcid.org/0000-0003-0824-4096
+    orcid: 'https://orcid.org/0000-0003-0824-4096'
 identifiers:
   - type: doi
-    value: 10.64898/2026.02.10.705182 
-    description: bioRxiv preprint
+    value: 10.1002/pro.70744
+    description: Protein Science DOI
+  - type: doi
+    value: 10.64898/2026.02.10.705182
+    description: biorXiv preprint DOI
 repository-code: 'https://github.com/RayHackett/enzymm'
 abstract: >-
-  The rapidly growing universe of predicted protein structures offers 
-  opportunities for data driven exploration but requires computationally 
-  scalable and interpretable tools(1–3). We developed a method to detect 
-  catalytic features in protein structures, providing insights into enzyme 
-  function and mechanism. A library of 6780 3D coordinate sets describing 
-  enzyme catalytic sites, referred to as templates, has been collected from 
-  manually curated examples of 762 enzyme catalytic mechanisms described in 
-  the Mechanism and Catalytic Site Atlas(4–6). For template searching we 
-  optimised the geometric-matching algorithm Jess(7). We implemented RMSD 
-  and residue orientation filters to differentiate catalytically informative 
-  matches from spurious ones. We validated this approach on a non-redundant 
-  set of high quality experimental (n=3751, <40% amino acid identity) enzyme 
-  structures with well annotated catalytic sites as well as predicted 
-  structures of the human proteome. We show matching catalytic templates 
-  solely on structure is more sensitive than sequence- and 3D-structure-based 
-  approaches in identifying homology between distantly related enzymes. Since 
-  geometric matching does not depend on conserved sequence motifs or even 
-  common evolutionary history, we are able to identify examples of structural 
-  active site similarity in highly divergent and possibly convergent 
-  enzymes(8). Such examples make interesting case studies into the evolution of 
-  enzyme function. Though not intended for characterizing substrate-specific 
-  binding pockets, the speed and knowledge-driven interpretability of our
-  method make it well suited for expanding enzyme active-site annotation 
-  across large predicted proteomes. We provide the method and template library 
-  as a Python module, Enzyme Motif Miner, at 
-  https://github.com/rayhackett/enzymm.
+  The rapidly growing universe of predicted protein
+  structures offers opportunities for data driven
+  exploration but requires computationally scalable and
+  interpretable tools. We developed a method to detect
+  catalytic features in protein structures, providing
+  insights into enzyme function and mechanism. A library of
+  6780 3D coordinate sets describing enzyme catalytic sites,
+  referred to as templates, has been collected from manually
+  curated examples of 762 enzyme catalytic mechanisms
+  described in the Mechanism and Catalytic Site Atlas. For
+  template searching we optimized the geometric-matching
+  algorithm Jess. We implemented RMSD and residue
+  orientation filters to differentiate catalytically
+  informative matches from spurious ones. We validated this
+  approach on a non-redundant set of high quality
+  experimental (n = 3751, <40% amino acid identity) enzyme
+  structures with well annotated catalytic sites as well as
+  predicted structures of the human proteome. We show
+  matching catalytic templates solely on structure is more
+  sensitive than sequence- and 3D-structure-based approaches
+  in identifying homology between distantly related enzymes.
+  Since geometric matching does not depend on conserved
+  sequence motifs or even common evolutionary history, we
+  are able to identify examples of structural active site
+  similarity in highly divergent and possibly convergent
+  enzymes. Such examples make interesting case studies into
+  the evolution of enzyme function. Though not intended for
+  characterizing substrate-specific binding pockets, the
+  speed and knowledge-driven interpretability of our method
+  make it well suited for expanding enzyme active-site
+  annotation across large predicted proteomes. We provide
+  the method and template library as a Python module, Enzyme
+  Motif Miner, at https://github.com/rayhackett/enzymm and
+  as a webserver at
+  https://www.ebi.ac.uk/thornton-srv/m-csa/enzymm.
 keywords:
   - python
   - enzyme
   - structure
   - motif
+  - active site
+  - catralytic site
+  - bioinformatics
 license: MIT
-preferred-citation:
-  type: article
-  status: preprint
-  authors:
-    - given-names: Raymund
-      name-particle: E.
-      family-names: Hackett
-      affiliation: Leiden University Medical Center
-      orcid: http://orcid.org/0009-0004-1843-623X
-    - given-names: Ioannis
-      name-particle: G.
-      family-names: Riziotis
-      affiliation: European Bioinformatics Institute
-      orcid: http://orcid.org/0000-0002-4035-1839
-    - given-names: Martin
-      family-names: Larralde
-      email: martin.larralde@embl.de
-      affiliation: Leiden University Medical Center
-      orcid: 'https://orcid.org/0000-0002-3947-4444'
-    - given-names: António
-      name-particle: J. M.
-      family-names: Ribeiro
-      affiliation: University of Porto
-      orcid: http://orcid.org/0000-0002-2533-1231
-    - given-names: Georg
-      family-names: Zeller
-      affiliation: Leiden University Medical Center
-      orcid: 'https://orcid.org/0000-0003-1429-7485'
-    - given-names: Janet 
-      name-particle: M.
-      family-names: Thornton
-      affiliation: European Bioinformatics Institute
-      orcid: http://orcid.org/0000-0003-0824-4096
-  doi: "10.64898/2026.02.10.705182"
-  journal: "bioRxiv"
-  month: 2
-  title: "Investigating Enzyme Function by Geometric Matching of Catalytic Motifs"
-  year: 2026

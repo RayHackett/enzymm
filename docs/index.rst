@@ -22,7 +22,7 @@ EnzyMM - The Enzyme Motif Miner |Stars|
 
 *Identify catalytic sites in protein structures!*
 
-|Actions| |Coverage| |PyPI| |Wheel| |Docker| |Apptainer| |Versions| |versions| |License| |Source| |Issues| |Docs| |Changelog| |Downloads| |Preprint| 
+|Actions| |Coverage| |PyPI| |Wheel| |Docker| |Apptainer| |Versions| |versions| |License| |Source| |Issues| |Docs| |Changelog| |Downloads| |Paper| |Citations| 
 
 .. |Actions| image:: https://img.shields.io/github/actions/workflow/status/RayHackett/enzymm/test.yml?branch=main&style=flat&maxAge=300
    :target: https://github.com/RayHackett/Enzymm/actions/workflows/test.yml
@@ -84,8 +84,8 @@ EnzyMM - The Enzyme Motif Miner |Stars|
    :target: https://pepy.tech/projects/enzymm
    :class: dark-light
 
-.. |Preprint| image:: https://img.shields.io/badge/preprint-bioRxiv-firebrick?style=flat&maxAge=3600
-   :target: https://doi.org/10.64898/2026.02.10.705182
+.. |Paper| image:: https://img.shields.io/badge/paper-Protein_Science-blue
+   :target: https://doi.org/10.1002/pro.70744
    :class: dark-light
 
 .. |Citations| image:: https://api.juleskreuer.eu/citation-badge.php?doi=10.64898/2026.02.10.705182&style=flat&maxAge=3600
@@ -176,10 +176,10 @@ Please have a look at `PyJess <https://github.com/althonos/pyjess>`_!
 We kindly ask you to cite both:
 
 - **EnzyMM**, for instance as:
-   - Hackett RE et al. (2026), Investigating Enzyme Function by Geometric Matching of Catalytic Motifs [Preprint], BioRxiv, `DOI:10.64898/2026.02.10.705182 <https://doi.org/10.64898/2026.02.10.705182>`_ 
+   - Hackett et al. (2026), Protein Science, 35, 9. Investigating Enzyme Function by Geometric Matching of Catalytic Motifs, `DOI:10.1002/pro.70744 <https://doi.org/10.1002/pro.70744>`_, `PMID:42563495 <https://pubmed.ncbi.nlm.nih.gov/42563495/>`_
 
 - **Mechanism and Catalytic Site Atlas** as:
-   - Ribeiro AJM et al. (2017), Nucleic Acids Res, 46, D618-D623. Mechanism and Catalytic Site Atlas (M-CSA): a database of enzyme reaction mechanisms and active sites. `DOI:10.1093/nar/gkx1012. PMID:29106569 <https://doi.org/10.1093/nar/gkx1012>`_.
+   - Ribeiro et al. (2017), Nucleic Acids Res, 46, D618-D623. Mechanism and Catalytic Site Atlas (M-CSA): a database of enzyme reaction mechanisms and active sites. `DOI:10.1093/nar/gkx1012 <https://doi.org/10.1093/nar/gkx1012>`_, `PMID:29106569 <https://pubmed.ncbi.nlm.nih.gov/29106569/>`_
 
 ⚖️ License
 ----------

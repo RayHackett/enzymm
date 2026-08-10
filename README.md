@@ -20,8 +20,8 @@
 [![Docker](https://img.shields.io/badge/Docker-GHCR-blue?logo=docker)](https://github.com/users/rayhackett/packages/container/package/enzymm)
 [![Apptainer](https://img.shields.io/badge/Apptainer-SIF-blue?logo=apptainer&style=flat)](https://github.com/rayhackett/enzymm/releases/latest)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/enzymm?period=total&units=INTERNATIONAL_SYSTEM&left_color=grey&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/enzymm)
-[![Preprint](https://img.shields.io/badge/preprint-bioRxiv-firebrick?style=flat&maxAge=86400)](https://doi.org/10.64898/2026.02.10.705182)
-[![Citation Badge](https://api.juleskreuer.eu/citation-badge.php?doi=10.64898/2026.02.10.705182&style=flat&maxAge=3600)](https://scholar.google.com/citations?view_op=view_citation&hl=en&user=9YIYn0oAAAAJ&citation_for_view=9YIYn0oAAAAJ:d1gkVwhDpl0C)
+[![Paper](https://img.shields.io/badge/paper-Protein_Science-blue)](https://doi.org/10.1002/pro.70744)
+[![Citation Badge](https://api.juleskreuer.eu/citation-badge.php?doi=10.1002/pro.70744&style=flat&maxAge=3600)](https://scholar.google.com/citations?view_op=view_citation&hl=en&user=9YIYn0oAAAAJ&citation_for_view=9YIYn0oAAAAJ:d1gkVwhDpl0C)
 <!-- [![AUR](https://img.shields.io/aur/version/python-pyhmmer?logo=archlinux&style=flat&maxAge=3600)](https://aur.archlinux.org/packages/python-pyhmmer) -->
 <!-- [![Source](https://img.shields.io/badge/source-GitHub-303030.svg?maxAge=2678400&style=flat)](https://github.com/RayHackett/enzymm/) -->
 
@@ -180,7 +180,7 @@ Though conceived at the [EMBL-EBI](https://www.ebi.ac.uk/) in Hinxton, UK in the
 
 We kindly ask you to cite both:  
 - EnzyMM for instance as:
-> Hackett RE et al. (2026), Investigating Enzyme Function by Geometric Matching of Catalytic Motifs [Preprint], BioRxiv, [DOI:10.64898/2026.02.10.705182](https://doi.org/10.64898/2026.02.10.705182)
+> Hackett RE et al. (2026), Investigating Enzyme Function by Geometric Matching of Catalytic Motifs, Protein Science [DOI:10.1002/pro.70744](https://doi.org/10.1002/pro.70744)
 - Mechanism and Catalytic Site Atlas as:
 > Ribeiro AJM et al. (2017), Nucleic Acids Res, 46, D618-D623. Mechanism and Catalytic Site Atlas (M-CSA): a database of enzyme reaction mechanisms and active sites. [DOI:10.1093/nar/gkx1012](https://doi.org/10.1093/nar/gkx1012). PMID:29106569.
 
