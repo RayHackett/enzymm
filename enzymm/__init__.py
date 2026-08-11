@@ -12,4 +12,4 @@ See Also:
 
 __author__ = "Raymund Hackett"
 __license__ = "MIT"
-__version__ = "0.4.0"
+__version__ = "0.5.0"
